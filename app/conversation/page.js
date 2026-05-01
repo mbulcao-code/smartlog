@@ -1,0 +1,229 @@
+"use client";
+
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+
+const PAIN_LABELS = {
+  fomo: "FOMO / Early Entry",
+  late: "Hesitation / Late Entry",
+  exit: "Early Exit",
+  revenge: "Revenge / Overtrading",
+  stoploss: "Stop Loss Tampering",
+  boredom: "Boredom / Forcing Trades",
+};
+
+function ConversationInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pain = searchParams.get("pain") || "fomo";
+  const painLabel = PAIN_LABELS[pain] || pain;
+
+  const [messages, setMessages] = useState([]); // { role: "user"|"assistant", content: string }
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [setupData, setSetupData] = useState(null);
+  const bottomRef = useRef(null);
+  const inputRef = useRef(null);
+  const initialized = useRef(false);
+
+  // Opening message from SmartLog
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
+    const opening = `I hear you — ${painLabel.toLowerCase()} is one of the patterns that shows up most often, and one of the most misunderstood.\n\nBefore we try to fix anything, I want to understand what's actually happening for you.\n\nTell me: when this happens, what does it look like? Walk me through a recent example.`;
+
+    setMessages([{ role: "assistant", content: opening }]);
+  }, [painLabel]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  useEffect(() => {
+    if (!loading) {
+      inputRef.current?.focus();
+    }
+  }, [loading]);
+
+  async function sendMessage() {
+    const text = input.trim();
+    if (!text || loading) return;
+
+    const newMessages = [...messages, { role: "user", content: text }];
+    setMessages(newMessages);
+    setInput("");
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: newMessages }),
+      });
+
+      const data = await response.json();
+
+      if (data.error) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Something went wrong. Please try again." },
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: data.message },
+        ]);
+        if (data.setupData?.complete) {
+          setSetupData(data.setupData);
+        }
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Connection error. Please try again." },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+      {/* Header */}
+      <header className="px-8 py-5 border-b border-slate-800 flex-shrink-0">
+        <div className="max-w-2xl mx-auto w-full flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-xl font-semibold tracking-tight">
+              Smart<span className="text-blue-400">Log</span>
+            </span>
+            <span className="text-slate-600 text-sm">·</span>
+            <span className="text-slate-400 text-sm">{painLabel}</span>
+          </div>
+          <button
+            onClick={() => router.push("/")}
+            className="text-slate-500 hover:text-slate-300 text-sm transition-colors"
+          >
+            ← Back
+          </button>
+        </div>
+      </header>
+
+      {/* Messages */}
+      <main className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="max-w-2xl mx-auto flex flex-col gap-4">
+          {messages.map((msg, i) => (
+            <div
+              key={i}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[85%] px-5 py-4 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
+                  msg.role === "assistant"
+                    ? "bg-slate-800 text-slate-100 rounded-tl-sm"
+                    : "bg-blue-600 text-white rounded-tr-sm"
+                }`}
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))}
+
+          {/* Typing indicator */}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="bg-slate-800 px-5 py-4 rounded-2xl rounded-tl-sm">
+                <div className="flex gap-1 items-center h-4">
+                  <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Setup complete */}
+          {setupData && (
+            <div className="mt-4 p-5 rounded-2xl border border-blue-500/30 bg-blue-950/20">
+              <p className="text-blue-400 text-xs font-medium uppercase tracking-wider mb-3">
+                Setup defined
+              </p>
+              <p className="text-white font-medium mb-1">{setupData.setup_name}</p>
+              <p className="text-slate-400 text-sm mb-4">{setupData.setup_description}</p>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-slate-800 rounded-xl p-3">
+                  <p className="text-xs text-slate-500 mb-1">Variant A</p>
+                  <p className="text-sm text-white font-medium">{setupData.variant_a_name}</p>
+                  <p className="text-xs text-slate-400 mt-1">{setupData.variant_a_description}</p>
+                </div>
+                <div className="bg-slate-800 rounded-xl p-3">
+                  <p className="text-xs text-slate-500 mb-1">Variant B</p>
+                  <p className="text-sm text-white font-medium">{setupData.variant_b_name}</p>
+                  <p className="text-xs text-slate-400 mt-1">{setupData.variant_b_description}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="w-full py-3 rounded-full bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
+              >
+                Start logging →
+              </button>
+            </div>
+          )}
+
+          <div ref={bottomRef} />
+        </div>
+      </main>
+
+      {/* Input */}
+      {!setupData && (
+        <div className="flex-shrink-0 border-t border-slate-800 px-6 py-4">
+          <div className="max-w-2xl mx-auto flex gap-3 items-end">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Write your answer here..."
+              rows={1}
+              disabled={loading}
+              className="flex-1 bg-slate-800 text-white placeholder-slate-500 rounded-2xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 leading-relaxed"
+              style={{ minHeight: "44px", maxHeight: "120px" }}
+              onInput={(e) => {
+                e.target.style.height = "auto";
+                e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+              }}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!input.trim() || loading}
+              className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-400 disabled:bg-slate-700 disabled:text-slate-500 text-white flex items-center justify-center transition-colors"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 2L8 14M8 2L3 7M8 2L13 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          </div>
+          <p className="text-center text-slate-600 text-xs mt-2">
+            Enter to send · Shift+Enter for new line
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ConversationPage() {
+  return (
+    <Suspense>
+      <ConversationInner />
+    </Suspense>
+  );
+}
