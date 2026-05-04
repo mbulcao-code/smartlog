@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
+import { supabase } from "@/lib/supabase";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -7,7 +8,7 @@ const client = new Anthropic({
 
 export async function POST(request) {
   try {
-    const { messages } = await request.json();
+    const { messages, sessionId, traderName, painType } = await request.json();
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-5",
@@ -29,8 +30,30 @@ export async function POST(request) {
       }
     }
 
+    const cleanMessage = content.replace(/```json\n[\s\S]*?\n```/, "").trim();
+
+    // Save conversation to Supabase
+    if (sessionId) {
+      const allMessages = [
+        ...messages,
+        { role: "assistant", content: cleanMessage },
+      ];
+
+      await supabase.from("conversations").upsert(
+        {
+          session_id: sessionId,
+          trader_name: traderName || "Anonymous",
+          pain_type: painType || "unknown",
+          messages: allMessages,
+          setup_data: setupData,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "session_id" }
+      );
+    }
+
     return Response.json({
-      message: content.replace(/```json\n[\s\S]*?\n```/, "").trim(),
+      message: cleanMessage,
       setupData,
     });
   } catch (error) {

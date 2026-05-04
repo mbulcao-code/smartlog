@@ -12,13 +12,20 @@ const PAIN_LABELS = {
   boredom: "Boredom / Forcing Trades",
 };
 
+function generateSessionId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+}
+
 function ConversationInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pain = searchParams.get("pain") || "fomo";
   const painLabel = PAIN_LABELS[pain] || pain;
 
-  const [messages, setMessages] = useState([]); // { role: "user"|"assistant", content: string }
+  const [traderName, setTraderName] = useState("");
+  const [nameSubmitted, setNameSubmitted] = useState(false);
+  const [sessionId] = useState(generateSessionId);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [setupData, setSetupData] = useState(null);
@@ -26,25 +33,25 @@ function ConversationInner() {
   const inputRef = useRef(null);
   const initialized = useRef(false);
 
-  // Opening message from SmartLog
+  // Opening message from SmartLog — only after name is submitted
   useEffect(() => {
-    if (initialized.current) return;
+    if (!nameSubmitted || initialized.current) return;
     initialized.current = true;
 
     const opening = `I hear you — ${painLabel.toLowerCase()} is one of the patterns that shows up most often, and one of the most misunderstood.\n\nBefore we try to fix anything, I want to understand what's actually happening for you.\n\nTell me: when this happens, what does it look like? Walk me through a recent example.`;
 
     setMessages([{ role: "assistant", content: opening }]);
-  }, [painLabel]);
+  }, [nameSubmitted, painLabel]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
   useEffect(() => {
-    if (!loading) {
+    if (!loading && nameSubmitted) {
       inputRef.current?.focus();
     }
-  }, [loading]);
+  }, [loading, nameSubmitted]);
 
   async function sendMessage() {
     const text = input.trim();
@@ -59,7 +66,12 @@ function ConversationInner() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({
+          messages: newMessages,
+          sessionId,
+          traderName,
+          painType: pain,
+        }),
       });
 
       const data = await response.json();
@@ -93,6 +105,46 @@ function ConversationInner() {
       e.preventDefault();
       sendMessage();
     }
+  }
+
+  // Name entry screen
+  if (!nameSubmitted) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center px-6">
+        <div className="w-full max-w-md">
+          <div className="mb-10 text-center">
+            <span className="text-2xl font-semibold tracking-tight">
+              Smart<span className="text-blue-400">Log</span>
+            </span>
+            <p className="text-slate-400 mt-3 text-sm">
+              Before we start — what's your name?
+            </p>
+          </div>
+          <input
+            type="text"
+            value={traderName}
+            onChange={(e) => setTraderName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && traderName.trim()) {
+                setNameSubmitted(true);
+              }
+            }}
+            placeholder="Your first name"
+            autoFocus
+            className="w-full bg-slate-800 text-white placeholder-slate-500 rounded-2xl px-5 py-4 text-base focus:outline-none focus:ring-1 focus:ring-blue-500 mb-4"
+          />
+          <button
+            onClick={() => {
+              if (traderName.trim()) setNameSubmitted(true);
+            }}
+            disabled={!traderName.trim()}
+            className="w-full py-4 rounded-full bg-blue-500 hover:bg-blue-400 disabled:bg-slate-700 disabled:text-slate-500 text-white font-medium transition-colors"
+          >
+            Start →
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
