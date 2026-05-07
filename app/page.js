@@ -179,98 +179,6 @@ export default function Home() {
               </button>
             </section>
 
-            {/* Pricing */}
-            <section className="max-w-4xl mx-auto px-6 pb-16">
-              <p className="text-xs text-slate-500 uppercase tracking-wider text-center mb-8">
-                {t(lang, "pricingTitle")}
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-
-                {/* Free */}
-                <div className="p-6 rounded-2xl border border-slate-700 bg-slate-900 flex flex-col">
-                  <div className="mb-5">
-                    <p className="text-sm font-medium text-slate-400 mb-2">{t(lang, "planFreeTitle")}</p>
-                    <p className="text-4xl font-bold text-white">{t(lang, "planFreePrice")}</p>
-                    <p className="text-slate-500 text-xs mt-1">{t(lang, "planFreePer")}</p>
-                  </div>
-                  <ul className="space-y-2.5 mb-6 flex-1">
-                    <li className="flex items-start gap-2 text-sm text-slate-300">
-                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planFreeF1")}
-                    </li>
-                    <li className="flex items-start gap-2 text-sm text-slate-300">
-                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planFreeF2")}
-                    </li>
-                    <li className="flex items-start gap-2 text-sm text-slate-500">
-                      <span className="mt-0.5 flex-shrink-0">✗</span>{t(lang, "planFreeF3")}
-                    </li>
-                  </ul>
-                  <button
-                    onClick={scrollToCards}
-                    className="w-full py-2.5 rounded-full border border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white text-sm font-medium transition-colors"
-                  >
-                    {t(lang, "planFreeCta")}
-                  </button>
-                </div>
-
-                {/* Monthly */}
-                <div className="p-6 rounded-2xl border border-slate-700 bg-slate-900 flex flex-col">
-                  <div className="mb-5">
-                    <p className="text-sm font-medium text-slate-400 mb-2">{t(lang, "planMonthlyTitle")}</p>
-                    <p className="text-4xl font-bold text-white">{t(lang, "planMonthlyPrice")}</p>
-                    <p className="text-slate-500 text-xs mt-1">{t(lang, "planMonthlyPer")}</p>
-                  </div>
-                  <ul className="space-y-2.5 mb-6 flex-1">
-                    <li className="flex items-start gap-2 text-sm text-slate-300">
-                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF1")}
-                    </li>
-                    <li className="flex items-start gap-2 text-sm text-slate-300">
-                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF2")}
-                    </li>
-                    <li className="flex items-start gap-2 text-sm text-slate-300">
-                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF3")}
-                    </li>
-                  </ul>
-                  <button
-                    onClick={() => handlePricingCta("monthly")}
-                    className="w-full py-2.5 rounded-full bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
-                  >
-                    {t(lang, "planCta")}
-                  </button>
-                </div>
-
-                {/* Yearly */}
-                <div className="p-6 rounded-2xl border border-blue-500/40 bg-blue-950/10 flex flex-col relative">
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs px-3 py-1 rounded-full bg-blue-500 text-white font-medium">
-                    {t(lang, "planYearlyBadge")}
-                  </span>
-                  <div className="mb-5">
-                    <p className="text-sm font-medium text-blue-400 mb-2">{t(lang, "planYearlyTitle")}</p>
-                    <p className="text-4xl font-bold text-white">{t(lang, "planYearlyPrice")}</p>
-                    <p className="text-slate-500 text-xs mt-1">{t(lang, "planYearlyPer")}</p>
-                  </div>
-                  <ul className="space-y-2.5 mb-6 flex-1">
-                    <li className="flex items-start gap-2 text-sm text-slate-300">
-                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF1")}
-                    </li>
-                    <li className="flex items-start gap-2 text-sm text-slate-300">
-                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF2")}
-                    </li>
-                    <li className="flex items-start gap-2 text-sm text-slate-300">
-                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF3")}
-                    </li>
-                  </ul>
-                  <button
-                    onClick={() => handlePricingCta("yearly")}
-                    className="w-full py-2.5 rounded-full bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
-                  >
-                    {t(lang, "planCta")}
-                  </button>
-                </div>
-
-              </div>
-            </section>
-
-            <div className="border-t border-slate-800" />
           </>
         )}
 
@@ -385,6 +293,100 @@ export default function Home() {
             )}
           </div>
         </section>
+
+        {/* ── PRICING (after pain cards, for non-logged-in and free users) ── */}
+        {showHero && (
+          <section className="max-w-4xl mx-auto px-6 pb-16">
+            <div className="border-t border-slate-800 mb-12" />
+            <p className="text-xs text-slate-500 uppercase tracking-wider text-center mb-8">
+              {t(lang, "pricingTitle")}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+
+              {/* Free */}
+              <div className="p-6 rounded-2xl border border-slate-700 bg-slate-900 flex flex-col">
+                <div className="mb-5">
+                  <p className="text-sm font-medium text-slate-400 mb-2">{t(lang, "planFreeTitle")}</p>
+                  <p className="text-4xl font-bold text-white">{t(lang, "planFreePrice")}</p>
+                  <p className="text-slate-500 text-xs mt-1">{t(lang, "planFreePer")}</p>
+                </div>
+                <ul className="space-y-2.5 mb-6 flex-1">
+                  <li className="flex items-start gap-2 text-sm text-slate-300">
+                    <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planFreeF1")}
+                  </li>
+                  <li className="flex items-start gap-2 text-sm text-slate-300">
+                    <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planFreeF2")}
+                  </li>
+                  <li className="flex items-start gap-2 text-sm text-slate-500">
+                    <span className="mt-0.5 flex-shrink-0">✗</span>{t(lang, "planFreeF3")}
+                  </li>
+                </ul>
+                <button
+                  onClick={scrollToCards}
+                  className="w-full py-2.5 rounded-full border border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white text-sm font-medium transition-colors"
+                >
+                  {t(lang, "planFreeCta")}
+                </button>
+              </div>
+
+              {/* Monthly */}
+              <div className="p-6 rounded-2xl border border-slate-700 bg-slate-900 flex flex-col">
+                <div className="mb-5">
+                  <p className="text-sm font-medium text-slate-400 mb-2">{t(lang, "planMonthlyTitle")}</p>
+                  <p className="text-4xl font-bold text-white">{t(lang, "planMonthlyPrice")}</p>
+                  <p className="text-slate-500 text-xs mt-1">{t(lang, "planMonthlyPer")}</p>
+                </div>
+                <ul className="space-y-2.5 mb-6 flex-1">
+                  <li className="flex items-start gap-2 text-sm text-slate-300">
+                    <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF1")}
+                  </li>
+                  <li className="flex items-start gap-2 text-sm text-slate-300">
+                    <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF2")}
+                  </li>
+                  <li className="flex items-start gap-2 text-sm text-slate-300">
+                    <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF3")}
+                  </li>
+                </ul>
+                <button
+                  onClick={() => handlePricingCta("monthly")}
+                  className="w-full py-2.5 rounded-full bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
+                >
+                  {t(lang, "planCta")}
+                </button>
+              </div>
+
+              {/* Yearly */}
+              <div className="p-6 rounded-2xl border border-blue-500/40 bg-blue-950/10 flex flex-col relative">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs px-3 py-1 rounded-full bg-blue-500 text-white font-medium">
+                  {t(lang, "planYearlyBadge")}
+                </span>
+                <div className="mb-5">
+                  <p className="text-sm font-medium text-blue-400 mb-2">{t(lang, "planYearlyTitle")}</p>
+                  <p className="text-4xl font-bold text-white">{t(lang, "planYearlyPrice")}</p>
+                  <p className="text-slate-500 text-xs mt-1">{t(lang, "planYearlyPer")}</p>
+                </div>
+                <ul className="space-y-2.5 mb-6 flex-1">
+                  <li className="flex items-start gap-2 text-sm text-slate-300">
+                    <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF1")}
+                  </li>
+                  <li className="flex items-start gap-2 text-sm text-slate-300">
+                    <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF2")}
+                  </li>
+                  <li className="flex items-start gap-2 text-sm text-slate-300">
+                    <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF3")}
+                  </li>
+                </ul>
+                <button
+                  onClick={() => handlePricingCta("yearly")}
+                  className="w-full py-2.5 rounded-full bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
+                >
+                  {t(lang, "planCta")}
+                </button>
+              </div>
+
+            </div>
+          </section>
+        )}
 
       </main>
     </div>
