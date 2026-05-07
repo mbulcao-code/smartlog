@@ -4,6 +4,9 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getLang, t } from "@/lib/i18n";
 
+const DONE_MARKER = "[SMARTLOG_DONE]";
+const ERROR_MARKER = "[SMARTLOG_ERROR]";
+
 function ConversationInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -19,7 +22,8 @@ function ConversationInner() {
   );
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);      // dots before first chunk
+  const [streamingContent, setStreamingContent] = useState(""); // live text
   const [setupData, setSetupData] = useState(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -29,29 +33,29 @@ function ConversationInner() {
   useEffect(() => {
     if (!nameSubmitted || initialized.current) return;
     initialized.current = true;
-
     const opening = t(lang, "openingMessage")(painLabel);
     setMessages([{ role: "assistant", content: opening }]);
   }, [nameSubmitted, painLabel, lang]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, streamingContent]);
 
   useEffect(() => {
-    if (!loading && nameSubmitted) {
+    if (!loading && !streamingContent && nameSubmitted) {
       inputRef.current?.focus();
     }
-  }, [loading, nameSubmitted]);
+  }, [loading, streamingContent, nameSubmitted]);
 
   async function sendMessage() {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text || loading || streamingContent) return;
 
     const newMessages = [...messages, { role: "user", content: text }];
     setMessages(newMessages);
     setInput("");
     setLoading(true);
+    setStreamingContent("");
 
     try {
       const response = await fetch("/api/chat", {
@@ -66,28 +70,81 @@ function ConversationInner() {
         }),
       });
 
-      const data = await response.json();
-
-      if (data.error) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: "Something went wrong. Please try again." },
-        ]);
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: data.message },
-        ]);
-        if (data.setupData?.complete) {
-          setSetupData(data.setupData);
-        }
+      if (!response.ok || !response.body) {
+        throw new Error("Stream failed");
       }
-    } catch {
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+      let firstChunk = true;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        accumulated += chunk;
+
+        // Hide dots on first chunk, streaming bubble takes over
+        if (firstChunk) {
+          setLoading(false);
+          firstChunk = false;
+        }
+
+        // Check for done marker
+        const doneIdx = accumulated.indexOf(DONE_MARKER);
+        if (doneIdx !== -1) {
+          // Parse setupData from final marker
+          try {
+            const afterMarker = accumulated.slice(doneIdx + DONE_MARKER.length);
+            const finalData = JSON.parse(afterMarker);
+            if (finalData.setupData?.complete) {
+              setSetupData(finalData.setupData);
+            }
+          } catch (e) {
+            // parse error — no setup data
+          }
+
+          // Finalize message: strip JSON block and marker
+          const rawText = accumulated.slice(0, doneIdx);
+          const cleanText = rawText
+            .replace(/```json\n[\s\S]*?\n```/, "")
+            .trim();
+
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: cleanText },
+          ]);
+          setStreamingContent("");
+          break;
+        }
+
+        // Check for error marker
+        if (accumulated.includes(ERROR_MARKER)) {
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: "Something went wrong. Please try again." },
+          ]);
+          setStreamingContent("");
+          break;
+        }
+
+        // Live display: hide JSON block if it starts appearing at the end
+        const jsonStart = accumulated.indexOf("```json");
+        const displayText =
+          jsonStart !== -1
+            ? accumulated.slice(0, jsonStart).trim()
+            : accumulated;
+
+        setStreamingContent(displayText);
+      }
+    } catch (e) {
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: "Connection error. Please try again." },
       ]);
-    } finally {
+      setStreamingContent("");
       setLoading(false);
     }
   }
@@ -98,6 +155,8 @@ function ConversationInner() {
       sendMessage();
     }
   }
+
+  const isResponding = loading || !!streamingContent;
 
   // Name entry screen
   if (!nameSubmitted) {
@@ -180,7 +239,7 @@ function ConversationInner() {
             </div>
           ))}
 
-          {/* Typing indicator */}
+          {/* Typing dots — only before first chunk arrives */}
           {loading && (
             <div className="flex justify-start">
               <div className="bg-slate-800 px-5 py-4 rounded-2xl rounded-tl-sm">
@@ -193,7 +252,16 @@ function ConversationInner() {
             </div>
           )}
 
-          {/* Setup complete */}
+          {/* Streaming bubble — live text as it arrives */}
+          {streamingContent && (
+            <div className="flex justify-start">
+              <div className="max-w-[85%] px-5 py-4 rounded-2xl rounded-tl-sm text-sm leading-relaxed whitespace-pre-line bg-slate-800 text-slate-100">
+                {streamingContent}
+              </div>
+            </div>
+          )}
+
+          {/* Setup complete card */}
           {setupData && (
             <div className="mt-4 p-5 rounded-2xl border border-blue-500/30 bg-blue-950/20">
               <p className="text-blue-400 text-xs font-medium uppercase tracking-wider mb-3">
@@ -237,7 +305,7 @@ function ConversationInner() {
               onKeyDown={handleKeyDown}
               placeholder={t(lang, "inputPlaceholder")}
               rows={1}
-              disabled={loading}
+              disabled={isResponding}
               className="flex-1 bg-slate-800 text-white placeholder-slate-500 rounded-2xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 leading-relaxed"
               style={{ minHeight: "44px", maxHeight: "120px" }}
               onInput={(e) => {
@@ -247,7 +315,7 @@ function ConversationInner() {
             />
             <button
               onClick={sendMessage}
-              disabled={!input.trim() || loading}
+              disabled={!input.trim() || isResponding}
               className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-400 disabled:bg-slate-700 disabled:text-slate-500 text-white flex items-center justify-center transition-colors"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
