@@ -1,13 +1,27 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createClient } from "@supabase/supabase-js";
 import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
-import { supabase } from "@/lib/supabase";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
 export async function POST(request) {
   const { messages, sessionId, traderName, painType, lang } = await request.json();
+
+  // Extract user_id from auth token if present
+  let userId = null;
+  const authHeader = request.headers.get("authorization");
+  if (authHeader) {
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (user) userId = user.id;
+  }
 
   const languageInstruction =
     lang === "pt"
@@ -28,7 +42,6 @@ export async function POST(request) {
           messages: messages,
         });
 
-        // Stream chunks to client as they arrive
         for await (const chunk of anthropicStream) {
           if (
             chunk.type === "content_block_delta" &&
@@ -40,7 +53,7 @@ export async function POST(request) {
           }
         }
 
-        // Stream complete — parse JSON block if present
+        // Parse JSON block if present
         let setupData = null;
         const jsonMatch = fullText.match(/```json\n([\s\S]*?)\n```/);
         if (jsonMatch) {
@@ -55,7 +68,7 @@ export async function POST(request) {
           .replace(/```json\n[\s\S]*?\n```/, "")
           .trim();
 
-        // Save to Supabase
+        // Save to Supabase with user_id
         if (sessionId) {
           const allMessages = [
             ...messages,
@@ -64,6 +77,7 @@ export async function POST(request) {
           await supabase.from("conversations").upsert(
             {
               session_id: sessionId,
+              user_id: userId,
               trader_name: traderName || "Anonymous",
               pain_type: painType || "unknown",
               messages: allMessages,
@@ -74,7 +88,6 @@ export async function POST(request) {
           );
         }
 
-        // Send final marker with setupData so client can detect completion
         const finalMarker = `\n\n[SMARTLOG_DONE]${JSON.stringify({ setupData })}`;
         controller.enqueue(encoder.encode(finalMarker));
         controller.close();

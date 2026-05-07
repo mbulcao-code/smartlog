@@ -11,8 +11,8 @@ export default function LogPage() {
   const paymentSuccess = searchParams.get("payment") === "success";
 
   const [lang] = useState(() => getLang());
-  const [accessChecked, setAccessChecked] = useState(false);
-  const [hasAccess, setHasAccess] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [canLog, setCanLog] = useState(false); // beta or paid
   const [experiment, setExperiment] = useState(null);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,9 +21,8 @@ export default function LogPage() {
   const [showLogForm, setShowLogForm] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState(null);
 
-  // Auth + access check on mount
   useEffect(() => {
-    async function checkAccess() {
+    async function checkAuth() {
       const { data: { session } } = await supabaseBrowser.auth.getSession();
 
       if (!session) {
@@ -39,25 +38,18 @@ export default function LogPage() {
         });
         const data = await res.json();
         if (data.hasAccess) {
-          setHasAccess(true);
-          setAccessChecked(true);
-          fetchData();
-          return;
+          setCanLog(true);
+          break;
         }
         if (i < maxAttempts - 1) await new Promise((r) => setTimeout(r, 2000));
       }
 
-      // No access — redirect to subscribe
-      setAccessChecked(true);
-      router.push(`/subscribe?next=/log/${sessionId}`);
+      setAuthChecked(true);
+      fetchData();
     }
 
-    if (sessionId) checkAccess();
+    if (sessionId) checkAuth();
   }, [sessionId]);
-
-  useEffect(() => {
-    if (sessionId && hasAccess) fetchData();
-  }, [sessionId, hasAccess]);
 
   async function fetchData() {
     try {
@@ -102,13 +94,12 @@ export default function LogPage() {
   const hitsA = statsA.filter((l) => l.outcome).length;
   const hitsB = statsB.filter((l) => l.outcome).length;
 
-  // Still checking auth/access
-  if (!accessChecked || (accessChecked && hasAccess && loading)) {
+  if (!authChecked || (authChecked && loading)) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
         <p className="text-slate-400">
           {paymentSuccess
-            ? (lang === "pt" ? "Ativando seu acesso..." : "Activating your access...")
+            ? lang === "pt" ? "Ativando seu acesso..." : "Activating your access..."
             : t(lang, "loadingExperiment")}
         </p>
       </div>
@@ -132,9 +123,12 @@ export default function LogPage() {
     <div className="min-h-screen bg-slate-950 text-white">
       <header className="px-8 py-5 border-b border-slate-800">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <span className="text-xl font-semibold tracking-tight">
+          <button
+            onClick={() => router.push("/")}
+            className="text-xl font-semibold tracking-tight hover:opacity-80 transition-opacity"
+          >
             Smart<span className="text-blue-400">Log</span>
-          </span>
+          </button>
           <span className="text-slate-500 text-sm">{experiment.trader_name}</span>
         </div>
       </header>
@@ -193,67 +187,80 @@ export default function LogPage() {
           </div>
         )}
 
-        {/* Log a trade */}
-        {!showLogForm ? (
-          <button
-            onClick={() => setShowLogForm(true)}
-            className="w-full py-4 rounded-full bg-blue-500 hover:bg-blue-400 text-white font-medium transition-colors mb-6"
-          >
-            {t(lang, "logATrade")}
-          </button>
-        ) : (
-          <div className="mb-6 p-5 rounded-2xl border border-slate-700 bg-slate-900">
-            <p className="text-sm text-slate-400 mb-4">{t(lang, "whichVariant")}</p>
-            <div className="grid grid-cols-2 gap-3 mb-5">
+        {/* Log a trade — or upgrade CTA for free users */}
+        {canLog ? (
+          !showLogForm ? (
+            <button
+              onClick={() => setShowLogForm(true)}
+              className="w-full py-4 rounded-full bg-blue-500 hover:bg-blue-400 text-white font-medium transition-colors mb-6"
+            >
+              {t(lang, "logATrade")}
+            </button>
+          ) : (
+            <div className="mb-6 p-5 rounded-2xl border border-slate-700 bg-slate-900">
+              <p className="text-sm text-slate-400 mb-4">{t(lang, "whichVariant")}</p>
+              <div className="grid grid-cols-2 gap-3 mb-5">
+                <button
+                  onClick={() => setSelectedVariant("a")}
+                  className={`p-4 rounded-xl border text-left transition-all ${
+                    selectedVariant === "a"
+                      ? "border-blue-400 bg-blue-950/50"
+                      : "border-slate-700 hover:border-slate-500"
+                  }`}
+                >
+                  <p className="text-xs text-blue-400 mb-1">{t(lang, "variantA")}</p>
+                  <p className="text-sm text-white font-medium">{setup_data.variant_a_name}</p>
+                </button>
+                <button
+                  onClick={() => setSelectedVariant("b")}
+                  className={`p-4 rounded-xl border text-left transition-all ${
+                    selectedVariant === "b"
+                      ? "border-purple-400 bg-purple-950/50"
+                      : "border-slate-700 hover:border-slate-500"
+                  }`}
+                >
+                  <p className="text-xs text-purple-400 mb-1">{t(lang, "variantB")}</p>
+                  <p className="text-sm text-white font-medium">{setup_data.variant_b_name}</p>
+                </button>
+              </div>
+              {selectedVariant && (
+                <>
+                  <p className="text-sm text-slate-400 mb-3">{t(lang, "hitTarget")}</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => logTrade(selectedVariant, true)}
+                      disabled={logging}
+                      className="py-3 rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-medium transition-colors"
+                    >
+                      {t(lang, "yes")}
+                    </button>
+                    <button
+                      onClick={() => logTrade(selectedVariant, false)}
+                      disabled={logging}
+                      className="py-3 rounded-xl bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white font-medium transition-colors"
+                    >
+                      {t(lang, "no")}
+                    </button>
+                  </div>
+                </>
+              )}
               <button
-                onClick={() => setSelectedVariant("a")}
-                className={`p-4 rounded-xl border text-left transition-all ${
-                  selectedVariant === "a"
-                    ? "border-blue-400 bg-blue-950/50"
-                    : "border-slate-700 hover:border-slate-500"
-                }`}
+                onClick={() => { setShowLogForm(false); setSelectedVariant(null); }}
+                className="mt-3 w-full text-slate-500 hover:text-slate-300 text-sm transition-colors"
               >
-                <p className="text-xs text-blue-400 mb-1">{t(lang, "variantA")}</p>
-                <p className="text-sm text-white font-medium">{setup_data.variant_a_name}</p>
-              </button>
-              <button
-                onClick={() => setSelectedVariant("b")}
-                className={`p-4 rounded-xl border text-left transition-all ${
-                  selectedVariant === "b"
-                    ? "border-purple-400 bg-purple-950/50"
-                    : "border-slate-700 hover:border-slate-500"
-                }`}
-              >
-                <p className="text-xs text-purple-400 mb-1">{t(lang, "variantB")}</p>
-                <p className="text-sm text-white font-medium">{setup_data.variant_b_name}</p>
+                {t(lang, "cancel")}
               </button>
             </div>
-            {selectedVariant && (
-              <>
-                <p className="text-sm text-slate-400 mb-3">{t(lang, "hitTarget")}</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => logTrade(selectedVariant, true)}
-                    disabled={logging}
-                    className="py-3 rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-medium transition-colors"
-                  >
-                    {t(lang, "yes")}
-                  </button>
-                  <button
-                    onClick={() => logTrade(selectedVariant, false)}
-                    disabled={logging}
-                    className="py-3 rounded-xl bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white font-medium transition-colors"
-                  >
-                    {t(lang, "no")}
-                  </button>
-                </div>
-              </>
-            )}
+          )
+        ) : (
+          /* Free user — upgrade CTA */
+          <div className="mb-6 p-5 rounded-2xl border border-slate-700 bg-slate-900 text-center">
+            <p className="text-slate-300 text-sm mb-3">{t(lang, "upgradeToLog")}</p>
             <button
-              onClick={() => { setShowLogForm(false); setSelectedVariant(null); }}
-              className="mt-3 w-full text-slate-500 hover:text-slate-300 text-sm transition-colors"
+              onClick={() => router.push(`/subscribe?next=/log/${sessionId}`)}
+              className="px-6 py-2.5 rounded-full bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
             >
-              {t(lang, "cancel")}
+              {t(lang, "upgradeCta")}
             </button>
           </div>
         )}
@@ -295,9 +302,11 @@ export default function LogPage() {
             </div>
           </div>
         ) : (
-          <p className="text-center text-slate-600 text-sm mt-4">
-            {t(lang, "noTradesYet")}
-          </p>
+          canLog && (
+            <p className="text-center text-slate-600 text-sm mt-4">
+              {t(lang, "noTradesYet")}
+            </p>
+          )
         )}
       </main>
     </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getLang, t } from "@/lib/i18n";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
 const DONE_MARKER = "[SMARTLOG_DONE]";
 const ERROR_MARKER = "[SMARTLOG_ERROR]";
@@ -15,37 +16,64 @@ function ConversationInner() {
   const [lang] = useState(() => getLang());
   const painLabel = t(lang, "painLabels")[pain] || pain;
 
-  const [traderName, setTraderName] = useState("");
-  const [nameSubmitted, setNameSubmitted] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [token, setToken] = useState(null);
+  const [traderName, setTraderName] = useState("Trader");
+
   const [sessionId] = useState(
     () => Date.now().toString(36) + Math.random().toString(36).substr(2, 9)
   );
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);      // dots before first chunk
-  const [streamingContent, setStreamingContent] = useState(""); // live text
+  const [loading, setLoading] = useState(false);
+  const [streamingContent, setStreamingContent] = useState("");
   const [setupData, setSetupData] = useState(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const initialized = useRef(false);
 
-  // Opening message — only after name is submitted
+  // Auth check on mount
   useEffect(() => {
-    if (!nameSubmitted || initialized.current) return;
+    async function checkAuth() {
+      const { data: { session } } = await supabaseBrowser.auth.getSession();
+      if (!session) {
+        // Not logged in — redirect to auth, return here after
+        localStorage.setItem(
+          "smartlog_auth_next",
+          `/conversation?pain=${pain}`
+        );
+        router.push("/auth");
+        return;
+      }
+      setToken(session.access_token);
+      // Derive display name from email
+      const emailName = session.user.email?.split("@")[0] || "Trader";
+      setTraderName(emailName);
+      setAuthReady(true);
+    }
+    checkAuth();
+  }, []);
+
+  // Opening message — only after auth is confirmed
+  useEffect(() => {
+    if (!authReady || initialized.current) return;
     initialized.current = true;
-    const opening = t(lang, "openingMessage")(painLabel);
+    const opening =
+      pain === "other"
+        ? t(lang, "openingMessageOther")
+        : t(lang, "openingMessage")(painLabel);
     setMessages([{ role: "assistant", content: opening }]);
-  }, [nameSubmitted, painLabel, lang]);
+  }, [authReady]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, streamingContent]);
 
   useEffect(() => {
-    if (!loading && !streamingContent && nameSubmitted) {
+    if (!loading && !streamingContent && authReady) {
       inputRef.current?.focus();
     }
-  }, [loading, streamingContent, nameSubmitted]);
+  }, [loading, streamingContent, authReady]);
 
   async function sendMessage() {
     const text = input.trim();
@@ -58,9 +86,12 @@ function ConversationInner() {
     setStreamingContent("");
 
     try {
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           messages: newMessages,
           sessionId,
@@ -70,9 +101,7 @@ function ConversationInner() {
         }),
       });
 
-      if (!response.ok || !response.body) {
-        throw new Error("Stream failed");
-      }
+      if (!response.ok || !response.body) throw new Error("Stream failed");
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -86,27 +115,21 @@ function ConversationInner() {
         const chunk = decoder.decode(value, { stream: true });
         accumulated += chunk;
 
-        // Hide dots on first chunk, streaming bubble takes over
         if (firstChunk) {
           setLoading(false);
           firstChunk = false;
         }
 
-        // Check for done marker
         const doneIdx = accumulated.indexOf(DONE_MARKER);
         if (doneIdx !== -1) {
-          // Parse setupData from final marker
           try {
             const afterMarker = accumulated.slice(doneIdx + DONE_MARKER.length);
             const finalData = JSON.parse(afterMarker);
             if (finalData.setupData?.complete) {
               setSetupData(finalData.setupData);
             }
-          } catch (e) {
-            // parse error — no setup data
-          }
+          } catch (e) {}
 
-          // Finalize message: strip JSON block and marker
           const rawText = accumulated.slice(0, doneIdx);
           const cleanText = rawText
             .replace(/```json\n[\s\S]*?\n```/, "")
@@ -120,17 +143,15 @@ function ConversationInner() {
           break;
         }
 
-        // Check for error marker
         if (accumulated.includes(ERROR_MARKER)) {
           setMessages((prev) => [
             ...prev,
-            { role: "assistant", content: "Something went wrong. Please try again." },
+            { role: "assistant", content: lang === "pt" ? "Algo deu errado. Tente novamente." : "Something went wrong. Please try again." },
           ]);
           setStreamingContent("");
           break;
         }
 
-        // Live display: hide JSON block if it starts appearing at the end
         const jsonStart = accumulated.indexOf("```json");
         const displayText =
           jsonStart !== -1
@@ -142,7 +163,7 @@ function ConversationInner() {
     } catch (e) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Connection error. Please try again." },
+        { role: "assistant", content: lang === "pt" ? "Erro de conexão. Tente novamente." : "Connection error. Please try again." },
       ]);
       setStreamingContent("");
       setLoading(false);
@@ -158,41 +179,14 @@ function ConversationInner() {
 
   const isResponding = loading || !!streamingContent;
 
-  // Name entry screen
-  if (!nameSubmitted) {
+  // Auth loading state
+  if (!authReady) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center px-6">
-        <div className="w-full max-w-md">
-          <div className="mb-10 text-center">
-            <span className="text-2xl font-semibold tracking-tight">
-              Smart<span className="text-blue-400">Log</span>
-            </span>
-            <p className="text-slate-400 mt-3 text-sm">
-              {t(lang, "namePrompt")}
-            </p>
-          </div>
-          <input
-            type="text"
-            value={traderName}
-            onChange={(e) => setTraderName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && traderName.trim()) {
-                setNameSubmitted(true);
-              }
-            }}
-            placeholder={t(lang, "namePlaceholder")}
-            autoFocus
-            className="w-full bg-slate-800 text-white placeholder-slate-500 rounded-2xl px-5 py-4 text-base focus:outline-none focus:ring-1 focus:ring-blue-500 mb-4"
-          />
-          <button
-            onClick={() => {
-              if (traderName.trim()) setNameSubmitted(true);
-            }}
-            disabled={!traderName.trim()}
-            className="w-full py-4 rounded-full bg-blue-500 hover:bg-blue-400 disabled:bg-slate-700 disabled:text-slate-500 text-white font-medium transition-colors"
-          >
-            {t(lang, "nameStart")}
-          </button>
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+        <div className="flex gap-1">
+          <span className="w-1.5 h-1.5 bg-slate-600 rounded-full animate-bounce [animation-delay:0ms]" />
+          <span className="w-1.5 h-1.5 bg-slate-600 rounded-full animate-bounce [animation-delay:150ms]" />
+          <span className="w-1.5 h-1.5 bg-slate-600 rounded-full animate-bounce [animation-delay:300ms]" />
         </div>
       </div>
     );
@@ -239,7 +233,6 @@ function ConversationInner() {
             </div>
           ))}
 
-          {/* Typing dots — only before first chunk arrives */}
           {loading && (
             <div className="flex justify-start">
               <div className="bg-slate-800 px-5 py-4 rounded-2xl rounded-tl-sm">
@@ -252,7 +245,6 @@ function ConversationInner() {
             </div>
           )}
 
-          {/* Streaming bubble — live text as it arrives */}
           {streamingContent && (
             <div className="flex justify-start">
               <div className="max-w-[85%] px-5 py-4 rounded-2xl rounded-tl-sm text-sm leading-relaxed whitespace-pre-line bg-slate-800 text-slate-100">
