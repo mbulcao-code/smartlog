@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getLang, setLang, t } from "@/lib/i18n";
 import { supabaseBrowser } from "@/lib/supabase-browser";
@@ -10,7 +10,8 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [experiments, setExperiments] = useState([]);
-  const [canLog, setCanLog] = useState(false); // beta or paid
+  const [canLog, setCanLog] = useState(false);
+  const cardsRef = useRef(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -22,7 +23,6 @@ export default function Home() {
       const { data: { session } } = await supabaseBrowser.auth.getSession();
       if (session) {
         setUser(session.user);
-        // Parallel: check access tier + load dashboard
         const [accessRes, dashRes] = await Promise.all([
           fetch("/api/check-access", {
             headers: { Authorization: `Bearer ${session.access_token}` },
@@ -55,15 +55,26 @@ export default function Home() {
     setCanLog(false);
   }
 
+  function scrollToCards() {
+    cardsRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  function handlePricingCta(plan) {
+    if (!user) {
+      localStorage.setItem("smartlog_auth_next", `/subscribe?plan=${plan}`);
+      router.push("/auth");
+    } else {
+      router.push(`/subscribe?plan=${plan}`);
+    }
+  }
+
   function handleStart() {
     if (!selected) return;
     if (!user) {
-      // Not logged in: store destination and go to auth
       localStorage.setItem("smartlog_auth_next", `/conversation?pain=${selected}`);
       router.push("/auth");
       return;
     }
-    // Free tier: already used 1 conversation
     const isFreeLocked = !canLog && experiments.length >= 1;
     if (isFreeLocked) {
       router.push("/subscribe");
@@ -74,6 +85,10 @@ export default function Home() {
 
   const pains = t(lang, "pains");
   const isFreeLocked = user && !canLog && experiments.length >= 1;
+  // Show hero+pricing for non-logged-in users and free users (not paid/beta)
+  const showHero = !user || (user && !canLog);
+  // Show dashboard for paid/beta users who have experiments
+  const showDashboard = user && canLog && experiments.length > 0;
 
   if (authLoading) {
     return (
@@ -89,16 +104,24 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+
       {/* Header */}
-      <header className="px-8 py-6 border-b border-slate-800">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <span className="text-xl font-semibold tracking-tight text-white">
-            Smart<span className="text-blue-400">Log</span>
-          </span>
+      <header className="px-8 py-5 border-b border-slate-800">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div>
+            <span className="text-xl font-semibold tracking-tight text-white">
+              Smart<span className="text-blue-400">Log</span>
+            </span>
+            {showHero && (
+              <span className="hidden sm:inline text-slate-600 text-sm ml-3">
+                {t(lang, "heroTagline")}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             {user ? (
               <>
-                <span className="text-slate-500 text-xs hidden sm:block truncate max-w-[180px]">
+                <span className="text-slate-500 text-xs hidden sm:block truncate max-w-[160px]">
                   {user.email}
                 </span>
                 <button
@@ -126,18 +149,140 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-10">
+      <main className="flex-1">
 
-        {/* Dashboard: existing experiments */}
-        {user && experiments.length > 0 && (
-          <section className="mb-10">
+        {/* ── HERO + PRICING (non-logged-in and free users) ── */}
+        {showHero && (
+          <>
+            {/* Hero */}
+            <section className="max-w-3xl mx-auto px-6 pt-16 pb-12 text-center">
+              <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4 leading-tight">
+                Smart<span className="text-blue-400">Log</span>
+              </h1>
+              <p className="text-xl text-blue-400 font-medium mb-8">
+                {t(lang, "heroTagline")}
+              </p>
+              <div className="text-left max-w-2xl mx-auto space-y-4 mb-10">
+                <p className="text-slate-300 text-base leading-relaxed">
+                  {t(lang, "heroP1")}
+                </p>
+                <p className="text-slate-300 text-base leading-relaxed">
+                  {t(lang, "heroP2")}
+                </p>
+              </div>
+              <p className="text-slate-400 text-sm mb-4">{t(lang, "heroCta")}</p>
+              <button
+                onClick={scrollToCards}
+                className="px-8 py-3 rounded-full bg-blue-500 hover:bg-blue-400 text-white font-medium transition-colors"
+              >
+                {t(lang, "heroCtaButton")}
+              </button>
+            </section>
+
+            {/* Pricing */}
+            <section className="max-w-4xl mx-auto px-6 pb-16">
+              <p className="text-xs text-slate-500 uppercase tracking-wider text-center mb-8">
+                {t(lang, "pricingTitle")}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+
+                {/* Free */}
+                <div className="p-6 rounded-2xl border border-slate-700 bg-slate-900 flex flex-col">
+                  <div className="mb-5">
+                    <p className="text-sm font-medium text-slate-400 mb-2">{t(lang, "planFreeTitle")}</p>
+                    <p className="text-4xl font-bold text-white">{t(lang, "planFreePrice")}</p>
+                    <p className="text-slate-500 text-xs mt-1">{t(lang, "planFreePer")}</p>
+                  </div>
+                  <ul className="space-y-2.5 mb-6 flex-1">
+                    <li className="flex items-start gap-2 text-sm text-slate-300">
+                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planFreeF1")}
+                    </li>
+                    <li className="flex items-start gap-2 text-sm text-slate-300">
+                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planFreeF2")}
+                    </li>
+                    <li className="flex items-start gap-2 text-sm text-slate-500">
+                      <span className="mt-0.5 flex-shrink-0">✗</span>{t(lang, "planFreeF3")}
+                    </li>
+                  </ul>
+                  <button
+                    onClick={scrollToCards}
+                    className="w-full py-2.5 rounded-full border border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white text-sm font-medium transition-colors"
+                  >
+                    {t(lang, "planFreeCta")}
+                  </button>
+                </div>
+
+                {/* Monthly */}
+                <div className="p-6 rounded-2xl border border-slate-700 bg-slate-900 flex flex-col">
+                  <div className="mb-5">
+                    <p className="text-sm font-medium text-slate-400 mb-2">{t(lang, "planMonthlyTitle")}</p>
+                    <p className="text-4xl font-bold text-white">{t(lang, "planMonthlyPrice")}</p>
+                    <p className="text-slate-500 text-xs mt-1">{t(lang, "planMonthlyPer")}</p>
+                  </div>
+                  <ul className="space-y-2.5 mb-6 flex-1">
+                    <li className="flex items-start gap-2 text-sm text-slate-300">
+                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF1")}
+                    </li>
+                    <li className="flex items-start gap-2 text-sm text-slate-300">
+                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF2")}
+                    </li>
+                    <li className="flex items-start gap-2 text-sm text-slate-300">
+                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF3")}
+                    </li>
+                  </ul>
+                  <button
+                    onClick={() => handlePricingCta("monthly")}
+                    className="w-full py-2.5 rounded-full bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
+                  >
+                    {t(lang, "planCta")}
+                  </button>
+                </div>
+
+                {/* Yearly */}
+                <div className="p-6 rounded-2xl border border-blue-500/40 bg-blue-950/10 flex flex-col relative">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs px-3 py-1 rounded-full bg-blue-500 text-white font-medium">
+                    {t(lang, "planYearlyBadge")}
+                  </span>
+                  <div className="mb-5">
+                    <p className="text-sm font-medium text-blue-400 mb-2">{t(lang, "planYearlyTitle")}</p>
+                    <p className="text-4xl font-bold text-white">{t(lang, "planYearlyPrice")}</p>
+                    <p className="text-slate-500 text-xs mt-1">{t(lang, "planYearlyPer")}</p>
+                  </div>
+                  <ul className="space-y-2.5 mb-6 flex-1">
+                    <li className="flex items-start gap-2 text-sm text-slate-300">
+                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF1")}
+                    </li>
+                    <li className="flex items-start gap-2 text-sm text-slate-300">
+                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF2")}
+                    </li>
+                    <li className="flex items-start gap-2 text-sm text-slate-300">
+                      <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>{t(lang, "planF3")}
+                    </li>
+                  </ul>
+                  <button
+                    onClick={() => handlePricingCta("yearly")}
+                    className="w-full py-2.5 rounded-full bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
+                  >
+                    {t(lang, "planCta")}
+                  </button>
+                </div>
+
+              </div>
+            </section>
+
+            <div className="border-t border-slate-800" />
+          </>
+        )}
+
+        {/* ── DASHBOARD (paid/beta users with experiments) ── */}
+        {showDashboard && (
+          <section className="max-w-3xl mx-auto px-6 pt-10 pb-6">
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-4">
               {t(lang, "yourExperiments")}
             </p>
             <div className="flex flex-col gap-3">
               {experiments.map((exp) => {
-                const painLabel =
-                  t(lang, "painLabels")[exp.pain_type] || exp.pain_type;
+                const painLabel = t(lang, "painLabels")[exp.pain_type] || exp.pain_type;
                 return (
                   <div
                     key={exp.session_id}
@@ -164,24 +309,23 @@ export default function Home() {
           </section>
         )}
 
-        {/* New session section */}
-        <div>
-          {experiments.length > 0 && (
+        {/* ── PAIN CARDS ── */}
+        <section ref={cardsRef} className="max-w-3xl mx-auto px-6 py-10">
+          {(showDashboard || (user && canLog)) && (
             <p className="text-xs text-slate-500 uppercase tracking-wider mb-6">
               {t(lang, "newSession")}
             </p>
           )}
 
           <div className="mb-8 text-center">
-            <h1 className="text-3xl font-semibold text-white mb-3">
+            <h2 className="text-2xl font-semibold text-white mb-2">
               {t(lang, "homeTitle")}
-            </h1>
-            <p className="text-slate-400 text-base">
+            </h2>
+            <p className="text-slate-400 text-sm">
               {t(lang, "homeSubtitle")}
             </p>
           </div>
 
-          {/* Pain cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {pains.map((pain) => (
               <button
@@ -202,12 +346,8 @@ export default function Home() {
                     }`}
                   />
                   <div>
-                    <p className="font-medium text-white text-sm mb-1">
-                      {pain.title}
-                    </p>
-                    <p className="text-slate-400 text-sm leading-relaxed">
-                      {pain.description}
-                    </p>
+                    <p className="font-medium text-white text-sm mb-1">{pain.title}</p>
+                    <p className="text-slate-400 text-sm leading-relaxed">{pain.description}</p>
                   </div>
                 </div>
               </button>
@@ -239,14 +379,13 @@ export default function Home() {
                 }`}
               >
                 {!user
-                  ? lang === "pt"
-                    ? "Entrar para começar →"
-                    : "Sign in to start →"
+                  ? lang === "pt" ? "Entrar para começar →" : "Sign in to start →"
                   : t(lang, "homeCta")}
               </button>
             )}
           </div>
-        </div>
+        </section>
+
       </main>
     </div>
   );
