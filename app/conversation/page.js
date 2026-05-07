@@ -222,7 +222,7 @@ function ConversationInner() {
                 </div>
               </div>
               <button
-                onClick={() => router.push("/dashboard")}
+                onClick={() => router.push(`/log/${sessionId}`)}
                 className="w-full py-3 rounded-full bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
               >
                 Start logging →
