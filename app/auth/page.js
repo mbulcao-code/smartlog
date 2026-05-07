@@ -20,7 +20,11 @@ function AuthInner() {
     setLoading(true);
     setError("");
 
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+    // Store next URL in localStorage so the callback page can retrieve it
+    // (hash fragments are never sent to the server, so we can't pass next via URL)
+    localStorage.setItem("smartlog_auth_next", next);
+
+    const redirectTo = `${window.location.origin}/auth/confirm`;
 
     const { error: authError } = await supabaseBrowser.auth.signInWithOtp({
       email: email.trim(),
