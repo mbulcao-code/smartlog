@@ -2,29 +2,21 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-
-const PAIN_LABELS = {
-  fomo: "FOMO / Early Entry",
-  late: "Hesitation / Late Entry",
-  exit: "Early Exit",
-  revenge: "Revenge / Overtrading",
-  stoploss: "Stop Loss Tampering",
-  boredom: "Boredom / Forcing Trades",
-};
-
-function generateSessionId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
-}
+import { getLang, t } from "@/lib/i18n";
 
 function ConversationInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pain = searchParams.get("pain") || "fomo";
-  const painLabel = PAIN_LABELS[pain] || pain;
+
+  const [lang] = useState(() => getLang());
+  const painLabel = t(lang, "painLabels")[pain] || pain;
 
   const [traderName, setTraderName] = useState("");
   const [nameSubmitted, setNameSubmitted] = useState(false);
-  const [sessionId] = useState(generateSessionId);
+  const [sessionId] = useState(
+    () => Date.now().toString(36) + Math.random().toString(36).substr(2, 9)
+  );
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,15 +25,14 @@ function ConversationInner() {
   const inputRef = useRef(null);
   const initialized = useRef(false);
 
-  // Opening message from SmartLog — only after name is submitted
+  // Opening message — only after name is submitted
   useEffect(() => {
     if (!nameSubmitted || initialized.current) return;
     initialized.current = true;
 
-    const opening = `I hear you — ${painLabel.toLowerCase()} is one of the patterns that shows up most often, and one of the most misunderstood.\n\nBefore we try to fix anything, I want to understand what's actually happening for you.\n\nTell me: when this happens, what does it look like? Walk me through a recent example.`;
-
+    const opening = t(lang, "openingMessage")(painLabel);
     setMessages([{ role: "assistant", content: opening }]);
-  }, [nameSubmitted, painLabel]);
+  }, [nameSubmitted, painLabel, lang]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -71,6 +62,7 @@ function ConversationInner() {
           sessionId,
           traderName,
           painType: pain,
+          lang,
         }),
       });
 
@@ -117,7 +109,7 @@ function ConversationInner() {
               Smart<span className="text-blue-400">Log</span>
             </span>
             <p className="text-slate-400 mt-3 text-sm">
-              Before we start — what's your name?
+              {t(lang, "namePrompt")}
             </p>
           </div>
           <input
@@ -129,7 +121,7 @@ function ConversationInner() {
                 setNameSubmitted(true);
               }
             }}
-            placeholder="Your first name"
+            placeholder={t(lang, "namePlaceholder")}
             autoFocus
             className="w-full bg-slate-800 text-white placeholder-slate-500 rounded-2xl px-5 py-4 text-base focus:outline-none focus:ring-1 focus:ring-blue-500 mb-4"
           />
@@ -140,7 +132,7 @@ function ConversationInner() {
             disabled={!traderName.trim()}
             className="w-full py-4 rounded-full bg-blue-500 hover:bg-blue-400 disabled:bg-slate-700 disabled:text-slate-500 text-white font-medium transition-colors"
           >
-            Start →
+            {t(lang, "nameStart")}
           </button>
         </div>
       </div>
@@ -163,7 +155,7 @@ function ConversationInner() {
             onClick={() => router.push("/")}
             className="text-slate-500 hover:text-slate-300 text-sm transition-colors"
           >
-            ← Back
+            {t(lang, "backButton")}
           </button>
         </div>
       </header>
@@ -205,18 +197,18 @@ function ConversationInner() {
           {setupData && (
             <div className="mt-4 p-5 rounded-2xl border border-blue-500/30 bg-blue-950/20">
               <p className="text-blue-400 text-xs font-medium uppercase tracking-wider mb-3">
-                Setup defined
+                {t(lang, "setupDefinedLabel")}
               </p>
               <p className="text-white font-medium mb-1">{setupData.setup_name}</p>
               <p className="text-slate-400 text-sm mb-4">{setupData.setup_description}</p>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="bg-slate-800 rounded-xl p-3">
-                  <p className="text-xs text-slate-500 mb-1">Variant A</p>
+                  <p className="text-xs text-slate-500 mb-1">{t(lang, "variantA")}</p>
                   <p className="text-sm text-white font-medium">{setupData.variant_a_name}</p>
                   <p className="text-xs text-slate-400 mt-1">{setupData.variant_a_description}</p>
                 </div>
                 <div className="bg-slate-800 rounded-xl p-3">
-                  <p className="text-xs text-slate-500 mb-1">Variant B</p>
+                  <p className="text-xs text-slate-500 mb-1">{t(lang, "variantB")}</p>
                   <p className="text-sm text-white font-medium">{setupData.variant_b_name}</p>
                   <p className="text-xs text-slate-400 mt-1">{setupData.variant_b_description}</p>
                 </div>
@@ -225,7 +217,7 @@ function ConversationInner() {
                 onClick={() => router.push(`/log/${sessionId}`)}
                 className="w-full py-3 rounded-full bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
               >
-                Start logging →
+                {t(lang, "startLogging")}
               </button>
             </div>
           )}
@@ -243,7 +235,7 @@ function ConversationInner() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Write your answer here..."
+              placeholder={t(lang, "inputPlaceholder")}
               rows={1}
               disabled={loading}
               className="flex-1 bg-slate-800 text-white placeholder-slate-500 rounded-2xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 leading-relaxed"
@@ -264,7 +256,7 @@ function ConversationInner() {
             </button>
           </div>
           <p className="text-center text-slate-600 text-xs mt-2">
-            Enter to send · Shift+Enter for new line
+            {t(lang, "inputHint")}
           </p>
         </div>
       )}

@@ -8,12 +8,17 @@ const client = new Anthropic({
 
 export async function POST(request) {
   try {
-    const { messages, sessionId, traderName, painType } = await request.json();
+    const { messages, sessionId, traderName, painType, lang } = await request.json();
+
+    const languageInstruction =
+      lang === "pt"
+        ? "\n\nCRITICAL: Conduct this entire conversation in Brazilian Portuguese. Every response, every reframe, every question — in Portuguese. Do not switch to English at any point."
+        : "\n\nConduct this entire conversation in English.";
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-5",
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system: SYSTEM_PROMPT + languageInstruction,
       messages: messages,
     });
 
