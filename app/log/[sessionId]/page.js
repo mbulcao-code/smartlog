@@ -1,11 +1,18 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { getLang, t } from "@/lib/i18n";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
 export default function LogPage() {
   const { sessionId } = useParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const paymentSuccess = searchParams.get("payment") === "success";
+
   const [lang] = useState(() => getLang());
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [hasAccess, setHasAccess] = useState(false);
   const [experiment, setExperiment] = useState(null);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,9 +21,43 @@ export default function LogPage() {
   const [showLogForm, setShowLogForm] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState(null);
 
+  // Auth + access check on mount
   useEffect(() => {
-    if (sessionId) fetchData();
+    async function checkAccess() {
+      const { data: { session } } = await supabaseBrowser.auth.getSession();
+
+      if (!session) {
+        router.push(`/auth?next=/log/${sessionId}`);
+        return;
+      }
+
+      // If just returned from payment, retry a few times to allow webhook to fire
+      const maxAttempts = paymentSuccess ? 5 : 1;
+      for (let i = 0; i < maxAttempts; i++) {
+        const res = await fetch("/api/check-access", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const data = await res.json();
+        if (data.hasAccess) {
+          setHasAccess(true);
+          setAccessChecked(true);
+          fetchData();
+          return;
+        }
+        if (i < maxAttempts - 1) await new Promise((r) => setTimeout(r, 2000));
+      }
+
+      // No access — redirect to subscribe
+      setAccessChecked(true);
+      router.push(`/subscribe?next=/log/${sessionId}`);
+    }
+
+    if (sessionId) checkAccess();
   }, [sessionId]);
+
+  useEffect(() => {
+    if (sessionId && hasAccess) fetchData();
+  }, [sessionId, hasAccess]);
 
   async function fetchData() {
     try {
@@ -61,10 +102,15 @@ export default function LogPage() {
   const hitsA = statsA.filter((l) => l.outcome).length;
   const hitsB = statsB.filter((l) => l.outcome).length;
 
-  if (loading) {
+  // Still checking auth/access
+  if (!accessChecked || (accessChecked && hasAccess && loading)) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
-        <p className="text-slate-400">{t(lang, "loadingExperiment")}</p>
+        <p className="text-slate-400">
+          {paymentSuccess
+            ? (lang === "pt" ? "Ativando seu acesso..." : "Activating your access...")
+            : t(lang, "loadingExperiment")}
+        </p>
       </div>
     );
   }
