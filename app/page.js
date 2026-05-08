@@ -206,7 +206,7 @@ export default function Home() {
         {/* ── DASHBOARD (paid/beta users with experiments) ── */}
         {showDashboard && (
           <section className="max-w-3xl mx-auto px-6 pt-10 pb-6">
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-4">
+            <p className="text-xs text-slate-300 uppercase tracking-widest font-semibold mb-4">
               {t(lang, "yourExperiments")}
             </p>
             <div className="flex flex-col gap-3">
@@ -241,7 +241,7 @@ export default function Home() {
         {/* ── PAIN CARDS ── */}
         <section ref={cardsRef} className="max-w-3xl mx-auto px-6 py-10">
           {(showDashboard || (user && canLog)) && (
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-6">
+            <p className="text-xs text-slate-300 uppercase tracking-widest font-semibold mb-6">
               {t(lang, "newSession")}
             </p>
           )}
@@ -293,7 +293,7 @@ export default function Home() {
                 >
                   {t(lang, "upgradeToContinue")}
                 </button>
-                <p className="text-slate-500 text-xs text-center max-w-sm">
+                <p className="text-slate-400 text-sm text-center max-w-sm">
                   {t(lang, "freeLocked")}
                 </p>
               </>
@@ -319,7 +319,7 @@ export default function Home() {
         {showHero && (
           <section className="max-w-4xl mx-auto px-6 pb-16">
             <div className="border-t border-slate-800 mb-12" />
-            <p className="text-xs text-slate-500 uppercase tracking-wider text-center mb-8">
+            <p className="text-xs text-slate-300 uppercase tracking-widest font-semibold text-center mb-8">
               {t(lang, "pricingTitle")}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
