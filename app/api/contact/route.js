@@ -12,7 +12,7 @@ export async function POST(request) {
 
     await resend.emails.send({
       from: "SmartLog <onboarding@resend.dev>",
-      to: "marcos@smartlogtrading.com",
+      to: "mbulcao@gmail.com",
       replyTo: email.trim(),
       subject: `SmartLog — mensagem de ${name.trim()}`,
       text: `Nome: ${name.trim()}\nEmail: ${email.trim()}\n\n${message.trim()}`,
