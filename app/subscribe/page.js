@@ -59,9 +59,12 @@ function SubscribeInner() {
     <div className="min-h-screen bg-slate-950 text-white flex flex-col">
       <header className="px-8 py-6 border-b border-slate-800">
         <div className="max-w-3xl mx-auto">
-          <span className="text-xl font-semibold tracking-tight">
+          <button
+            onClick={() => router.push("/")}
+            className="text-xl font-semibold tracking-tight hover:opacity-80 transition-opacity"
+          >
             Smart<span className="text-blue-400">Log</span>
-          </span>
+          </button>
         </div>
       </header>
 
