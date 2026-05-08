@@ -13,6 +13,7 @@ function AuthInner() {
   const [mode, setMode] = useState("signin"); // "signin" | "signup" | "forgot"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -64,6 +65,9 @@ function AuthInner() {
       const { error: err } = await supabaseBrowser.auth.signUp({
         email: email.trim(),
         password,
+        options: {
+          data: { full_name: name.trim() || undefined },
+        },
       });
       if (err) {
         setError(err.message);
@@ -139,6 +143,15 @@ function AuthInner() {
 
         {/* Email + password form */}
         <form onSubmit={handleSubmit} className="space-y-3">
+          {mode === "signup" && (
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={lang === "pt" ? "Seu nome (opcional)" : "Your name (optional)"}
+              className="w-full bg-slate-800 text-white placeholder-slate-500 rounded-2xl px-5 py-3.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          )}
           <input
             type="email"
             value={email}

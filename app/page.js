@@ -90,6 +90,23 @@ export default function Home() {
     }
   }
 
+  function getDisplayName(u) {
+    // Google OAuth or email signup with name
+    const meta = u?.user_metadata;
+    if (meta?.full_name) return meta.full_name.split(" ")[0];
+    if (meta?.name) return meta.name.split(" ")[0];
+    // Fallback: clean up email prefix
+    const prefix = u?.email?.split("@")[0] || "";
+    return prefix
+      .replace(/[._-]/g, " ")
+      .replace(/\d+/g, "")
+      .trim()
+      .split(" ")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .filter(Boolean)
+      .join(" ") || prefix;
+  }
+
   function handleStart() {
     if (!selected) return;
     if (!user) {
@@ -165,7 +182,9 @@ export default function Home() {
             {/* Pain cards */}
             <div ref={cardsRef} className="mb-8 text-center">
               <h2 className="text-2xl font-semibold text-white mb-2">
-                {t(lang, "homeTitle")}
+                {lang === "pt"
+                  ? `Olá ${getDisplayName(user)}, o que tem te incomodado ultimamente?`
+                  : `Hi ${getDisplayName(user)}, what's been bothering you lately?`}
               </h2>
               <p className="text-slate-400 text-sm">
                 {t(lang, "homeSubtitle")}
