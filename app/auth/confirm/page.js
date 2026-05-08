@@ -10,25 +10,52 @@ function ConfirmInner() {
   const lang = getLang();
 
   useEffect(() => {
-    async function handleConfirm() {
-      // getSession() automatically processes the hash fragment (#access_token=...)
-      await supabaseBrowser.auth.getSession();
+    let redirected = false;
 
-      // Retrieve next URL: prefer query param, then localStorage fallback
+    function doRedirect() {
+      if (redirected) return;
+      redirected = true;
       const next =
-        searchParams.get("next") ||
         (typeof localStorage !== "undefined"
           ? localStorage.getItem("smartlog_auth_next")
           : null) ||
+        searchParams.get("next") ||
         "/";
-
       if (typeof localStorage !== "undefined") {
         localStorage.removeItem("smartlog_auth_next");
       }
-
       router.push(next);
     }
-    handleConfirm();
+
+    // Listen for auth state change — handles implicit flow (hash) and PKCE (code)
+    const { data: { subscription } } = supabaseBrowser.auth.onAuthStateChange(
+      (event, session) => {
+        if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
+          doRedirect();
+        }
+      }
+    );
+
+    // Also handle PKCE code exchange if code param present
+    const code = searchParams.get("code");
+    if (code) {
+      supabaseBrowser.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+        if (data?.session) doRedirect();
+      });
+    }
+
+    // Check for existing session
+    supabaseBrowser.auth.getSession().then(({ data: { session } }) => {
+      if (session) doRedirect();
+    });
+
+    // Fallback: if nothing fires in 5s, go home anyway
+    const timeout = setTimeout(doRedirect, 5000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   return (

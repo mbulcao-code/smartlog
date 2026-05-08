@@ -26,7 +26,7 @@ function AuthInner() {
     await supabaseBrowser.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/confirm`,
+        redirectTo: "https://app.smartlogtrading.com/auth/confirm",
       },
     });
   }

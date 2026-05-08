@@ -19,26 +19,47 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    async function init() {
-      const { data: { session } } = await supabaseBrowser.auth.getSession();
-      if (session) {
-        setUser(session.user);
-        const [accessRes, dashRes] = await Promise.all([
-          fetch("/api/check-access", {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          }),
-          fetch("/api/dashboard", {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          }),
-        ]);
-        const accessData = await accessRes.json();
-        const dashData = await dashRes.json();
-        setCanLog(!!accessData.hasAccess);
-        setExperiments(dashData.experiments || []);
-      }
+    async function loadUser(session) {
+      setUser(session.user);
+      const [accessRes, dashRes] = await Promise.all([
+        fetch("/api/check-access", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }),
+        fetch("/api/dashboard", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }),
+      ]);
+      const accessData = await accessRes.json();
+      const dashData = await dashRes.json();
+      setCanLog(!!accessData.hasAccess);
+      setExperiments(dashData.experiments || []);
       setAuthLoading(false);
     }
-    init();
+
+    // Listen for auth state changes — catches Google OAuth redirect with hash token
+    const { data: { subscription } } = supabaseBrowser.auth.onAuthStateChange(
+      (event, session) => {
+        if (session) {
+          loadUser(session);
+        } else if (event === "SIGNED_OUT") {
+          setUser(null);
+          setExperiments([]);
+          setCanLog(false);
+          setAuthLoading(false);
+        }
+      }
+    );
+
+    // Also check for existing session on mount
+    supabaseBrowser.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        loadUser(session);
+      } else {
+        setAuthLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   function toggleLang() {

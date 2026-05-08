@@ -21,6 +21,13 @@ function SubscribeInner() {
         setUserEmail(session.user.email);
       }
     });
+
+    // Reset loading when user navigates back from Stripe (bfcache restore)
+    function handlePageShow(e) {
+      if (e.persisted) setLoading(null);
+    }
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
   }, []);
 
   async function handleSubscribe(plan) {
@@ -38,6 +45,8 @@ function SubscribeInner() {
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
+      } else {
+        setLoading(null);
       }
     } catch (e) {
       setLoading(null);
