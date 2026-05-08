@@ -314,9 +314,6 @@ export default function Home() {
               >
                 {t(lang, "heroCtaButton")}
               </button>
-            </section>
-
-          </>
         </section>
 
         {/* Pain cards */}
