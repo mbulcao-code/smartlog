@@ -137,9 +137,14 @@ export default function LogPage() {
       <main className="max-w-2xl mx-auto px-6 py-8">
         {/* Setup card */}
         <div className="mb-8 p-5 rounded-2xl border border-slate-700 bg-slate-900">
-          <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">
-            {t(lang, "yourExperiment")}
-          </p>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs px-2.5 py-1 rounded-full bg-blue-500/15 text-blue-400 font-medium border border-blue-500/20">
+              {t(lang, "painLabels")[experiment.pain_type] || experiment.pain_type}
+            </span>
+            <span className="text-xs text-slate-600 uppercase tracking-wider">
+              {t(lang, "yourExperiment")}
+            </span>
+          </div>
           <p className="text-white font-semibold text-lg mb-1">{setup_data.setup_name}</p>
           <p className="text-slate-400 text-sm mb-4">{setup_data.setup_description}</p>
           <div className="grid grid-cols-2 gap-3">
@@ -161,10 +166,12 @@ export default function LogPage() {
           <div className="mb-8">
             <button
               onClick={() => setShowConversation(!showConversation)}
-              className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-300 uppercase tracking-wider transition-colors mb-3"
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-700 bg-slate-900 hover:border-slate-500 hover:bg-slate-800 transition-all mb-3"
             >
-              <span>{lang === "pt" ? "Conversa" : "Conversation"}</span>
-              <span className="text-slate-600">{showConversation ? "▲" : "▼"}</span>
+              <span className="text-sm text-slate-300 font-medium">
+                {lang === "pt" ? "Ver conversa" : "View conversation"}
+              </span>
+              <span className="text-slate-500 text-xs">{showConversation ? "▲" : "▼"}</span>
             </button>
             {showConversation && (
               <div className="flex flex-col gap-3">
