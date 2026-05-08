@@ -194,10 +194,10 @@ export default function Home() {
                       Quando seu cérebro não tem informação suficiente para agir com confiança, ele recorre ao impulso: FOMO, hesitação, vingança, saída prematura. Nomes diferentes, mesma raiz.
                     </p>
                     <p className="text-slate-300 text-base leading-relaxed">
-                      Regras não resolvem isso. Disciplina não resolve isso.
+                      Regras não resolvem isso. <strong className="text-white">Disciplina não resolve isso.</strong>
                     </p>
                     <p className="text-slate-300 text-base leading-relaxed">
-                      O que resolve são decisões estruturadas — precisas o suficiente para repetir, comparar e aprender.{" "}
+                      <strong className="text-white">O que resolve são decisões estruturadas</strong> — precisas o suficiente para repetir, comparar e aprender.{" "}
                       <strong className="text-white">O SmartLog</strong> te guia para encontrar exatamente o que varia nas suas decisões e transforma essa variação em um experimento testável. Não sensação. Dados.
                     </p>
                   </>
@@ -211,10 +211,10 @@ export default function Home() {
                       When your brain doesn&apos;t have enough information to act with confidence, it defaults to impulse: FOMO, hesitation, revenge trades, early exits. Different names, same root.
                     </p>
                     <p className="text-slate-300 text-base leading-relaxed">
-                      Rules don&apos;t fix this. Discipline doesn&apos;t fix this.
+                      Rules don&apos;t fix this. <strong className="text-white">Discipline doesn&apos;t fix this.</strong>
                     </p>
                     <p className="text-slate-300 text-base leading-relaxed">
-                      What fixes it is structured decisions — precise enough to repeat, compare, and learn from.{" "}
+                      <strong className="text-white">What fixes it is structured decisions</strong> — precise enough to repeat, compare, and learn from.{" "}
                       <strong className="text-white">SmartLog</strong> guides you to find exactly what varies in your trading and turns that variation into a testable experiment. Not feel. Data.
                     </p>
                   </>
