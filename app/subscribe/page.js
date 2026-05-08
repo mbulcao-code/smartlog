@@ -96,8 +96,8 @@ function SubscribeInner() {
                 <p className="text-4xl font-bold text-white">$19</p>
                 <p className="text-slate-500 text-sm">{pt ? "/mês" : "/mo"}</p>
               </div>
-              <p className="text-slate-600 text-xs line-through mb-5">
-                {pt ? "$39/mês depois" : "$39/mo after launch"}
+              <p className="text-slate-600 text-xs mb-5">
+                {pt ? "preço sobe após o lançamento" : "price increases after launch"}
               </p>
               <ul className="flex-1 space-y-2 mb-6">
                 {[
