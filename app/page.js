@@ -254,7 +254,7 @@ export default function Home() {
             <span className="text-xl font-semibold tracking-tight text-white">
               Smart<span className="text-blue-400">Log</span>
             </span>
-            <span className="hidden sm:inline text-slate-600 text-sm ml-3">
+            <span className="hidden sm:inline text-slate-400 text-sm ml-3">
               {t(lang, "heroTagline")}
             </span>
           </div>
@@ -524,6 +524,15 @@ export default function Home() {
               {lang === "pt"
                 ? "Disclaimer: Em caso de problemas permanentes no acesso, lifetime users recebem reembolso proporcional ao tempo de utilização (referência: plano anual)."
                 : "Disclaimer: In case of permanent access issues, lifetime users receive a prorated refund based on time of use (reference: annual plan)."}
+            </p>
+
+            <p className="text-center mt-6">
+              <button
+                onClick={() => router.push("/contact")}
+                className="text-slate-500 hover:text-slate-300 text-xs transition-colors"
+              >
+                {lang === "pt" ? "Fale conosco" : "Contact us"}
+              </button>
             </p>
         </section>
 
