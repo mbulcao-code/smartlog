@@ -11,7 +11,7 @@ export async function GET(request) {
 
     const { data, error } = await supabase
       .from("conversations")
-      .select("session_id, trader_name, pain_type, setup_data")
+      .select("session_id, trader_name, pain_type, setup_data, messages")
       .eq("session_id", sessionId)
       .single();
 

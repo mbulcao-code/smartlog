@@ -15,6 +15,7 @@ export default function LogPage() {
   const [canLog, setCanLog] = useState(false); // beta or paid
   const [experiment, setExperiment] = useState(null);
   const [logs, setLogs] = useState([]);
+  const [showConversation, setShowConversation] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [logging, setLogging] = useState(false);
@@ -154,6 +155,41 @@ export default function LogPage() {
             </div>
           </div>
         </div>
+
+        {/* Conversation history */}
+        {experiment.messages?.length > 0 && (
+          <div className="mb-8">
+            <button
+              onClick={() => setShowConversation(!showConversation)}
+              className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-300 uppercase tracking-wider transition-colors mb-3"
+            >
+              <span>{lang === "pt" ? "Conversa" : "Conversation"}</span>
+              <span className="text-slate-600">{showConversation ? "▲" : "▼"}</span>
+            </button>
+            {showConversation && (
+              <div className="flex flex-col gap-3">
+                {experiment.messages.map((msg, i) => (
+                  msg.role !== "system" && (
+                    <div
+                      key={i}
+                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                          msg.role === "user"
+                            ? "bg-blue-500/20 text-blue-100 rounded-br-sm"
+                            : "bg-slate-800 text-slate-300 rounded-bl-sm"
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+                    </div>
+                  )
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Stats */}
         {logs.length > 0 && (
