@@ -11,7 +11,7 @@ export async function POST(request) {
     }
 
     await resend.emails.send({
-      from: "SmartLog <noreply@smartlogtrading.com>",
+      from: "SmartLog <onboarding@resend.dev>",
       to: "marcos@smartlogtrading.com",
       replyTo: email.trim(),
       subject: `SmartLog — mensagem de ${name.trim()}`,
