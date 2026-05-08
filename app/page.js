@@ -197,8 +197,10 @@ export default function Home() {
                       Regras não resolvem isso. <strong className="text-white">Disciplina não resolve isso.</strong>
                     </p>
                     <p className="text-slate-300 text-base leading-relaxed">
-                      <strong className="text-white">O que resolve são decisões estruturadas</strong> — precisas o suficiente para repetir, comparar e aprender.{" "}
-                      <strong className="text-blue-400">O SmartLog</strong> te guia para encontrar exatamente o que varia nas suas decisões e transforma essa variação em um experimento testável. Não sensação. Dados.
+                      <strong className="text-white">O que resolve são decisões estruturadas</strong> — precisas o suficiente para repetir, comparar e aprender.
+                    </p>
+                    <p className="text-slate-300 text-base leading-relaxed">
+                      <strong className="text-blue-400">SmartLog</strong> te guia para encontrar exatamente o que varia nas suas decisões e transforma essa variação em um experimento testável. Não sensação. Dados.
                     </p>
                   </>
                 ) : (
@@ -214,7 +216,9 @@ export default function Home() {
                       Rules don&apos;t fix this. <strong className="text-white">Discipline doesn&apos;t fix this.</strong>
                     </p>
                     <p className="text-slate-300 text-base leading-relaxed">
-                      <strong className="text-white">What fixes it is structured decisions</strong> — precise enough to repeat, compare, and learn from.{" "}
+                      <strong className="text-white">What fixes it is structured decisions</strong> — precise enough to repeat, compare, and learn from.
+                    </p>
+                    <p className="text-slate-300 text-base leading-relaxed">
                       <strong className="text-blue-400">SmartLog</strong> guides you to find exactly what varies in your trading and turns that variation into a testable experiment. Not feel. Data.
                     </p>
                   </>
