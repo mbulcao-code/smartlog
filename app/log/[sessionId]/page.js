@@ -27,6 +27,10 @@ export default function LogPage() {
   const [logging, setLogging] = useState(false);
   const [showLogForm, setShowLogForm] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState(null);
+  const [report, setReport] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+
+  const REPORT_THRESHOLD = 10;
 
   useEffect(() => {
     async function checkAuth() {
@@ -100,6 +104,25 @@ export default function LogPage() {
   const statsB = logs.filter((l) => l.variant === "b");
   const hitsA = statsA.filter((l) => l.outcome).length;
   const hitsB = statsB.filter((l) => l.outcome).length;
+  const reportUnlocked = logs.length >= REPORT_THRESHOLD;
+
+  async function generateReport() {
+    setReportLoading(true);
+    try {
+      const { data: { session } } = await supabaseBrowser.auth.getSession();
+      const res = await fetch("/api/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ sessionId, lang }),
+      });
+      const data = await res.json();
+      if (data.report) setReport(data.report);
+    } catch (e) {
+      console.error("Report error:", e);
+    } finally {
+      setReportLoading(false);
+    }
+  }
 
   if (!authChecked || (authChecked && loading)) {
     return (
@@ -241,6 +264,72 @@ export default function LogPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Progress bar / Report */}
+        {canLog && (
+          <div className="mb-8">
+            {!reportUnlocked ? (
+              <div className="p-4 rounded-2xl border border-slate-700 bg-slate-900">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-slate-400">
+                    {lang === "pt"
+                      ? `Relatório disponível após 10 operações`
+                      : `Report available after 10 trades`}
+                  </p>
+                  <p className="text-xs text-slate-500 tabular-nums">{logs.length}/10</p>
+                </div>
+                <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all"
+                    style={{ width: `${Math.min((logs.length / REPORT_THRESHOLD) * 100, 100)}%` }}
+                  />
+                </div>
+                {logs.length === 0 && (
+                  <p className="text-xs text-slate-600 mt-2">
+                    {lang === "pt"
+                      ? "Confiança não é um estado de espírito. É o que seus dados dizem sobre seu comportamento repetido."
+                      : "Confidence is not a mood. It's what your data says about your repeated behavior."}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="p-5 rounded-2xl border border-amber-500/20 bg-amber-950/10">
+                <p className="text-xs text-amber-400 uppercase tracking-wider mb-1">
+                  {lang === "pt" ? "Relatório" : "Report"}
+                </p>
+                <p className="text-sm text-slate-300 mb-4">
+                  {lang === "pt"
+                    ? `${logs.length} operações registradas. Os dados têm peso suficiente para uma análise.`
+                    : `${logs.length} trades logged. Enough data for a meaningful analysis.`}
+                </p>
+                {!report ? (
+                  <button
+                    onClick={generateReport}
+                    disabled={reportLoading}
+                    className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 text-sm font-medium transition-colors"
+                  >
+                    {reportLoading
+                      ? (lang === "pt" ? "Gerando..." : "Generating...")
+                      : (lang === "pt" ? "Ver relatório →" : "View report →")}
+                  </button>
+                ) : (
+                  <div>
+                    <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-line mb-4">
+                      {report}
+                    </div>
+                    <button
+                      onClick={generateReport}
+                      disabled={reportLoading}
+                      className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                    >
+                      {reportLoading ? "..." : (lang === "pt" ? "↺ Atualizar" : "↺ Refresh")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
