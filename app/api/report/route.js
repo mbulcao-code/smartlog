@@ -68,7 +68,7 @@ BLOCO 1 — Os dados (2-3 frases):
 - Termine com uma frase comportamental direta: o que isso significa em termos de comportamento operacional.
 
 BLOCO 2 — Sample size e fechamento (3-4 frases):
-- Comece com: "Uma amostragem de ${logs.length} trades oferece uma direção — não uma certeza."
+- Comece com: "Uma observação importante: uma amostragem de ${logs.length} trades oferece uma direção — não uma certeza."
 - Reforce que confiança numa estratégia não pode ser fruto de feeling: tem que ser proporcional ao tamanho da amostragem.
 - Diga que esses trades apontam com clareza para a variante com melhor resultado, mas que é a sequência de resultados que vai ampliar — ou questionar — essa confiança.
 - Termine com: "Bom trabalho. Continue crescendo sua amostragem."
@@ -95,7 +95,7 @@ BLOCK 1 — The data (2-3 sentences):
 - End with a direct behavioral statement: what this means in terms of trading behavior.
 
 BLOCK 2 — Sample size and closing (3-4 sentences):
-- Start with: "A sample of ${logs.length} trades gives a direction — not a certainty."
+- Start with: "An important note: a sample of ${logs.length} trades gives a direction — not a certainty."
 - Reinforce that confidence in a strategy cannot come from feeling: it must be proportional to sample size.
 - Say that these trades point clearly toward the better-performing variant, but that it is the sequence of future results that will strengthen — or challenge — that confidence.
 - End with: "Good work. Keep growing your sample."
