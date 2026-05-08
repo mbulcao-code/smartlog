@@ -527,15 +527,15 @@ export default function Home() {
             </p>
 
             <div className="flex items-center justify-center gap-6 mt-6">
-              <button onClick={() => router.push("/contact")} className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
+              <a href="/contact" className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
                 {lang === "pt" ? "Fale conosco" : "Contact"}
-              </button>
-              <button onClick={() => router.push("/privacy")} className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
+              </a>
+              <a href="/privacy" className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
                 {lang === "pt" ? "Privacidade" : "Privacy"}
-              </button>
-              <button onClick={() => router.push("/terms")} className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
+              </a>
+              <a href="/terms" className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
                 {lang === "pt" ? "Termos" : "Terms"}
-              </button>
+              </a>
             </div>
         </section>
 
