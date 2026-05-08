@@ -129,6 +129,9 @@ export default function Sidebar({ user, canLog, experiments, lang, onSignOut, on
       {/* Account */}
       <div className="px-4 py-4 border-t border-slate-800 space-y-3">
         <p className="text-sm text-slate-300 truncate">{user.email}</p>
+        <a href="/contact" className="block text-xs text-slate-500 hover:text-slate-300 transition-colors">
+          {pt ? "Fale conosco" : "Contact us"}
+        </a>
 
         <div className="flex items-center justify-between">
           <span className={`text-sm px-3 py-1 rounded-full font-medium border ${
