@@ -526,14 +526,17 @@ export default function Home() {
                 : "Disclaimer: In case of permanent access issues, lifetime users receive a prorated refund based on time of use (reference: annual plan)."}
             </p>
 
-            <p className="text-center mt-6">
-              <button
-                onClick={() => router.push("/contact")}
-                className="text-slate-500 hover:text-slate-300 text-xs transition-colors"
-              >
-                {lang === "pt" ? "Fale conosco" : "Contact us"}
+            <div className="flex items-center justify-center gap-6 mt-6">
+              <button onClick={() => router.push("/contact")} className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
+                {lang === "pt" ? "Fale conosco" : "Contact"}
               </button>
-            </p>
+              <button onClick={() => router.push("/privacy")} className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
+                {lang === "pt" ? "Privacidade" : "Privacy"}
+              </button>
+              <button onClick={() => router.push("/terms")} className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
+                {lang === "pt" ? "Termos" : "Terms"}
+              </button>
+            </div>
         </section>
 
       </main>
