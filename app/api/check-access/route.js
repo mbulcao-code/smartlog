@@ -23,6 +23,15 @@ export async function GET(request) {
 
     if (beta) return Response.json({ hasAccess: true, reason: "beta" });
 
+    // Check lifetime access
+    const { data: lifetime } = await supabase
+      .from("lifetime_users")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (lifetime) return Response.json({ hasAccess: true, reason: "lifetime" });
+
     // Check active subscription
     const { data: sub } = await supabase
       .from("subscriptions")

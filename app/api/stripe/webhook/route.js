@@ -28,10 +28,25 @@ export async function POST(request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object;
-        if (session.mode !== "subscription") break;
-
         const userId = session.metadata?.user_id;
+        const email = session.metadata?.supabase_email;
         if (!userId) break;
+
+        if (session.mode === "payment") {
+          // Lifetime purchase
+          await supabase.from("lifetime_users").upsert(
+            {
+              user_id: userId,
+              email: email,
+              stripe_customer_id: session.customer,
+              stripe_payment_intent_id: session.payment_intent,
+            },
+            { onConflict: "user_id" }
+          );
+          break;
+        }
+
+        if (session.mode !== "subscription") break;
 
         const subscription = await stripe.subscriptions.retrieve(
           session.subscription
