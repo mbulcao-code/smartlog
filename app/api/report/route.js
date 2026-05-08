@@ -60,13 +60,20 @@ Resultado: ${hitsB}/${logsB.length} alvos atingidos (${rateB}%)
 
 Total de operações: ${logs.length}
 
-Escreva uma análise direta em 3-4 parágrafos curtos:
-1. O que os dados mostram objetivamente (compare as taxas)
-2. Comente sobre o tamanho da amostra de cada variante — se uma tem muito menos trades que a outra, isso afeta a confiabilidade da comparação
-3. Uma conclusão acionável: o que o trader deve fazer agora? (continuar testando, adotar uma variante, rebalancear os trades entre variantes)
-4. Uma frase final reforçando que confiança não é um estado de espírito — é o que os dados dizem sobre comportamento repetido.
+Escreva a análise em DOIS blocos exatos. Sem títulos, sem bullet points.
 
-Tom: direto, sem floreios, baseado em dados. Sem bullet points. Parágrafos curtos.`
+BLOCO 1 — Os dados (2-3 frases):
+- Comece com: "Os dados são claros:" e apresente as taxas de acerto das duas variantes.
+- Em seguida use "Ou seja," e descreva o resultado em termos concretos de operações (ex: "a variante A fechou X operações com sucesso enquanto a variante B conseguiu apenas Y").
+- Termine com uma frase comportamental direta: o que isso significa em termos de comportamento operacional.
+
+BLOCO 2 — Sample size e fechamento (3-4 frases):
+- Comece com: "Uma amostragem de ${logs.length} trades oferece uma direção — não uma certeza."
+- Reforce que confiança numa estratégia não pode ser fruto de feeling: tem que ser proporcional ao tamanho da amostragem.
+- Diga que esses trades apontam com clareza para a variante com melhor resultado, mas que é a sequência de resultados que vai ampliar — ou questionar — essa confiança.
+- Termine com: "Bom trabalho. Continue crescendo sua amostragem."
+
+Tom: direto, preciso, sem floreios. Como um coach que respeita a inteligência do trader.`
       : `You are a trading psychologist analyzing the results of a behavioral experiment.
 
 EXPERIMENT: ${setup_data.setup_name}
@@ -80,13 +87,20 @@ Result: ${hitsB}/${logsB.length} targets hit (${rateB}%)
 
 Total trades logged: ${logs.length}
 
-Write a direct analysis in 3-4 short paragraphs:
-1. What the data shows objectively (compare the rates)
-2. Comment on sample size for each variant — if one has significantly fewer trades, note how that affects the reliability of the comparison
-3. An actionable conclusion: what should the trader do now? (keep testing, adopt one variant, rebalance trades between variants)
-4. A closing sentence reinforcing that confidence is not a mood — it is what your data says about your repeated behavior.
+Write the analysis in exactly TWO blocks. No titles, no bullet points.
 
-Tone: direct, no fluff, data-driven. No bullet points. Short paragraphs.`;
+BLOCK 1 — The data (2-3 sentences):
+- Start with: "The data is clear:" and state the hit rates of both variants.
+- Then use "In other words," and describe the result in concrete trade terms (e.g. "Variant A closed X successful trades while Variant B managed only Y").
+- End with a direct behavioral statement: what this means in terms of trading behavior.
+
+BLOCK 2 — Sample size and closing (3-4 sentences):
+- Start with: "A sample of ${logs.length} trades gives a direction — not a certainty."
+- Reinforce that confidence in a strategy cannot come from feeling: it must be proportional to sample size.
+- Say that these trades point clearly toward the better-performing variant, but that it is the sequence of future results that will strengthen — or challenge — that confidence.
+- End with: "Good work. Keep growing your sample."
+
+Tone: direct, precise, no fluff. Like a coach who respects the trader's intelligence.`;
 
     const message = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
