@@ -500,6 +500,12 @@ export default function Home() {
               </div>
 
             </div>
+
+            <p className="text-center text-slate-600 text-xs mt-8 max-w-2xl mx-auto">
+              {lang === "pt"
+                ? "Disclaimer: Em caso de problemas permanentes no acesso, lifetime users recebem reembolso proporcional ao tempo de utilização (referência: plano anual)."
+                : "Disclaimer: In case of permanent access issues, lifetime users receive a prorated refund based on time of use (reference: annual plan)."}
+            </p>
         </section>
 
       </main>

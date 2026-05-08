@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { getLang, t } from "@/lib/i18n";
+import { getLang, setLang, t } from "@/lib/i18n";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
 export default function LogPage() {
@@ -10,7 +10,13 @@ export default function LogPage() {
   const searchParams = useSearchParams();
   const paymentSuccess = searchParams.get("payment") === "success";
 
-  const [lang] = useState(() => getLang());
+  const [lang, setLangState] = useState(() => getLang());
+
+  function toggleLang() {
+    const next = lang === "en" ? "pt" : "en";
+    setLang(next);
+    setLangState(next);
+  }
   const [authChecked, setAuthChecked] = useState(false);
   const [canLog, setCanLog] = useState(false); // beta or paid
   const [experiment, setExperiment] = useState(null);
@@ -130,7 +136,15 @@ export default function LogPage() {
           >
             Smart<span className="text-blue-400">Log</span>
           </button>
-          <span className="text-slate-500 text-sm">{experiment.trader_name}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-slate-500 text-sm">{experiment.trader_name}</span>
+            <button
+              onClick={toggleLang}
+              className="text-xs px-2.5 py-1 rounded-full border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
+            >
+              {lang === "pt" ? "EN" : "PT"}
+            </button>
+          </div>
         </div>
       </header>
 
