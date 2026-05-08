@@ -184,12 +184,41 @@ export default function Home() {
                 {t(lang, "heroTagline")}
               </p>
               <div className="text-left max-w-2xl mx-auto space-y-4 mb-10">
-                <p className="text-slate-300 text-base leading-relaxed">
-                  {t(lang, "heroP1")}
-                </p>
-                <p className="text-slate-300 text-base leading-relaxed">
-                  {t(lang, "heroP2")}
-                </p>
+                {lang === "pt" ? (
+                  <>
+                    <p className="text-slate-300 text-base leading-relaxed">
+                      Emoção não é seu maior inimigo.{" "}
+                      <strong className="text-white">É a incerteza — e a urgência que ela cria.</strong>
+                    </p>
+                    <p className="text-slate-300 text-base leading-relaxed">
+                      Quando seu cérebro não tem informação suficiente para agir com confiança, ele recorre ao impulso: FOMO, hesitação, vingança, saída prematura. Nomes diferentes, mesma raiz.
+                    </p>
+                    <p className="text-slate-300 text-base leading-relaxed">
+                      Regras não resolvem isso. Disciplina não resolve isso.
+                    </p>
+                    <p className="text-slate-300 text-base leading-relaxed">
+                      O que resolve são decisões estruturadas — precisas o suficiente para repetir, comparar e aprender.{" "}
+                      <strong className="text-white">O SmartLog</strong> te guia para encontrar exatamente o que varia nas suas decisões e transforma essa variação em um experimento testável. Não sensação. Dados.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-slate-300 text-base leading-relaxed">
+                      Emotion is not your biggest enemy.{" "}
+                      <strong className="text-white">It&apos;s uncertainty — and the urgency it creates.</strong>
+                    </p>
+                    <p className="text-slate-300 text-base leading-relaxed">
+                      When your brain doesn&apos;t have enough information to act with confidence, it defaults to impulse: FOMO, hesitation, revenge trades, early exits. Different names, same root.
+                    </p>
+                    <p className="text-slate-300 text-base leading-relaxed">
+                      Rules don&apos;t fix this. Discipline doesn&apos;t fix this.
+                    </p>
+                    <p className="text-slate-300 text-base leading-relaxed">
+                      What fixes it is structured decisions — precise enough to repeat, compare, and learn from.{" "}
+                      <strong className="text-white">SmartLog</strong> guides you to find exactly what varies in your trading and turns that variation into a testable experiment. Not feel. Data.
+                    </p>
+                  </>
+                )}
               </div>
               <p className="text-slate-400 text-sm mb-4">{t(lang, "heroCta")}</p>
               <button
