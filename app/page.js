@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getLang, setLang, t } from "@/lib/i18n";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import Sidebar from "@/app/components/Sidebar";
 
 export default function Home() {
   const [selected, setSelected] = useState(null);
@@ -123,6 +124,107 @@ export default function Home() {
     );
   }
 
+  // ── LOGGED-IN LAYOUT (sidebar + pain cards) ──
+  if (user) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white">
+        <Sidebar
+          user={user}
+          canLog={canLog}
+          experiments={experiments}
+          lang={lang}
+          onSignOut={handleSignOut}
+          onNewSession={scrollToCards}
+          onToggleLang={toggleLang}
+        />
+
+        {/* Main content — offset for sidebar on desktop */}
+        <div className="sm:ml-64 min-h-screen flex flex-col">
+          {/* Mobile spacer for hamburger button */}
+          <div className="h-16 sm:hidden" />
+
+          <main className="flex-1 max-w-2xl mx-auto w-full px-6 py-10">
+
+            {/* Free locked banner */}
+            {isFreeLocked && (
+              <div className="mb-8 p-5 rounded-2xl border border-slate-700 bg-slate-900 text-center">
+                <p className="text-slate-300 text-sm mb-3">
+                  {lang === "pt"
+                    ? "Você usou sua sessão gratuita. Faça upgrade para conversas e logs ilimitados."
+                    : "You've used your free session. Upgrade for unlimited conversations and logs."}
+                </p>
+                <button
+                  onClick={() => router.push("/subscribe")}
+                  className="px-6 py-2 rounded-full bg-blue-500 text-white text-sm font-medium hover:bg-blue-400 transition-colors"
+                >
+                  {lang === "pt" ? "Ver planos" : "See plans"}
+                </button>
+              </div>
+            )}
+
+            {/* Pain cards */}
+            <div ref={cardsRef} className="mb-8 text-center">
+              <h2 className="text-2xl font-semibold text-white mb-2">
+                {t(lang, "homeTitle")}
+              </h2>
+              <p className="text-slate-400 text-sm">
+                {t(lang, "homeSubtitle")}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {pains.map((pain) => (
+                <button
+                  key={pain.id}
+                  onClick={() => setSelected(pain.id)}
+                  className={`text-left p-5 rounded-xl border transition-all duration-150 ${
+                    selected === pain.id
+                      ? "border-blue-400 bg-blue-950/50 shadow-lg shadow-blue-900/20"
+                      : "border-slate-700 bg-slate-900 hover:border-slate-500 hover:bg-slate-800"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 transition-all ${
+                      selected === pain.id ? "border-blue-400 bg-blue-400" : "border-slate-600"
+                    }`} />
+                    <div>
+                      <p className="font-medium text-white text-sm mb-1">{pain.title}</p>
+                      <p className="text-slate-400 text-sm leading-relaxed">{pain.description}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-8 flex justify-center">
+              {isFreeLocked ? (
+                <button
+                  onClick={() => router.push("/subscribe")}
+                  className="px-8 py-3 rounded-full text-sm font-medium bg-blue-500 text-white hover:bg-blue-400 transition-all"
+                >
+                  {t(lang, "upgradeToContinue")}
+                </button>
+              ) : (
+                <button
+                  disabled={!selected}
+                  onClick={handleStart}
+                  className={`px-8 py-3 rounded-full text-sm font-medium transition-all ${
+                    selected
+                      ? "bg-blue-500 text-white hover:bg-blue-400 cursor-pointer"
+                      : "bg-slate-800 text-slate-600 cursor-not-allowed"
+                  }`}
+                >
+                  {t(lang, "homeCta")}
+                </button>
+              )}
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // ── NOT LOGGED-IN LAYOUT (landing page) ──
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col">
 
@@ -133,33 +235,17 @@ export default function Home() {
             <span className="text-xl font-semibold tracking-tight text-white">
               Smart<span className="text-blue-400">Log</span>
             </span>
-            {showHero && (
-              <span className="hidden sm:inline text-slate-600 text-sm ml-3">
-                {t(lang, "heroTagline")}
-              </span>
-            )}
+            <span className="hidden sm:inline text-slate-600 text-sm ml-3">
+              {t(lang, "heroTagline")}
+            </span>
           </div>
           <div className="flex items-center gap-3">
-            {user ? (
-              <>
-                <span className="text-slate-500 text-xs hidden sm:block truncate max-w-[160px]">
-                  {user.email}
-                </span>
-                <button
-                  onClick={handleSignOut}
-                  className="text-xs text-slate-400 hover:text-white transition-colors"
-                >
-                  {lang === "pt" ? "Sair" : "Sign out"}
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => router.push("/auth")}
-                className="text-xs font-medium px-3 py-1.5 rounded-full bg-blue-500 hover:bg-blue-400 text-white transition-colors"
-              >
-                {lang === "pt" ? "Entrar" : "Sign in"}
-              </button>
-            )}
+            <button
+              onClick={() => router.push("/auth")}
+              className="text-xs font-medium px-3 py-1.5 rounded-full bg-blue-500 hover:bg-blue-400 text-white transition-colors"
+            >
+              {lang === "pt" ? "Entrar" : "Sign in"}
+            </button>
             <button
               onClick={toggleLang}
               className="text-xs font-medium px-3 py-1.5 rounded-full border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
@@ -172,11 +258,8 @@ export default function Home() {
 
       <main className="flex-1">
 
-        {/* ── HERO + PRICING (non-logged-in and free users) ── */}
-        {showHero && (
-          <>
-            {/* Hero */}
-            <section className="max-w-3xl mx-auto px-6 pt-16 pb-12 text-center">
+        {/* Hero */}
+        <section className="max-w-3xl mx-auto px-6 pt-16 pb-12 text-center">
               <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4 leading-tight">
                 Smart<span className="text-blue-400">Log</span>
               </h1>
@@ -234,51 +317,10 @@ export default function Home() {
             </section>
 
           </>
-        )}
+        </section>
 
-        {/* ── DASHBOARD (paid/beta users with experiments) ── */}
-        {showDashboard && (
-          <section className="max-w-3xl mx-auto px-6 pt-10 pb-6">
-            <p className="text-xs text-slate-300 uppercase tracking-widest font-semibold mb-4">
-              {t(lang, "yourExperiments")}
-            </p>
-            <div className="flex flex-col gap-3">
-              {experiments.map((exp) => {
-                const painLabel = t(lang, "painLabels")[exp.pain_type] || exp.pain_type;
-                return (
-                  <div
-                    key={exp.session_id}
-                    className="p-4 rounded-xl border border-slate-700 bg-slate-900 flex items-center justify-between gap-4"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-white font-medium text-sm truncate">
-                        {exp.setup_data?.setup_name}
-                      </p>
-                      <p className="text-slate-500 text-xs mt-0.5">
-                        {painLabel} · {exp.tradeCount} {t(lang, "trades")}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => router.push(`/log/${exp.session_id}`)}
-                      className="flex-shrink-0 text-xs px-4 py-2 rounded-full bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors whitespace-nowrap"
-                    >
-                      {t(lang, "openLog")}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* ── PAIN CARDS ── */}
+        {/* Pain cards */}
         <section ref={cardsRef} className="max-w-3xl mx-auto px-6 py-10">
-          {(showDashboard || (user && canLog)) && (
-            <p className="text-xs text-slate-300 uppercase tracking-widest font-semibold mb-6">
-              {t(lang, "newSession")}
-            </p>
-          )}
-
           <div className="mb-8 text-center">
             <h2 className="text-2xl font-semibold text-white mb-2">
               {t(lang, "homeTitle")}
@@ -300,13 +342,9 @@ export default function Home() {
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <div
-                    className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 transition-all ${
-                      selected === pain.id
-                        ? "border-blue-400 bg-blue-400"
-                        : "border-slate-600"
-                    }`}
-                  />
+                  <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 transition-all ${
+                    selected === pain.id ? "border-blue-400 bg-blue-400" : "border-slate-600"
+                  }`} />
                   <div>
                     <p className="font-medium text-white text-sm mb-1">{pain.title}</p>
                     <p className="text-slate-400 text-sm leading-relaxed">{pain.description}</p>
@@ -316,41 +354,23 @@ export default function Home() {
             ))}
           </div>
 
-          {/* CTA */}
-          <div className="mt-8 flex flex-col items-center gap-3">
-            {isFreeLocked ? (
-              <>
-                <button
-                  onClick={() => router.push("/subscribe")}
-                  className="px-8 py-3 rounded-full text-sm font-medium bg-blue-500 text-white hover:bg-blue-400 transition-all"
-                >
-                  {t(lang, "upgradeToContinue")}
-                </button>
-                <p className="text-slate-400 text-sm text-center max-w-sm">
-                  {t(lang, "freeLocked")}
-                </p>
-              </>
-            ) : (
-              <button
-                disabled={!selected}
-                onClick={handleStart}
-                className={`px-8 py-3 rounded-full text-sm font-medium transition-all ${
-                  selected
-                    ? "bg-blue-500 text-white hover:bg-blue-400 cursor-pointer"
-                    : "bg-slate-800 text-slate-600 cursor-not-allowed"
-                }`}
-              >
-                {!user
-                  ? lang === "pt" ? "Entrar para começar →" : "Sign in to start →"
-                  : t(lang, "homeCta")}
-              </button>
-            )}
+          <div className="mt-8 flex justify-center">
+            <button
+              disabled={!selected}
+              onClick={handleStart}
+              className={`px-8 py-3 rounded-full text-sm font-medium transition-all ${
+                selected
+                  ? "bg-blue-500 text-white hover:bg-blue-400 cursor-pointer"
+                  : "bg-slate-800 text-slate-600 cursor-not-allowed"
+              }`}
+            >
+              {lang === "pt" ? "Entrar para começar →" : "Sign in to start →"}
+            </button>
           </div>
         </section>
 
-        {/* ── PRICING (after pain cards, for non-logged-in and free users) ── */}
-        {showHero && (
-          <section className="max-w-4xl mx-auto px-6 pb-16">
+        {/* Pricing */}
+        <section className="max-w-4xl mx-auto px-6 pb-16">
             <div className="border-t border-slate-800 mb-12" />
             <p className="text-xs text-slate-300 uppercase tracking-widest font-semibold text-center mb-8">
               {t(lang, "pricingTitle")}
@@ -439,8 +459,7 @@ export default function Home() {
               </div>
 
             </div>
-          </section>
-        )}
+        </section>
 
       </main>
     </div>
