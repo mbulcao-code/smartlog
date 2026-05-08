@@ -89,5 +89,91 @@
    - Insert: user_id, email, stripe_customer_id (can use "test_manual"), stripe_payment_intent_id
    - Delete row after testing
 
-### Git push needed
-- Run `git pull && git push` from local machine to deploy sidebar contact link
+### Git push needed — DONE ✅
+- Sidebar contact link deployed
+- Report feature deployed
+- Contact form fix deployed
+
+---
+
+## Completed (May 8, 2026 — afternoon)
+
+### Contact form fix ✅
+- `from` changed to `onboarding@resend.dev` (Resend restriction: unverified domain can only send to account email)
+- `to` changed to `mbulcao@gmail.com` (Resend restriction: onboarding@resend.dev can only deliver to account owner email)
+- When SPF TXT turns green in Resend → revert both to `noreply@smartlogtrading.com` / `marcos@smartlogtrading.com`
+
+### Hit/miss labels fix ✅
+- EN: "✓ Hit" / "✗ Miss" → "Alvo? Sim" / "Alvo? Não"
+- PT: "✓ Atingiu" / "✗ Errou" → "Alvo? Sim" / "Alvo? Não"
+- Changed in `lib/i18n.js`
+
+### Report feature ✅
+- `app/api/report/route.js`: new endpoint, calls Claude Haiku
+- Unlocks at 10 total trades
+- Progress bar on log page: X/10 trades (visible from first trade)
+- Method phrase shown at 0 trades: "Confiança não é um estado de espírito..."
+- Report structured in 2 blocks:
+  - Block 1: data comparison ("Os dados são claros:... Ou seja,... [behavioral statement]")
+  - Block 2: "Uma observação importante: [sample size direction] ... Bom trabalho. Continue crescendo sua amostragem."
+- Refresh button to regenerate after more trades
+- Both PT and EN supported
+
+### Subscription test ✅
+- Tested lifetime flow: insert row in `lifetime_users` → access changes to PRO → delete row after
+- Tested paid flow: insert row in `subscriptions` with status=active → access confirmed
+- Free user flow already tested with tradersminds3@gmail.com
+
+---
+
+## Pending
+
+### Resend SPF (contact form full fix)
+- DKIM ✅ Verified
+- SPF TXT (`send`) → still Pending
+- When green: change `app/api/contact/route.js` back to `from: "SmartLog <noreply@smartlogtrading.com>"` + `to: "marcos@smartlogtrading.com"`
+
+### Report fine-tuning
+- First batch of real reports to be tested tomorrow
+- Potential adjustments to prompt tone/wording after testing
+
+### Pre-launch
+- Send to 2 close friends for testing
+- All 3 user flows confirmed working (free, paid, lifetime)
+
+---
+
+## Marketing site — smartlogtrading.com
+
+### File locations
+- **Live files (source of truth):** `/Users/marcosbulcao/Library/Application Support/Claude/local-agent-mode-sessions/.../outputs/smartlog-site/`
+  - Easier to find via: the outputs folder from the most recent Cowork session
+- **Deploy zip:** `/Users/marcosbulcao/Downloads/smartlog-site/smartlog-site-deploy.zip`
+- **Old/outdated copy:** `/Users/marcosbulcao/Downloads/smartlog-site/` (April 28 — do not use as source)
+
+### Hosting
+- **Platform:** Netlify, drag-and-drop deployment
+- **Project:** `serene-seahorse-ccb5a2` (NOT `cool-semifreddo-2faf5f`)
+- **Domain:** `smartlogtrading.com` (DNS managed via Netlify)
+- To deploy: Netlify → project `serene-seahorse-ccb5a2` → Deploys → drag the zip
+
+### Site structure
+- `index.html` — Homepage / landing page
+- `smartlog.html` — The Tool page
+- `book.html` — Trading Without Ego book page
+- `about.html` — About Marcos
+- `work-together.html` — Enrollment / pricing page
+- `iotaf.html` — IOTAF referral page
+- `waitlist.html` + `waitlist-thank-you.html` — Waitlist flow
+- `book-thank-you.html` — Book download confirmation
+- `styles.css` — Shared stylesheet
+- `images/` — All images including `book-cover.jpg`, `marcos.jpg`, SmartLog screenshots
+
+### Images
+- `images/book-cover.jpg` — Updated May 8, 2026 to new cover (author name at top, no IOTAF logo)
+  - Source file: `/Users/marcosbulcao/Downloads/trading-without-ego (new).jpg`
+- `images/marcos.jpg` — Headshot photo
+
+### Changes made May 8, 2026
+- `iotaf.html`: removed 10% discount, changed to referral code `SMARTLOG2026` (mention at enrollment, no discount promised)
+- `images/book-cover.jpg`: updated to new cover design
