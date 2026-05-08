@@ -108,8 +108,8 @@ export default function Home() {
   const isFreeLocked = user && !canLog && experiments.length >= 1;
   // Show hero+pricing for non-logged-in users and free users (not paid/beta)
   const showHero = !user || (user && !canLog);
-  // Show dashboard for paid/beta users who have experiments
-  const showDashboard = user && canLog && experiments.length > 0;
+  // Show dashboard for all logged-in users who have experiments
+  const showDashboard = user && experiments.length > 0;
 
   if (authLoading) {
     return (
