@@ -367,12 +367,12 @@ export default function Home() {
         </section>
 
         {/* Pricing */}
-        <section className="max-w-4xl mx-auto px-6 pb-16">
+        <section className="max-w-5xl mx-auto px-6 pb-16">
             <div className="border-t border-slate-800 mb-12" />
             <p className="text-xs text-slate-300 uppercase tracking-widest font-semibold text-center mb-8">
               {t(lang, "pricingTitle")}
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
 
               {/* Free */}
               <div className="p-6 rounded-2xl border border-slate-700 bg-slate-900 flex flex-col">
@@ -401,8 +401,13 @@ export default function Home() {
               </div>
 
               {/* Monthly */}
-              <div className="p-6 rounded-2xl border border-slate-700 bg-slate-900 flex flex-col">
-                <div className="mb-5">
+              <div className="p-6 rounded-2xl border border-slate-700 bg-slate-900 flex flex-col relative">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="bg-slate-700 text-slate-300 text-xs font-medium px-3 py-1 rounded-full whitespace-nowrap">
+                    {lang === "pt" ? "Preço de lançamento" : "Launch price"}
+                  </span>
+                </div>
+                <div className="mb-5 mt-1">
                   <p className="text-sm font-medium text-slate-400 mb-2">{t(lang, "planMonthlyTitle")}</p>
                   <p className="text-4xl font-bold text-white">{t(lang, "planMonthlyPrice")}</p>
                   <p className="text-slate-500 text-xs mt-1">{t(lang, "planMonthlyPer")}</p>
@@ -431,7 +436,7 @@ export default function Home() {
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs px-3 py-1 rounded-full bg-blue-500 text-white font-medium">
                   {t(lang, "planYearlyBadge")}
                 </span>
-                <div className="mb-5">
+                <div className="mb-5 mt-1">
                   <p className="text-sm font-medium text-blue-400 mb-2">{t(lang, "planYearlyTitle")}</p>
                   <p className="text-4xl font-bold text-white">{t(lang, "planYearlyPrice")}</p>
                   <p className="text-slate-500 text-xs mt-1">{t(lang, "planYearlyPer")}</p>
@@ -453,6 +458,45 @@ export default function Home() {
                 >
                   {t(lang, "planCta")}
                 </button>
+              </div>
+
+              {/* Lifetime */}
+              <div className="p-6 rounded-2xl border border-amber-500/60 bg-amber-950/10 flex flex-col relative">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="bg-amber-500 text-white text-xs font-medium px-3 py-1 rounded-full whitespace-nowrap">
+                    {lang === "pt" ? "Preço de fundadores" : "Founders price"}
+                  </span>
+                </div>
+                <div className="mb-5 mt-1">
+                  <p className="text-sm font-medium text-amber-400 mb-2">
+                    {lang === "pt" ? "Vitalício" : "Lifetime"}
+                  </p>
+                  <p className="text-4xl font-bold text-white">$299</p>
+                  <p className="text-slate-500 text-xs mt-1">
+                    {lang === "pt" ? "pagamento único" : "one-time payment"}
+                  </p>
+                </div>
+                <ul className="space-y-2.5 mb-6 flex-1">
+                  {[
+                    lang === "pt" ? "Registro ilimitado" : "Unlimited logging",
+                    lang === "pt" ? "Todos os setups" : "All setups",
+                    lang === "pt" ? "Todas as atualizações" : "All future updates",
+                    lang === "pt" ? "Sem assinatura" : "No subscription",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-sm text-slate-300">
+                      <span className="text-amber-400 mt-0.5 flex-shrink-0">✓</span>{item}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => handlePricingCta("lifetime")}
+                  className="w-full py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium transition-colors"
+                >
+                  {lang === "pt" ? "Acesso vitalício →" : "Get lifetime access →"}
+                </button>
+                <p className="text-center text-slate-600 text-xs mt-2">
+                  {lang === "pt" ? "30 dias de garantia" : "30-day guarantee"}
+                </p>
               </div>
 
             </div>
