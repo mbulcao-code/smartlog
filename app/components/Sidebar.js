@@ -50,13 +50,88 @@ export default function Sidebar({ user, canLog, experiments, lang, onSignOut, on
   const inner = (
     <div className="flex flex-col h-full bg-slate-950">
 
-      {/* Logo */}
-      <div className="px-5 py-5 border-b border-slate-800">
+      {/* Logo + Lang toggle */}
+      <div className="px-5 py-5 border-b border-slate-800 flex items-center justify-between">
         <button
           onClick={() => { router.push("/"); setSidebarOpen(false); }}
           className="text-lg font-semibold tracking-tight hover:opacity-80 transition-opacity"
         >
           Smart<span className="text-blue-400">Log</span>
+        </button>
+        <button
+          onClick={onToggleLang}
+          className="text-xs px-2.5 py-1 rounded-full border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
+        >
+          {pt ? "EN" : "PT"}
+        </button>
+      </div>
+
+      {/* Account info + nav links */}
+      <div className="px-4 py-4 border-b border-slate-800 space-y-3">
+        <p className="text-sm text-slate-300 truncate">{user.email}</p>
+
+        <div className="flex items-center justify-between">
+          <span className={`text-sm px-3 py-1 rounded-full font-medium border ${
+            canLog
+              ? "bg-blue-500/15 text-blue-400 border-blue-500/20"
+              : "bg-slate-800 text-slate-300 border-slate-700"
+          }`}>
+            {canLog ? "Pro" : "Free"}
+          </span>
+        </div>
+
+        <a
+          href="https://smartlogtrading.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-sm text-slate-300 hover:text-white transition-colors font-medium"
+        >
+          {pt ? "SOBRE NÓS" : "ABOUT US"} ↗
+        </a>
+
+        <a
+          href="https://smartlogtrading.com/contact"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-sm text-slate-300 hover:text-white transition-colors font-medium"
+        >
+          {pt ? "FALE CONOSCO" : "CONTACT US"} ↗
+        </a>
+      </div>
+
+      {/* Settings */}
+      <div className="px-4 py-4 border-b border-slate-800 space-y-2">
+        <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-2">
+          {pt ? "Configurações" : "Settings"}
+        </p>
+
+        {!canLog && (
+          <button
+            onClick={() => { router.push("/subscribe"); setSidebarOpen(false); }}
+            className="block text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
+          >
+            Upgrade →
+          </button>
+        )}
+
+        {canLog && (
+          <button
+            onClick={handleBilling}
+            disabled={billingLoading}
+            className="block text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
+          >
+            {billingLoading ? "..." : (pt ? "Faturamento →" : "Billing →")}
+          </button>
+        )}
+      </div>
+
+      {/* New session button */}
+      <div className="px-4 py-4 border-b border-slate-800">
+        <button
+          onClick={() => { onNewSession(); setSidebarOpen(false); }}
+          className="w-full py-2.5 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
+        >
+          {pt ? "+ Nova sessão" : "+ New session"}
         </button>
       </div>
 
@@ -116,66 +191,16 @@ export default function Sidebar({ user, canLog, experiments, lang, onSignOut, on
         )}
       </div>
 
-      {/* New session button */}
-      <div className="px-4 py-3 border-t border-slate-800">
+      {/* Sign out */}
+      <div className="px-4 py-4 border-t border-slate-800">
         <button
-          onClick={() => { onNewSession(); setSidebarOpen(false); }}
-          className="w-full py-2.5 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
+          onClick={() => { onSignOut(); setSidebarOpen(false); }}
+          className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
         >
-          {pt ? "+ Nova sessão" : "+ New session"}
+          {pt ? "Sair" : "Sign out"}
         </button>
       </div>
 
-      {/* Account */}
-      <div className="px-4 py-4 border-t border-slate-800 space-y-3">
-        <p className="text-sm text-slate-300 truncate">{user.email}</p>
-        <a href="/contact" className="block text-xs text-slate-500 hover:text-slate-300 transition-colors">
-          {pt ? "Fale conosco" : "Contact us"}
-        </a>
-
-        <div className="flex items-center justify-between">
-          <span className={`text-sm px-3 py-1 rounded-full font-medium border ${
-            canLog
-              ? "bg-blue-500/15 text-blue-400 border-blue-500/20"
-              : "bg-slate-800 text-slate-300 border-slate-700"
-          }`}>
-            {canLog ? "Pro" : "Free"}
-          </span>
-          {!canLog && (
-            <button
-              onClick={() => { router.push("/subscribe"); setSidebarOpen(false); }}
-              className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
-            >
-              Upgrade →
-            </button>
-          )}
-        </div>
-
-        {canLog && (
-          <button
-            onClick={handleBilling}
-            disabled={billingLoading}
-            className="block text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
-          >
-            {billingLoading ? "..." : (pt ? "Faturamento →" : "Billing →")}
-          </button>
-        )}
-
-        <div className="flex items-center justify-between pt-1">
-          <button
-            onClick={() => { onSignOut(); setSidebarOpen(false); }}
-            className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
-          >
-            {pt ? "Sair" : "Sign out"}
-          </button>
-          <button
-            onClick={onToggleLang}
-            className="text-sm px-2.5 py-1 rounded-full border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
-          >
-            {pt ? "EN" : "PT"}
-          </button>
-        </div>
-      </div>
     </div>
   );
 
