@@ -8,6 +8,26 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Stripe basil API removed current_period_end — derive it from billing_cycle_anchor + interval
+function resolvePeriodEnd(subscription) {
+  const raw = subscription.current_period_end;
+  if (raw && typeof raw === "number") return new Date(raw * 1000).toISOString();
+  if (raw && typeof raw === "string") return new Date(raw).toISOString();
+
+  // Fallback: billing_cycle_anchor + 1 interval
+  const anchor = subscription.billing_cycle_anchor;
+  const interval = subscription.items?.data?.[0]?.price?.recurring?.interval;
+  if (anchor && typeof anchor === "number") {
+    const d = new Date(anchor * 1000);
+    if (interval === "year") d.setFullYear(d.getFullYear() + 1);
+    else d.setMonth(d.getMonth() + 1);
+    return d.toISOString();
+  }
+
+  // Last resort: 30 days from now
+  return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+}
+
 export async function POST(request) {
   const body = await request.text();
   const sig = request.headers.get("stripe-signature");
@@ -53,17 +73,7 @@ export async function POST(request) {
           : session.subscription?.id;
         const subscription = await stripe.subscriptions.retrieve(subId);
 
-        console.log("DEBUG sub.current_period_end:", subscription.current_period_end, typeof subscription.current_period_end);
-
-        const periodEnd = subscription.current_period_end;
-        let periodEndIso;
-        if (!periodEnd) {
-          periodEndIso = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-        } else if (typeof periodEnd === "number") {
-          periodEndIso = new Date(periodEnd * 1000).toISOString();
-        } else {
-          periodEndIso = new Date(periodEnd).toISOString();
-        }
+        const periodEndIso = resolvePeriodEnd(subscription);
 
         await supabase.from("subscriptions").upsert(
           {
@@ -83,15 +93,7 @@ export async function POST(request) {
 
       case "customer.subscription.updated": {
         const subscription = event.data.object;
-        const updatedPeriodEnd = subscription.current_period_end;
-        let updatedPeriodEndIso;
-        if (!updatedPeriodEnd) {
-          updatedPeriodEndIso = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-        } else if (typeof updatedPeriodEnd === "number") {
-          updatedPeriodEndIso = new Date(updatedPeriodEnd * 1000).toISOString();
-        } else {
-          updatedPeriodEndIso = new Date(updatedPeriodEnd).toISOString();
-        }
+        const updatedPeriodEndIso = resolvePeriodEnd(subscription);
 
         await supabase
           .from("subscriptions")
