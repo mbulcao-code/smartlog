@@ -84,9 +84,14 @@ export async function POST(request) {
       case "customer.subscription.updated": {
         const subscription = event.data.object;
         const updatedPeriodEnd = subscription.current_period_end;
-        const updatedPeriodEndIso = typeof updatedPeriodEnd === "number"
-          ? new Date(updatedPeriodEnd * 1000).toISOString()
-          : new Date(updatedPeriodEnd).toISOString();
+        let updatedPeriodEndIso;
+        if (!updatedPeriodEnd) {
+          updatedPeriodEndIso = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+        } else if (typeof updatedPeriodEnd === "number") {
+          updatedPeriodEndIso = new Date(updatedPeriodEnd * 1000).toISOString();
+        } else {
+          updatedPeriodEndIso = new Date(updatedPeriodEnd).toISOString();
+        }
 
         await supabase
           .from("subscriptions")

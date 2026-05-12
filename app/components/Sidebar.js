@@ -4,12 +4,11 @@ import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { t } from "@/lib/i18n";
 
-export default function Sidebar({ user, canLog, experiments, lang, onSignOut, onNewSession, onToggleLang }) {
+export default function Sidebar({ user, canLog, periodEnd, experiments, lang, onSignOut, onNewSession, onToggleLang }) {
   const router = useRouter();
   const [openPains, setOpenPains] = useState(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const pt = lang === "pt";
   const painOrder = t(lang, "pains").map((p) => p.id);
@@ -99,57 +98,54 @@ export default function Sidebar({ user, canLog, experiments, lang, onSignOut, on
         </a>
       </div>
 
-      {/* Settings — collapsible tree */}
+      {/* Settings — always visible */}
       <div className="border-b border-slate-800">
-        <button
-          onClick={() => setSettingsOpen((v) => !v)}
-          className="w-full flex items-center justify-between px-4 py-4 text-xs text-slate-400 uppercase tracking-widest font-semibold hover:text-slate-200 transition-colors"
-        >
-          <span>{pt ? "Configurações" : "Settings"}</span>
-          <span className="text-[10px]">{settingsOpen ? "▼" : "▶"}</span>
-        </button>
-
-        {settingsOpen && (
-          <div className="px-4 pb-4 space-y-3">
-            {/* Current plan */}
-            <div className="ml-3 space-y-2">
-              <p className="text-xs text-slate-500">{pt ? "Plano atual" : "Current plan"}</p>
-              <span className={`inline-block text-sm px-3 py-1 rounded-full font-medium border ${
-                canLog
-                  ? "bg-blue-500/15 text-blue-400 border-blue-500/20"
-                  : "bg-slate-800 text-slate-300 border-slate-700"
-              }`}>
-                {canLog ? "Pro" : "Free"}
-              </span>
-              {!canLog && (
-                <div className="space-y-1 pt-1">
-                  <button
-                    onClick={() => { router.push("/subscribe"); setSidebarOpen(false); }}
-                    className="block text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
-                  >
-                    Upgrade →
-                  </button>
-                </div>
-              )}
-              {canLog && (
-                <div className="space-y-1 pt-1">
-                  <button
-                    onClick={() => { router.push("/subscribe"); setSidebarOpen(false); }}
-                    className="block text-sm text-slate-400 hover:text-slate-200 transition-colors"
-                  >
-                    {pt ? "Mudar plano →" : "Change plan →"}
-                  </button>
-                  <button
-                    onClick={handleBilling}
-                    disabled={billingLoading}
-                    className="block text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
-                  >
-                    {billingLoading ? "..." : (pt ? "Cancelar assinatura →" : "Cancel subscription →")}
-                  </button>
-                </div>
-              )}
+        <p className="px-4 pt-4 pb-2 text-xs text-slate-400 uppercase tracking-widest font-semibold">
+          {pt ? "Configurações" : "Settings"}
+        </p>
+        <div className="px-4 pb-4 space-y-2">
+          <p className="text-xs text-slate-500">{pt ? "Plano atual" : "Current plan"}</p>
+          <span className={`inline-block text-sm px-3 py-1 rounded-full font-medium border ${
+            canLog
+              ? "bg-blue-500/15 text-blue-400 border-blue-500/20"
+              : "bg-slate-800 text-slate-300 border-slate-700"
+          }`}>
+            {canLog ? "Pro" : "Free"}
+          </span>
+          {canLog && periodEnd && (
+            <p className="text-xs text-slate-600">
+              {pt ? "Válido até" : "Valid until"}{" "}
+              {new Date(periodEnd).toLocaleDateString(pt ? "pt-BR" : "en-US", { day: "numeric", month: "short", year: "numeric" })}
+            </p>
+          )}
+          {!canLog && (
+            <div className="pt-1">
+              <button
+                onClick={() => { router.push("/subscribe"); setSidebarOpen(false); }}
+                className="block text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
+              >
+                Upgrade →
+              </button>
             </div>
-          </div>
+          )}
+          {canLog && (
+            <div className="space-y-1 pt-1">
+              <button
+                onClick={() => { router.push("/subscribe"); setSidebarOpen(false); }}
+                className="block text-sm text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                {pt ? "Mudar plano →" : "Change plan →"}
+              </button>
+              <button
+                onClick={handleBilling}
+                disabled={billingLoading}
+                className="block text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
+              >
+                {billingLoading ? "..." : (pt ? "Cancelar assinatura →" : "Cancel subscription →")}
+              </button>
+            </div>
+          )}
+        </div>
         )}
       </div>
 

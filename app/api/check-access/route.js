@@ -35,12 +35,12 @@ export async function GET(request) {
     // Check active subscription
     const { data: sub } = await supabase
       .from("subscriptions")
-      .select("status, current_period_end")
+      .select("status, current_period_end, plan")
       .eq("user_id", user.id)
       .eq("status", "active")
       .single();
 
-    if (sub) return Response.json({ hasAccess: true, reason: "subscribed" });
+    if (sub) return Response.json({ hasAccess: true, reason: "subscribed", periodEnd: sub.current_period_end, plan: sub.plan });
 
     return Response.json({ hasAccess: false });
   } catch (err) {

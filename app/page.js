@@ -12,6 +12,7 @@ export default function Home() {
   const [authLoading, setAuthLoading] = useState(true);
   const [experiments, setExperiments] = useState([]);
   const [canLog, setCanLog] = useState(false);
+  const [periodEnd, setPeriodEnd] = useState(null);
   const cardsRef = useRef(null);
   const router = useRouter();
 
@@ -33,6 +34,7 @@ export default function Home() {
       const accessData = await accessRes.json();
       const dashData = await dashRes.json();
       setCanLog(!!accessData.hasAccess);
+      setPeriodEnd(accessData.periodEnd || null);
       setExperiments(dashData.experiments || []);
       setAuthLoading(false);
     }
@@ -148,6 +150,7 @@ export default function Home() {
         <Sidebar
           user={user}
           canLog={canLog}
+          periodEnd={periodEnd}
           experiments={experiments}
           lang={lang}
           onSignOut={handleSignOut}
