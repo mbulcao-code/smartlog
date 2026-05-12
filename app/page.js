@@ -422,10 +422,10 @@ export default function Home() {
                   </li>
                 </ul>
                 <button
-                  onClick={scrollToCards}
+                  onClick={() => user ? scrollToCards() : router.push("/auth")}
                   className="w-full py-2.5 rounded-full border border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white text-sm font-medium transition-colors"
                 >
-                  {t(lang, "planFreeCta")}
+                  {user ? (lang === "pt" ? "Começar →" : "Get started →") : t(lang, "planFreeCta")}
                 </button>
               </div>
 
