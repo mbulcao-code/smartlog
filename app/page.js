@@ -189,6 +189,16 @@ export default function Home() {
               <p className="text-slate-400 text-sm">
                 {t(lang, "homeSubtitle")}
               </p>
+              <div className="flex items-center justify-center gap-2 mt-3">
+                <span className="text-slate-500 text-xs">{user.email}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
+                  canLog
+                    ? "bg-blue-500/15 text-blue-400 border-blue-500/20"
+                    : "bg-slate-800 text-slate-400 border-slate-700"
+                }`}>
+                  {canLog ? "Pro" : "Free"}
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
