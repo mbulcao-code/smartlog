@@ -9,6 +9,7 @@ export default function Sidebar({ user, canLog, experiments, lang, onSignOut, on
   const [openPains, setOpenPains] = useState(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const pt = lang === "pt";
   const painOrder = t(lang, "pains").map((p) => p.id);
@@ -70,16 +71,6 @@ export default function Sidebar({ user, canLog, experiments, lang, onSignOut, on
       <div className="px-4 py-4 border-b border-slate-800 space-y-3">
         <p className="text-sm text-slate-300 truncate">{user.email}</p>
 
-        <div className="flex items-center justify-between">
-          <span className={`text-sm px-3 py-1 rounded-full font-medium border ${
-            canLog
-              ? "bg-blue-500/15 text-blue-400 border-blue-500/20"
-              : "bg-slate-800 text-slate-300 border-slate-700"
-          }`}>
-            {canLog ? "Pro" : "Free"}
-          </span>
-        </div>
-
         <a
           href="https://smartlogtrading.com"
           target="_blank"
@@ -99,29 +90,53 @@ export default function Sidebar({ user, canLog, experiments, lang, onSignOut, on
         </a>
       </div>
 
-      {/* Settings */}
-      <div className="px-4 py-4 border-b border-slate-800 space-y-2">
-        <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-2">
-          {pt ? "Configurações" : "Settings"}
-        </p>
+      {/* Settings — collapsible tree */}
+      <div className="border-b border-slate-800">
+        <button
+          onClick={() => setSettingsOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-4 text-xs text-slate-400 uppercase tracking-widest font-semibold hover:text-slate-200 transition-colors"
+        >
+          <span>{pt ? "Configurações" : "Settings"}</span>
+          <span className="text-[10px]">{settingsOpen ? "▼" : "▶"}</span>
+        </button>
 
-        {!canLog && (
-          <button
-            onClick={() => { router.push("/subscribe"); setSidebarOpen(false); }}
-            className="block text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
-          >
-            Upgrade →
-          </button>
-        )}
+        {settingsOpen && (
+          <div className="px-4 pb-4 space-y-3">
+            {/* Current plan */}
+            <div className="ml-3 space-y-2">
+              <p className="text-xs text-slate-500">{pt ? "Plano atual" : "Current plan"}</p>
+              <span className={`inline-block text-sm px-3 py-1 rounded-full font-medium border ${
+                canLog
+                  ? "bg-blue-500/15 text-blue-400 border-blue-500/20"
+                  : "bg-slate-800 text-slate-300 border-slate-700"
+              }`}>
+                {canLog ? "Pro" : "Free"}
+              </span>
+              {!canLog && (
+                <div>
+                  <button
+                    onClick={() => { router.push("/subscribe"); setSidebarOpen(false); }}
+                    className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                  >
+                    Upgrade →
+                  </button>
+                </div>
+              )}
+            </div>
 
-        {canLog && (
-          <button
-            onClick={handleBilling}
-            disabled={billingLoading}
-            className="block text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
-          >
-            {billingLoading ? "..." : (pt ? "Faturamento →" : "Billing →")}
-          </button>
+            {/* Billing */}
+            {canLog && (
+              <div className="ml-3">
+                <button
+                  onClick={handleBilling}
+                  disabled={billingLoading}
+                  className="text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
+                >
+                  {billingLoading ? "..." : (pt ? "Faturamento →" : "Billing →")}
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
