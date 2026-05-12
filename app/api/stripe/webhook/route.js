@@ -52,6 +52,11 @@ export async function POST(request) {
           session.subscription
         );
 
+        const periodEnd = subscription.current_period_end;
+        const periodEndIso = typeof periodEnd === "number"
+          ? new Date(periodEnd * 1000).toISOString()
+          : new Date(periodEnd).toISOString();
+
         await supabase.from("subscriptions").upsert(
           {
             user_id: userId,
@@ -61,9 +66,7 @@ export async function POST(request) {
             plan: subscription.items.data[0]?.price?.recurring?.interval === "year"
               ? "yearly"
               : "monthly",
-            current_period_end: new Date(
-              subscription.current_period_end * 1000
-            ).toISOString(),
+            current_period_end: periodEndIso,
           },
           { onConflict: "stripe_subscription_id" }
         );
@@ -72,13 +75,16 @@ export async function POST(request) {
 
       case "customer.subscription.updated": {
         const subscription = event.data.object;
+        const updatedPeriodEnd = subscription.current_period_end;
+        const updatedPeriodEndIso = typeof updatedPeriodEnd === "number"
+          ? new Date(updatedPeriodEnd * 1000).toISOString()
+          : new Date(updatedPeriodEnd).toISOString();
+
         await supabase
           .from("subscriptions")
           .update({
             status: subscription.status,
-            current_period_end: new Date(
-              subscription.current_period_end * 1000
-            ).toISOString(),
+            current_period_end: updatedPeriodEndIso,
           })
           .eq("stripe_subscription_id", subscription.id);
         break;
