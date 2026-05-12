@@ -146,7 +146,6 @@ export default function Sidebar({ user, canLog, periodEnd, experiments, lang, on
             </div>
           )}
         </div>
-        )}
       </div>
 
       {/* New session button */}
