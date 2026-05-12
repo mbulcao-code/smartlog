@@ -48,14 +48,22 @@ export async function POST(request) {
 
         if (session.mode !== "subscription") break;
 
-        const subscription = await stripe.subscriptions.retrieve(
-          session.subscription
-        );
+        const subId = typeof session.subscription === "string"
+          ? session.subscription
+          : session.subscription?.id;
+        const subscription = await stripe.subscriptions.retrieve(subId);
+
+        console.log("DEBUG sub.current_period_end:", subscription.current_period_end, typeof subscription.current_period_end);
 
         const periodEnd = subscription.current_period_end;
-        const periodEndIso = typeof periodEnd === "number"
-          ? new Date(periodEnd * 1000).toISOString()
-          : new Date(periodEnd).toISOString();
+        let periodEndIso;
+        if (!periodEnd) {
+          periodEndIso = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+        } else if (typeof periodEnd === "number") {
+          periodEndIso = new Date(periodEnd * 1000).toISOString();
+        } else {
+          periodEndIso = new Date(periodEnd).toISOString();
+        }
 
         await supabase.from("subscriptions").upsert(
           {
