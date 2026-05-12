@@ -200,16 +200,29 @@ function SubscribeInner() {
                   ? (pt ? "Redirecionando..." : "Redirecting...")
                   : (pt ? "Obter acesso vitalício" : "Get lifetime access")}
               </button>
-              <p className="text-center text-slate-600 text-xs mt-3">
-                {pt ? "30 dias de garantia" : "30-day money-back guarantee"}
-              </p>
             </div>
           </div>
 
           <p className="text-center text-slate-600 text-xs mt-8 max-w-2xl mx-auto">
             {pt
-              ? "Disclaimer: Em caso de problemas permanentes no acesso, lifetime users recebem reembolso proporcional ao tempo de utilização (referência: plano anual)."
-              : "Disclaimer: In case of permanent access issues, lifetime users receive a prorated refund based on time of use (reference: annual plan)."}
+              ? "Disclaimer: Em caso de descontinuidade permanente do serviço, lifetime users recebem reembolso proporcional ao tempo de utilização (referência: plano anual)."
+              : "Disclaimer: In case of permanent service discontinuation, lifetime users receive a prorated refund based on time of use (reference: annual plan)."}
+          </p>
+
+          <p className="text-center text-slate-600 text-xs mt-3">
+            {pt ? (
+              <>Ao assinar, você concorda com nossos{" "}
+                <a href="/terms" className="underline hover:text-slate-400 transition-colors">Termos de Serviço</a>
+                {" "}e{" "}
+                <a href="/privacy" className="underline hover:text-slate-400 transition-colors">Política de Privacidade</a>.
+              </>
+            ) : (
+              <>By subscribing you agree to our{" "}
+                <a href="/terms" className="underline hover:text-slate-400 transition-colors">Terms of Service</a>
+                {" "}and{" "}
+                <a href="/privacy" className="underline hover:text-slate-400 transition-colors">Privacy Policy</a>.
+              </>
+            )}
           </p>
 
           {userEmail && (
