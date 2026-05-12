@@ -113,29 +113,33 @@ export default function Sidebar({ user, canLog, experiments, lang, onSignOut, on
                 {canLog ? "Pro" : "Free"}
               </span>
               {!canLog && (
-                <div>
+                <div className="space-y-1 pt-1">
                   <button
                     onClick={() => { router.push("/subscribe"); setSidebarOpen(false); }}
-                    className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                    className="block text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
                   >
                     Upgrade →
                   </button>
                 </div>
               )}
+              {canLog && (
+                <div className="space-y-1 pt-1">
+                  <button
+                    onClick={() => { router.push("/subscribe"); setSidebarOpen(false); }}
+                    className="block text-sm text-slate-400 hover:text-slate-200 transition-colors"
+                  >
+                    {pt ? "Mudar plano →" : "Change plan →"}
+                  </button>
+                  <button
+                    onClick={handleBilling}
+                    disabled={billingLoading}
+                    className="block text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
+                  >
+                    {billingLoading ? "..." : (pt ? "Cancelar assinatura →" : "Cancel subscription →")}
+                  </button>
+                </div>
+              )}
             </div>
-
-            {/* Billing */}
-            {canLog && (
-              <div className="ml-3">
-                <button
-                  onClick={handleBilling}
-                  disabled={billingLoading}
-                  className="text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
-                >
-                  {billingLoading ? "..." : (pt ? "Faturamento →" : "Billing →")}
-                </button>
-              </div>
-            )}
           </div>
         )}
       </div>

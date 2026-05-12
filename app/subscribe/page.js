@@ -217,6 +217,28 @@ function SubscribeInner() {
               {pt ? `Logado como ${userEmail}` : `Signed in as ${userEmail}`}
             </p>
           )}
+
+          {/* ── BETA TEST ONLY — remove before public launch ── */}
+          <div className="mt-12 pt-8 border-t border-slate-800/50">
+            <p className="text-center text-slate-700 text-xs mb-4 uppercase tracking-widest">Beta test</p>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => handleSubscribe("test_monthly")}
+                disabled={!!loading}
+                className="px-4 py-2 rounded-lg border border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-500 text-xs transition-colors disabled:opacity-40"
+              >
+                {loading === "test_monthly" ? "..." : "Test R$1/mo"}
+              </button>
+              <button
+                onClick={() => handleSubscribe("test_yearly")}
+                disabled={!!loading}
+                className="px-4 py-2 rounded-lg border border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-500 text-xs transition-colors disabled:opacity-40"
+              >
+                {loading === "test_yearly" ? "..." : "Test R$2/yr"}
+              </button>
+            </div>
+          </div>
+          {/* ── END BETA TEST ── */}
         </div>
       </main>
     </div>

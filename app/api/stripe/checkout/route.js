@@ -7,6 +7,8 @@ const PRICES = {
   monthly: "price_1TUQvkRM3M9yYyOAAlh8H3wm",
   yearly: "price_1TUQxaRM3M9yYyOAiVjBzDSh",
   lifetime: "price_1TUk8dRM3M9yYyOAaNENfSJc",
+  test_monthly: "price_1TWDm8RM3M9yYyOAImmmQY2T",
+  test_yearly: "price_1TWDnjRM3M9yYyOAouPQnzXU",
 };
 
 export async function POST(request) {
