@@ -105,6 +105,7 @@ export default function LogPage() {
   const hitsA = statsA.filter((l) => l.outcome).length;
   const hitsB = statsB.filter((l) => l.outcome).length;
   const reportUnlocked = logs.length >= REPORT_THRESHOLD;
+  const isFomo = experiment?.pain_type === "fomo";
 
   async function generateReport() {
     setReportLoading(true);
@@ -241,7 +242,7 @@ export default function LogPage() {
             <div className="p-4 rounded-2xl border border-blue-500/20 bg-blue-950/20">
               <p className="text-xs text-blue-400 mb-1">A — {setup_data.variant_a_name}</p>
               <p className="text-2xl font-bold text-white">{hitsA}/{statsA.length}</p>
-              <p className="text-xs text-slate-500 mt-1">{t(lang, "targetsHit")}</p>
+              <p className="text-xs text-slate-500 mt-1">{isFomo ? t(lang, "levelsHit") : t(lang, "targetsHit")}</p>
               {statsA.length > 0 && (
                 <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                   <div
@@ -371,7 +372,11 @@ export default function LogPage() {
               </div>
               {selectedVariant && (
                 <>
-                  <p className="text-sm text-slate-400 mb-3">{t(lang, "hitTarget")}</p>
+                  <p className="text-sm text-slate-400 mb-3">
+                    {isFomo && selectedVariant === "a"
+                      ? t(lang, "levelAlsoHit")
+                      : t(lang, "hitTarget")}
+                  </p>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => logTrade(selectedVariant, true)}
@@ -434,7 +439,9 @@ export default function LogPage() {
                   </span>
                   <div className="flex items-center gap-3">
                     <span className={`text-sm font-medium ${log.outcome ? "text-green-400" : "text-slate-500"}`}>
-                      {log.outcome ? t(lang, "hit") : t(lang, "miss")}
+                      {isFomo && log.variant === "a"
+                        ? (log.outcome ? t(lang, "levelHit") : t(lang, "levelNotHit"))
+                        : (log.outcome ? t(lang, "hit") : t(lang, "miss"))}
                     </span>
                     <span className="text-slate-600 text-xs">
                       {new Date(log.logged_at).toLocaleDateString(

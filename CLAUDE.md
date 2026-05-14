@@ -126,6 +126,50 @@
 
 ---
 
+## Completed (May 12–13, 2026)
+
+### Dashboard UI improvements ✅
+- Free/Pro badge shown next to email on main screen (`app/page.js`)
+- `periodEnd` state added; passed to Sidebar
+- Free plan CTA changed: logged-out → "Create free account →" → redirects to `/auth`; logged-in free user → "Get started →"
+- `lib/i18n.js`: `planFreeCta` updated in EN + PT
+
+### Leads capture ✅
+- Supabase `leads` table created
+- Trigger on `auth.users` auto-populates `leads` on every new signup
+- Backfill SQL provided to seed existing users
+
+### Subscribe page cleanup ✅
+- Removed "30-day guarantee" from Lifetime card
+- Added ToS + Privacy Policy link line below plans
+- Updated disclaimer text (permanent service discontinuation)
+- Removed R$1/R$2 beta test buttons (`app/subscribe/page.js`)
+
+### Stripe webhook fix ✅ (critical)
+- Stripe SDK v22 / basil API: `current_period_end` returns `undefined`
+- Added `resolvePeriodEnd()` helper: tries raw value → `billing_cycle_anchor + interval` → 30-day fallback
+- Fixed `session.subscription` handled as string or object
+- Both `checkout.session.completed` and `customer.subscription.updated` use `resolvePeriodEnd()`
+- `check-access` API now returns `periodEnd` and `plan`
+
+### Sidebar improvements ✅
+- Settings section always visible (no longer collapsible)
+- "Valid until [date]" shown below Pro badge for active subscribers
+- Free users see "Upgrade →" link; Pro users see "Change plan →" and "Cancel subscription →"
+- Cancel subscription triggers Stripe Customer Portal via `/api/stripe/portal`
+- All fonts brightened (slate-600/500/400 → slate-300/200)
+- Free/Pro badge added next to email in account section
+
+### FOMO experiment redesign ✅
+- Logging question for Variant A changed from "Did it hit target?" → "Did your level also get hit?"
+- Rationale: level also hit = early entry always suboptimal (worse R:R on wins, bigger loss on stops); level NOT hit = early entry was the only way to catch the move
+- `lib/i18n.js`: added `levelsHit`, `levelAlsoHit`, `levelHit`, `levelNotHit` keys (EN + PT)
+- `app/log/[sessionId]/page.js`: all four FOMO-specific labels and question applied conditionally via `isFomo && variant === "a"`
+- `lib/trees/fomo.js`: `build` message fully rewritten to explain all four outcome cases, including the non-obvious stop-loss case
+- `app/api/report/route.js`: separate FOMO prompt (EN + PT) with full conceptual context passed to Claude Haiku
+
+---
+
 ## Pending
 
 ### Resend SPF (contact form full fix)
@@ -134,8 +178,8 @@
 - When green: change `app/api/contact/route.js` back to `from: "SmartLog <noreply@smartlogtrading.com>"` + `to: "marcos@smartlogtrading.com"`
 
 ### Report fine-tuning
-- First batch of real reports to be tested tomorrow
-- Potential adjustments to prompt tone/wording after testing
+- FOMO-specific report prompts live — test with real trades
+- Potential adjustments to tone/wording after first real reports
 
 ### Pre-launch
 - Send to 2 close friends for testing
