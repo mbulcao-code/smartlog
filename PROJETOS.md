@@ -79,7 +79,8 @@ Diário comportamental de trading. Usuário escolhe um padrão (FOMO, hesitaçã
 - i18n PT/EN completo ✅
 
 **Pendente:**
-- Resend SPF TXT ainda pendente → quando verde, atualizar `app/api/contact/route.js`: `from: "SmartLog <noreply@smartlogtrading.com>"`, `to: "marcos@smartlogtrading.com"`
+- Git push das mudanças FOMO: `rm -f .git/HEAD.lock .git/index.lock` → `git add -A && git commit -m "FOMO experiment" && git push`
+- Atualizar `app/api/contact/route.js`: `from: "SmartLog <noreply@smartlogtrading.com>"`, `to: "marcos@smartlogtrading.com"` (SPF agora confirmado ✅)
 - Enviar para 2 amigos para teste beta
 - Fine-tuning dos relatórios FOMO após primeiros trades reais
 
@@ -87,6 +88,8 @@ Diário comportamental de trading. Usuário escolhe um padrão (FOMO, hesitaçã
 - Stripe SDK v22 (basil API): `current_period_end` retorna `undefined` → usar `resolvePeriodEnd()` no webhook
 - Pushes ao GitHub devem ser feitos do terminal local (sandbox não autentica)
 - Se git travar: `rm -f .git/HEAD.lock .git/index.lock`
+- DNS gerenciado pelo Namecheap BasicDNS — NÃO mudar para cPanel mode (apaga os registros)
+- Todos os registros DNS estão no Namecheap Advanced DNS (não no Netlify)
 
 ---
 
@@ -170,6 +173,41 @@ Diário comportamental de trading. Usuário escolhe um padrão (FOMO, hesitaçã
 **Status:** Adiado ⏸
 **Plano:** Hospedar no mesmo Netlify do SmartLog (sem custo extra)
 **Próximo passo:** Confirmar se ainda está no radar e quando retomar.
+
+---
+
+### 8. Webapp Psiu — Projeto em Exploração
+
+**Status:** Em negociação inicial ⏳
+**Contexto:** Projeto Psiu (UFBA) — Marcelo Veras (diretor clínico) foi abordado por Belintani (capitalista) para criar plataforma nacional de saúde mental digital com IA. Marcos foi semi-convidado por Veras como alguém com perfil híbrido (psi + negócios + tecnologia).
+
+**Personagens:**
+- **Veras** — diretor do PSIU/UFBA, credencial clínica, contato direto de Marcos
+- **Belintani** — capitalista do mega projeto, abordou Veras
+- **Filha de Veras** — fez observações práticas (WhatsApp como canal, restrições ao app)
+
+**Campo identificado (nosso diferencial):**
+- O business plan oscila entre dois enquadramentos: substituição humana (rejeitada pelo CFP) e triagem protocolar (o que a maioria dos sistemas faz)
+- Existe uma posição intermediária não explorada: **AI como zona de contato** — espaço de exploração guiada antes da demanda clínica estar formada
+- Distinção clínica chave: **procura vs demanda** — a triagem pressupõe demanda formada; a maioria das pessoas que sofre ainda está na procura
+
+**Objeções antecipadas:**
+- CFP: compatível — AI apoia, não decide; clínico é arquiteto do sistema, não supervisor formal
+- Jurídico: produto como "ferramenta de suporte", não serviço de saúde; protocolo de crise documentado; escopo declarado no onboarding
+- Resistência de Veras: se houver, campo alternativo = burnout corporativo (B2B, sem enquadramento clínico, sem CFP)
+
+**Insights táticos:**
+- Quarto motivo de não buscar ajuda: sigilo + possibilidade de explorar sem se comprometer
+- Burnout corporativo: atendimento humano é parte da barreira (funcionário não quer que empresa saiba)
+- App vs webapp: webapp = sem download, sem rastro no app store, só um link — vantagem enorme em contextos de sigilo
+- SmartLog como proof of concept: webapp com lógica de escuta guiada aplicada à psicologia do mercado
+
+**Próximos passos:**
+- [ ] Aguardar resposta de Veras ao email enviado em 14/05
+- [ ] Se positivo: brainstorming mais detido, definir papel de Marcos e modelo de compensação
+- [ ] Documento de proposta formal: preparar após confirmar interesse de Veras
+
+**Arquivo:** `psiu-proposta-veras.docx` (rascunho conceitual — não enviado, guardado para referência)
 
 ---
 

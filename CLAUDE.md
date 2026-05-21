@@ -170,12 +170,33 @@
 
 ---
 
+## Completed (May 14, 2026)
+
+### DNS fix ✅
+- Namecheap DNS type had silently switched to cPanel mode — all records were hidden/inactive, both sites went down
+- Fixed: changed back to Namecheap BasicDNS
+- All records confirmed present and correct:
+  - A @ → 75.2.60.5 (Netlify, marketing site)
+  - CNAME www → serene-seahorse-ccb5a2.netlify.app
+  - CNAME app → vercel-dns (webapp)
+  - TXT resend._domainkey → DKIM ✅
+  - TXT send → v=spf1 include:amazonses.com ~all (Resend SPF ✅ confirmed present)
+  - TXT @ → Google site verification
+  - TXT _dmarc → v=DMARC1; p=none;
+- DNS propagation in progress at time of writing
+
+---
+
 ## Pending
 
-### Resend SPF (contact form full fix)
-- DKIM ✅ Verified
-- SPF TXT (`send`) → still Pending
-- When green: change `app/api/contact/route.js` back to `from: "SmartLog <noreply@smartlogtrading.com>"` + `to: "marcos@smartlogtrading.com"`
+### Git push (FOMO changes)
+- HEAD.lock error blocked push — run `rm -f .git/HEAD.lock .git/index.lock` then:
+- `git add -A && git commit -m "FOMO experiment: level-hit framing, report prompts, remove beta test buttons" && git push`
+
+### Contact form fix (now unblocked)
+- Resend SPF confirmed present → update `app/api/contact/route.js`:
+  - `from: "SmartLog <noreply@smartlogtrading.com>"`
+  - `to: "marcos@smartlogtrading.com"`
 
 ### Report fine-tuning
 - FOMO-specific report prompts live — test with real trades
