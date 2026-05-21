@@ -195,10 +195,23 @@ export default function Sidebar({ user, canLog, periodEnd, experiments, lang, on
                     <button
                       key={exp.session_id}
                       onClick={() => { router.push(`/log/${exp.session_id}`); setSidebarOpen(false); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors text-left"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-slate-800 hover:text-white transition-colors text-left"
                     >
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-600 flex-shrink-0" />
-                      <span className="truncate">{exp.setup_data?.setup_name || "—"}</span>
+                      {exp.completed ? (
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-600 flex-shrink-0" />
+                      ) : (
+                        <span className="w-1.5 h-1.5 rounded-full border border-slate-600 flex-shrink-0" />
+                      )}
+                      {exp.completed ? (
+                        <span className="truncate text-slate-300">{exp.setup_data?.setup_name || "—"}</span>
+                      ) : (
+                        <>
+                          <span className="truncate text-slate-500 italic">{pt ? "Incompleta" : "Incomplete"}</span>
+                          <span className="text-xs text-slate-600 flex-shrink-0">
+                            {new Date(exp.updated_at).toLocaleDateString(pt ? "pt-BR" : "en-US", { month: "short", day: "numeric" })}
+                          </span>
+                        </>
+                      )}
                     </button>
                   ))}
                 </div>

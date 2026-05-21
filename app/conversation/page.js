@@ -177,6 +177,25 @@ function ConversationInner() {
     }
   }
 
+  function downloadChat() {
+    if (!messages.length) return;
+    const date = new Date().toLocaleDateString(lang === "pt" ? "pt-BR" : "en-US");
+    let text = `SmartLog — ${painLabel}\n${date}\n${"─".repeat(40)}\n\n`;
+    messages.forEach((msg) => {
+      if (msg.role === "system") return;
+      const sender = msg.role === "assistant" ? "SmartLog" : (lang === "pt" ? "Você" : "You");
+      text += `${sender}:\n${msg.content}\n\n`;
+    });
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const slug = pain.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    a.download = `smartlog-${slug}-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const isResponding = loading || !!streamingContent;
 
   // Auth loading state
@@ -204,12 +223,22 @@ function ConversationInner() {
             <span className="text-slate-600 text-sm">·</span>
             <span className="text-slate-400 text-sm">{painLabel}</span>
           </div>
-          <button
-            onClick={() => router.push("/")}
-            className="text-slate-500 hover:text-slate-300 text-sm transition-colors"
-          >
-            {t(lang, "backButton")}
-          </button>
+          <div className="flex items-center gap-3">
+            {messages.length > 1 && (
+              <button
+                onClick={downloadChat}
+                className="text-xs px-3 py-1.5 rounded-full border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
+              >
+                {lang === "pt" ? "↓ .txt" : "↓ .txt"}
+              </button>
+            )}
+            <button
+              onClick={() => router.push("/")}
+              className="text-slate-500 hover:text-slate-300 text-sm transition-colors"
+            >
+              {t(lang, "backButton")}
+            </button>
+          </div>
         </div>
       </header>
 

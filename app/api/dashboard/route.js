@@ -14,12 +14,11 @@ export async function GET(request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Get completed experiments for this user (setup_data not null = conversation finished)
+    // Get all conversations for this user (complete + incomplete)
     const { data: convs, error: convError } = await supabase
       .from("conversations")
       .select("session_id, pain_type, setup_data, updated_at, trader_name")
       .eq("user_id", user.id)
-      .not("setup_data", "is", null)
       .order("updated_at", { ascending: false });
 
     if (convError) throw convError;
@@ -46,6 +45,7 @@ export async function GET(request) {
       updated_at: c.updated_at,
       trader_name: c.trader_name,
       tradeCount: tradeCountBySession[c.session_id] || 0,
+      completed: !!c.setup_data,
     }));
 
     return Response.json({ experiments });

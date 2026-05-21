@@ -137,13 +137,94 @@ export default function LogPage() {
     );
   }
 
-  if (error || !experiment?.setup_data) {
+  function downloadChat(messages, painLabel) {
+    if (!messages?.length) return;
+    const date = new Date().toLocaleDateString(lang === "pt" ? "pt-BR" : "en-US");
+    let text = `SmartLog — ${painLabel}\n${date}\n${"─".repeat(40)}\n\n`;
+    messages.forEach((msg) => {
+      if (msg.role === "system") return;
+      const sender = msg.role === "assistant" ? "SmartLog" : (lang === "pt" ? "Você" : "You");
+      text += `${sender}:\n${msg.content}\n\n`;
+    });
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const slug = painLabel.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    a.download = `smartlog-${slug}-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  if (error) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-400 mb-2">{t(lang, "experimentNotFound")}</p>
           <p className="text-slate-500 text-sm">{t(lang, "checkLink")}</p>
         </div>
+      </div>
+    );
+  }
+
+  // Incomplete conversation — show read-only chat history
+  if (!experiment?.setup_data) {
+    const painLabel = t(lang, "painLabels")[experiment?.pain_type] || experiment?.pain_type || "—";
+    const messages = experiment?.messages || [];
+    return (
+      <div className="min-h-screen bg-slate-950 text-white">
+        <header className="px-8 py-5 border-b border-slate-800">
+          <div className="max-w-2xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button onClick={() => router.push("/")} className="text-xl font-semibold tracking-tight hover:opacity-80 transition-opacity">
+                Smart<span className="text-blue-400">Log</span>
+              </button>
+              <span className="text-slate-600 text-sm">·</span>
+              <span className="text-slate-400 text-sm">{painLabel}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              {messages.length > 1 && (
+                <button
+                  onClick={() => downloadChat(messages, painLabel)}
+                  className="text-xs px-3 py-1.5 rounded-full border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
+                >
+                  {lang === "pt" ? "Baixar .txt" : "Download .txt"}
+                </button>
+              )}
+              <button onClick={toggleLang} className="text-xs px-2.5 py-1 rounded-full border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-colors">
+                {lang === "pt" ? "EN" : "PT"}
+              </button>
+            </div>
+          </div>
+        </header>
+        <main className="max-w-2xl mx-auto px-6 py-8">
+          <div className="mb-6 p-4 rounded-xl border border-slate-700 bg-slate-900 text-sm text-slate-400">
+            {lang === "pt"
+              ? "Esta conversa não foi concluída — nenhum experimento foi definido."
+              : "This conversation was not completed — no experiment was defined."}
+          </div>
+          <div className="flex flex-col gap-3 mb-8">
+            {messages.map((msg, i) =>
+              msg.role !== "system" && (
+                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                    msg.role === "user"
+                      ? "bg-blue-500/20 text-blue-100 rounded-br-sm"
+                      : "bg-slate-800 text-slate-300 rounded-bl-sm"
+                  }`}>
+                    {msg.content}
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+          <button
+            onClick={() => router.push("/")}
+            className="w-full py-3 rounded-full border border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white text-sm font-medium transition-colors"
+          >
+            {lang === "pt" ? "Iniciar nova sessão →" : "Start a new session →"}
+          </button>
+        </main>
       </div>
     );
   }
@@ -202,15 +283,24 @@ export default function LogPage() {
         {/* Conversation history */}
         {experiment.messages?.length > 0 && (
           <div className="mb-8">
-            <button
-              onClick={() => setShowConversation(!showConversation)}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-700 bg-slate-900 hover:border-slate-500 hover:bg-slate-800 transition-all mb-3"
-            >
-              <span className="text-sm text-slate-300 font-medium">
-                {lang === "pt" ? "Ver conversa" : "View conversation"}
-              </span>
-              <span className="text-slate-500 text-xs">{showConversation ? "▲" : "▼"}</span>
-            </button>
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                onClick={() => setShowConversation(!showConversation)}
+                className="flex-1 flex items-center justify-between px-4 py-3 rounded-xl border border-slate-700 bg-slate-900 hover:border-slate-500 hover:bg-slate-800 transition-all"
+              >
+                <span className="text-sm text-slate-300 font-medium">
+                  {lang === "pt" ? "Ver conversa" : "View conversation"}
+                </span>
+                <span className="text-slate-500 text-xs">{showConversation ? "▲" : "▼"}</span>
+              </button>
+              <button
+                onClick={() => downloadChat(experiment.messages, t(lang, "painLabels")[experiment.pain_type] || experiment.pain_type)}
+                className="px-3 py-3 rounded-xl border border-slate-700 bg-slate-900 hover:border-slate-500 hover:bg-slate-800 text-slate-400 hover:text-white text-xs transition-all whitespace-nowrap"
+                title={lang === "pt" ? "Baixar conversa (.txt)" : "Download chat (.txt)"}
+              >
+                {lang === "pt" ? "↓ .txt" : "↓ .txt"}
+              </button>
+            </div>
             {showConversation && (
               <div className="flex flex-col gap-3">
                 {experiment.messages.map((msg, i) => (
