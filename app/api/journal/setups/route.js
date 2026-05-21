@@ -39,7 +39,7 @@ export async function POST(request) {
     if (authError || !user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { name, conditions, stop_strategy, profit_strategy } = body;
+    const { name, conditions, stop_strategy, profit_strategy, stop_config, profit_config } = body;
 
     if (!name?.trim()) {
       return Response.json({ error: "Setup name is required" }, { status: 400 });
@@ -53,6 +53,8 @@ export async function POST(request) {
         conditions: conditions || [],
         stop_strategy: stop_strategy?.trim() || null,
         profit_strategy: profit_strategy?.trim() || null,
+        stop_config: stop_config || null,
+        profit_config: profit_config || null,
       })
       .select()
       .single();

@@ -1,0 +1,306 @@
+"use client";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { getLang } from "@/lib/i18n";
+import { supabaseBrowser } from "@/lib/supabase-browser";
+import { PAINS } from "@/lib/journal-helpers";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function LoadingSpinner() {
+  return (
+    <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+      <div className="flex gap-1">
+        <span className="w-1.5 h-1.5 bg-slate-600 rounded-full animate-bounce [animation-delay:0ms]" />
+        <span className="w-1.5 h-1.5 bg-slate-600 rounded-full animate-bounce [animation-delay:150ms]" />
+        <span className="w-1.5 h-1.5 bg-slate-600 rounded-full animate-bounce [animation-delay:300ms]" />
+      </div>
+    </div>
+  );
+}
+
+function Section({ label, children }) {
+  return (
+    <div className="mb-5">
+      <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{label}</p>
+      {children}
+    </div>
+  );
+}
+
+function Field({ label, value, color }) {
+  if (!value && value !== 0) return null;
+  return (
+    <div className="flex items-baseline justify-between py-2 border-b border-slate-800 last:border-0">
+      <span className="text-xs text-slate-500">{label}</span>
+      <span className={`text-sm font-medium ${color || "text-slate-200"}`}>{value}</span>
+    </div>
+  );
+}
+
+const VARIANT_COLORS = {
+  A: "text-blue-400",
+  B: "text-purple-400",
+  C: "text-green-400",
+  D: "text-amber-400",
+  E: "text-rose-400",
+};
+
+// ── Page export ───────────────────────────────────────────────────────────────
+
+export default function TradeDetailPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <TradeDetailContent />
+    </Suspense>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+function TradeDetailContent() {
+  const router = useRouter();
+  const params = useParams();
+  const [lang] = useState(() => getLang());
+  const [entry, setEntry] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  const pt = lang === "pt";
+
+  useEffect(() => {
+    async function load() {
+      const { data: { session } } = await supabaseBrowser.auth.getSession();
+      if (!session) { router.push("/auth"); return; }
+
+      try {
+        const res = await fetch(`/api/journal/${params.id}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (res.status === 404) { setNotFound(true); return; }
+        const data = await res.json();
+        if (data.error) { setNotFound(true); return; }
+        setEntry(data);
+      } catch (e) {
+        console.error("Trade detail load error:", e);
+        setNotFound(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [params.id]);
+
+  if (loading) return <LoadingSpinner />;
+
+  if (notFound) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center gap-4">
+        <p className="text-slate-400 text-sm">{pt ? "Operação não encontrada." : "Trade not found."}</p>
+        <button onClick={() => router.push("/journal")} className="text-blue-400 text-sm hover:text-blue-300 transition-colors">
+          ← {pt ? "Voltar ao diário" : "Back to journal"}
+        </button>
+      </div>
+    );
+  }
+
+  // ── Derived values ──────────────────────────────────────────────────────────
+
+  const painInfo = PAINS.find((p) => p.id === entry.pain_type) || null;
+
+  const outcomeColor =
+    entry.outcome === "win" ? "text-green-400"
+    : entry.outcome === "loss" ? "text-red-400"
+    : "text-slate-400";
+
+  const outcomeLabel =
+    entry.outcome === "win" ? (pt ? "Ganhou" : "Win")
+    : entry.outcome === "loss" ? (pt ? "Perdeu" : "Loss")
+    : "BE";
+
+  const directionLabel =
+    entry.direction === "long" ? "↑ Long"
+    : entry.direction === "short" ? "↓ Short"
+    : null;
+
+  const directionColor =
+    entry.direction === "long" ? "text-green-400"
+    : entry.direction === "short" ? "text-red-400"
+    : "text-slate-400";
+
+  const tradeDate = entry.trade_date
+    ? new Date(entry.trade_date + "T12:00:00").toLocaleDateString(
+        pt ? "pt-BR" : "en-GB",
+        { day: "numeric", month: "long", year: "numeric" }
+      )
+    : new Date(entry.logged_at).toLocaleDateString(
+        pt ? "pt-BR" : "en-GB",
+        { day: "numeric", month: "long", year: "numeric" }
+      );
+
+  // Build a human-readable behavior summary
+  function behaviorLines() {
+    const b = entry.behavior || {};
+    const lines = [];
+    switch (entry.pain_type) {
+      case "fomo":
+        if (b.entry_type === "early") lines.push(pt ? "Entrou antes do nível" : "Entered before level");
+        if (b.entry_type === "waited") lines.push(pt ? "Esperou o nível" : "Waited for level");
+        if (b.level_reached === true) lines.push(pt ? "Nível foi atingido depois" : "Level was hit afterward");
+        if (b.level_reached === false) lines.push(pt ? "Nível não foi atingido" : "Level was not hit");
+        break;
+      case "stoploss":
+        if (b.tampered === false) lines.push(pt ? "Stop mantido no lugar" : "Stop kept in place");
+        if (b.tampered === true) lines.push(pt ? "Stop foi movido" : "Stop was moved");
+        if (b.tamper_outcome === "reversal") lines.push(pt ? "Stop ativado → preço reverteu (doloroso)" : "Stop hit → price reversed (painful)");
+        if (b.tamper_outcome === "protection") lines.push(pt ? "Stop ativado → protegeu de perda maior" : "Stop hit → protected from bigger loss");
+        if (b.tamper_outcome === "still_open") lines.push(pt ? "Stop não ativado — ainda aberta" : "Stop not hit — still running");
+        break;
+      case "revenge":
+        if (b.used_best_setup === true) lines.push(pt ? "Usou o melhor setup" : "Used best setup");
+        if (b.used_best_setup === false) lines.push(pt ? "Usou setup aleatório" : "Used random setup");
+        break;
+      case "exit":
+        if (b.target_hit_after === true) lines.push(pt ? "Alvo atingido depois da saída" : "Target hit after early exit");
+        if (b.target_hit_after === false) lines.push(pt ? "Alvo não atingido após saída" : "Target not hit after exit");
+        break;
+      case "late":
+        if (b.outcome_type === "missed") lines.push(pt ? "Perdeu o movimento" : "Missed the move");
+        if (b.outcome_type === "caught_late") lines.push(pt ? "Entrada tardia prejudicou R:R" : "Late entry hurt R:R");
+        break;
+      case "boredom":
+        if (b.had_plan === false) lines.push(pt ? "Sem plano — criou um motivo" : "No plan — manufactured a reason");
+        if (b.had_plan === true) lines.push(pt ? "Tinha plano válido" : "Had a valid plan");
+        break;
+    }
+    return lines;
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white">
+
+      {/* Header */}
+      <header className="px-6 py-5 border-b border-slate-800">
+        <div className="max-w-xl mx-auto flex items-center justify-between">
+          <button
+            onClick={() => router.push("/journal")}
+            className="text-slate-400 hover:text-white text-sm transition-colors"
+          >
+            ← {pt ? "Diário" : "Journal"}
+          </button>
+          <span className="text-sm font-medium text-slate-400">{tradeDate}</span>
+          <div className="w-16" /> {/* spacer */}
+        </div>
+      </header>
+
+      <main className="max-w-xl mx-auto px-6 py-8">
+
+        {/* Trade title */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-1">
+            {directionLabel && (
+              <span className={`text-2xl font-bold ${directionColor}`}>{directionLabel}</span>
+            )}
+            {entry.instrument && (
+              <span className="text-2xl font-bold text-white">{entry.instrument}</span>
+            )}
+            {!entry.instrument && !directionLabel && (
+              <span className="text-lg font-semibold text-slate-400">
+                {pt ? "Operação" : "Trade"}
+              </span>
+            )}
+          </div>
+          <span className={`text-lg font-semibold ${outcomeColor}`}>{outcomeLabel}</span>
+        </div>
+
+        {/* Prices */}
+        {(entry.entry_price || entry.stop_price || entry.exit_price) && (
+          <Section label={pt ? "Preços" : "Prices"}>
+            <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
+              <Field label={pt ? "Entrada" : "Entry"} value={entry.entry_price} />
+              <Field label="Stop" value={entry.stop_price} />
+              <Field label={pt ? "Saída" : "Exit"} value={entry.exit_price} />
+              {entry.entry_price && entry.stop_price && entry.exit_price && (
+                <div className="flex items-baseline justify-between py-2">
+                  <span className="text-xs text-slate-500">R:R</span>
+                  <span className={`text-sm font-medium ${
+                    (Math.abs(entry.exit_price - entry.entry_price) / Math.abs(entry.stop_price - entry.entry_price)) >= 1
+                      ? "text-green-400"
+                      : "text-red-400"
+                  }`}>
+                    {(Math.abs(entry.exit_price - entry.entry_price) / Math.abs(entry.stop_price - entry.entry_price)).toFixed(2)}R
+                  </span>
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
+        {/* Setup + conditions */}
+        {entry.conditions_met?.length > 0 && (
+          <Section label={pt ? "Execução do setup" : "Setup execution"}>
+            <div className="flex flex-col gap-2">
+              {entry.conditions_met.map((c, i) => (
+                <div key={i} className="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-800 bg-slate-900">
+                  <p className="text-sm text-slate-300 flex-1">{c.text}</p>
+                  <span className={`text-xs font-bold flex-shrink-0 ${
+                    c.selected_variant
+                      ? (VARIANT_COLORS[c.selected_variant] || "text-slate-400")
+                      : "text-slate-600"
+                  }`}>
+                    {c.selected_variant
+                      ? `${c.selected_variant}${c.selected_description ? ` · ${c.selected_description}` : ""}`
+                      : "N/A"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* Behavioral data */}
+        {entry.pain_type && (
+          <Section label={pt ? "Comportamento" : "Behavior"}>
+            <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
+              <p className="text-sm font-medium text-slate-200 mb-2">
+                {painInfo ? (pt ? painInfo.pt : painInfo.en) : entry.pain_type}
+              </p>
+              {behaviorLines().map((line, i) => (
+                <p key={i} className="text-xs text-slate-500 leading-relaxed">→ {line}</p>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {!entry.pain_type && (
+          <Section label={pt ? "Comportamento" : "Behavior"}>
+            <p className="text-sm text-green-500">{pt ? "✓ Operação limpa" : "✓ Clean trade"}</p>
+          </Section>
+        )}
+
+        {/* Notes */}
+        {entry.notes && (
+          <Section label={pt ? "Notas" : "Notes"}>
+            <p className="text-sm text-slate-300 leading-relaxed p-3 rounded-xl border border-slate-800 bg-slate-900">
+              {entry.notes}
+            </p>
+          </Section>
+        )}
+
+        {/* Meta */}
+        <div className="mt-8 pt-4 border-t border-slate-800">
+          <p className="text-xs text-slate-700 text-center">
+            {pt ? "Registrado em" : "Logged"}{" "}
+            {new Date(entry.logged_at).toLocaleString(pt ? "pt-BR" : "en-GB", {
+              day: "2-digit", month: "short", year: "numeric",
+              hour: "2-digit", minute: "2-digit",
+            })}
+          </p>
+        </div>
+
+      </main>
+    </div>
+  );
+}

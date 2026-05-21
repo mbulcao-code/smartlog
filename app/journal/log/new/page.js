@@ -50,8 +50,8 @@ function NewTradeContent() {
   const [entryPrice, setEntryPrice] = useState("");
   const [stopPrice, setStopPrice] = useState("");
   const [exitPrice, setExitPrice] = useState("");
-  const [conditionsMet, setConditionsMet] = useState({});   // { conditionId: true | false }
-  const [variantUsed, setVariantUsed] = useState(null);     // "a" | "b"
+  // conditionsMet: { conditionId: { label: "A", description: "forte" } | null }
+  const [conditionsMet, setConditionsMet] = useState({});
   const [painType, setPainType] = useState(null);
   const [behavior, setBehavior] = useState({});
   const [outcome, setOutcome] = useState(null);             // "win" | "loss" | "breakeven"
@@ -59,8 +59,14 @@ function NewTradeContent() {
 
   const pt = lang === "pt";
 
-  // Does the selected setup have any A/B variants on its conditions?
-  const hasVariants = selectedSetup?.conditions?.some((c) => c.variantA || c.variantB);
+  // Variant colors matching setup wizard
+  const VARIANT_COLORS = {
+    A: { text: "text-blue-300",   border: "border-blue-400",   bg: "bg-blue-950/20"   },
+    B: { text: "text-purple-300", border: "border-purple-400", bg: "bg-purple-950/20" },
+    C: { text: "text-green-300",  border: "border-green-400",  bg: "bg-green-950/20"  },
+    D: { text: "text-amber-300",  border: "border-amber-400",  bg: "bg-amber-950/20"  },
+    E: { text: "text-rose-300",   border: "border-rose-400",   bg: "bg-rose-950/20"   },
+  };
 
   // Build the step sequence dynamically (skip step 3 when no setup selected)
   const stepSequence = [1, 2, ...(selectedSetup ? [3] : []), 4, 5];
@@ -165,12 +171,13 @@ function NewTradeContent() {
         exit_price:    exitPrice   ? parseFloat(exitPrice)   : null,
         conditions_met: selectedSetup
           ? selectedSetup.conditions.map((c) => ({
-              id:   c.id,
-              text: c.text,
-              met:  conditionsMet[c.id] ?? null,
+              id:             c.id,
+              text:           c.text,
+              selected_variant:     conditionsMet[c.id]?.label ?? null,
+              selected_description: conditionsMet[c.id]?.description ?? null,
             }))
           : [],
-        variant_used:  variantUsed || null,
+        variant_used: null, // removed — selection is per-condition now
         pain_type:     painType === "clean" ? null : (painType || null),
         behavior,
         outcome,
@@ -417,7 +424,7 @@ function NewTradeContent() {
           </div>
         )}
 
-        {/* ── STEP 3: Execution (conditions + variant) ── */}
+        {/* ── STEP 3: Execution (per-condition variant selection) ── */}
         {step === 3 && selectedSetup && (
           <div>
             <h2 className="text-lg font-semibold mb-1">
@@ -425,88 +432,67 @@ function NewTradeContent() {
             </h2>
             <p className="text-sm text-slate-400 mb-6">
               {pt
-                ? "Quais condições estavam presentes?"
-                : "Which conditions were present?"}
+                ? "Para cada condição, selecione a variante que estava presente."
+                : "For each condition, select the variant that was present."}
             </p>
 
             <div className="flex flex-col gap-5 mb-6">
-              {selectedSetup.conditions.map((cond) => (
-                <div key={cond.id}>
-                  <p className="text-sm text-slate-200 mb-2 leading-snug">{cond.text}</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() =>
-                        setConditionsMet((prev) => ({ ...prev, [cond.id]: true }))
-                      }
-                      className={`py-2.5 px-3 rounded-xl border text-sm transition-all text-left ${
-                        conditionsMet[cond.id] === true
-                          ? "border-green-400 bg-green-950/20 text-green-300"
-                          : "border-slate-700 hover:border-slate-600 text-slate-400"
-                      }`}
-                    >
-                      {cond.variantA ? (
-                        <span>
-                          <span className="text-blue-400 font-semibold">A</span>{" "}
-                          · {cond.variantA}
-                        </span>
-                      ) : (
-                        <span>✓ {pt ? "Presente" : "Present"}</span>
-                      )}
-                    </button>
-                    <button
-                      onClick={() =>
-                        setConditionsMet((prev) => ({ ...prev, [cond.id]: false }))
-                      }
-                      className={`py-2.5 px-3 rounded-xl border text-sm transition-all text-left ${
-                        conditionsMet[cond.id] === false
-                          ? "border-red-400 bg-red-950/20 text-red-300"
-                          : "border-slate-700 hover:border-slate-600 text-slate-400"
-                      }`}
-                    >
-                      {cond.variantB ? (
-                        <span>
-                          <span className="text-purple-400 font-semibold">B</span>{" "}
-                          · {cond.variantB}
-                        </span>
-                      ) : (
-                        <span>✗ {pt ? "Ausente" : "Absent"}</span>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+              {selectedSetup.conditions.map((cond) => {
+                // Support both new (variants array) and old (variantA/variantB) formats
+                const variants = cond.variants?.length > 0
+                  ? cond.variants
+                  : [
+                      { label: "A", description: cond.variantA || (pt ? "Presente" : "Present") },
+                      { label: "B", description: cond.variantB || (pt ? "Ausente" : "Absent") },
+                    ];
+                const selected = conditionsMet[cond.id]?.label ?? null;
 
-            {/* Variant used (shown when setup has A/B variants) */}
-            {hasVariants && (
-              <div className="mb-6 pt-2 border-t border-slate-800">
-                <p className="text-sm text-slate-400 mt-4 mb-3">
-                  {pt ? "Qual variante você operou?" : "Which variant did you trade?"}
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setVariantUsed("a")}
-                    className={`py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                      variantUsed === "a"
-                        ? "border-blue-400 bg-blue-950/20 text-blue-300"
-                        : "border-slate-700 hover:border-slate-600 text-slate-400"
-                    }`}
-                  >
-                    {pt ? "Variante A" : "Variant A"}
-                  </button>
-                  <button
-                    onClick={() => setVariantUsed("b")}
-                    className={`py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                      variantUsed === "b"
-                        ? "border-purple-400 bg-purple-950/20 text-purple-300"
-                        : "border-slate-700 hover:border-slate-600 text-slate-400"
-                    }`}
-                  >
-                    {pt ? "Variante B" : "Variant B"}
-                  </button>
-                </div>
-              </div>
-            )}
+                return (
+                  <div key={cond.id}>
+                    <p className="text-sm text-slate-200 mb-2 leading-snug">{cond.text}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {variants.map((v) => {
+                        const col = VARIANT_COLORS[v.label] || VARIANT_COLORS.A;
+                        const isSelected = selected === v.label;
+                        return (
+                          <button
+                            key={v.label}
+                            onClick={() =>
+                              setConditionsMet((prev) => ({
+                                ...prev,
+                                [cond.id]: isSelected ? null : { label: v.label, description: v.description },
+                              }))
+                            }
+                            className={`py-2 px-3 rounded-xl border text-sm transition-all flex items-center gap-1.5 ${
+                              isSelected
+                                ? `${col.border} ${col.bg} ${col.text}`
+                                : "border-slate-700 hover:border-slate-600 text-slate-400"
+                            }`}
+                          >
+                            <span className={`font-bold text-xs ${isSelected ? col.text : "text-slate-500"}`}>
+                              {v.label}
+                            </span>
+                            {v.description && (
+                              <span>{v.description}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={() => setConditionsMet((prev) => ({ ...prev, [cond.id]: null }))}
+                        className={`py-2 px-3 rounded-xl border text-sm transition-all ${
+                          conditionsMet[cond.id] === null || conditionsMet[cond.id] === undefined
+                            ? "border-slate-600 bg-slate-800 text-slate-500"
+                            : "border-slate-700 hover:border-slate-600 text-slate-600"
+                        }`}
+                      >
+                        {pt ? "N/A" : "N/A"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
             <button
               onClick={goNext}

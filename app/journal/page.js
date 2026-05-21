@@ -401,7 +401,8 @@ function JournalContent() {
                 return (
                   <div
                     key={entry.id}
-                    className="px-4 py-3 rounded-xl bg-slate-900 border border-slate-800"
+                    onClick={() => router.push(`/journal/log/${entry.id}`)}
+                    className="px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 cursor-pointer hover:border-slate-700 hover:bg-slate-800/60 transition-colors"
                   >
                     <div className="flex items-center justify-between">
                       {/* Left: trade identity */}
