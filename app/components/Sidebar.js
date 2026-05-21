@@ -148,13 +148,19 @@ export default function Sidebar({ user, canLog, periodEnd, experiments, lang, on
         </div>
       </div>
 
-      {/* New session button */}
-      <div className="px-4 py-4 border-b border-slate-800">
+      {/* New session + Journal buttons */}
+      <div className="px-4 py-4 border-b border-slate-800 space-y-2">
         <button
           onClick={() => { onNewSession(); setSidebarOpen(false); }}
           className="w-full py-2.5 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
         >
           {pt ? "+ Nova sessão" : "+ New session"}
+        </button>
+        <button
+          onClick={() => { router.push("/journal"); setSidebarOpen(false); }}
+          className="w-full py-2.5 rounded-xl border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white text-sm font-medium transition-colors"
+        >
+          {pt ? "Diário de operações" : "Trade journal"}
         </button>
       </div>
 
