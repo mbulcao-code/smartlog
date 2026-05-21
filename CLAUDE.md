@@ -187,11 +187,110 @@
 
 ---
 
+## Completed (May 21, 2026)
+
+### Shared journal helpers module ✅
+- Created `lib/journal-helpers.js` — shared module imported by all journal pages
+- Exports `PAINS` array: 7 pain types (fomo, late, exit, revenge, stoploss, boredom, clean) with EN + PT labels
+- Exports `getNextQuestion(painType, behavior)`: behavioral question tree returning next question or null when done
+- Stop tamper outcome options fixed: "protegeu meu lucro" → "protegeu de perda maior" (semantically correct); added third option "still_open" (stop not hit — trade still running)
+
+### Setup wizard v2 ✅ (`app/journal/setups/new/page.js`)
+- Conditions now support up to **5 variants** (A–E), color-coded: A=blue, B=purple, C=green, D=amber, E=rose
+- New condition shape: `{ id, text, variants: [{ id, label, description }] }` (min 2 variants, max 5)
+- **Structured stop strategy**: initial placement text + up to 2 move rules (e.g. "move to entry after 1R")
+- **Multi-target profit strategy**: up to 3 targets, each with size (e.g. "1/3"), description, and runner toggle
+- Saves `stop_config` as `{ initial, rules: [] }` and `profit_config` as `{ targets: [{label, size, description, isRunner}] }` in new JSONB columns
+
+### Supabase SQL migrations ✅ (run in SQL Editor)
+```sql
+-- journal_setups table
+CREATE TABLE journal_setups (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  conditions JSONB DEFAULT '[]'::jsonb,
+  stop_strategy TEXT,
+  profit_strategy TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE journal_setups ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own setups" ON journal_setups FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- trade_journal table (extended)
+ALTER TABLE trade_journal
+  ADD COLUMN IF NOT EXISTS setup_id UUID REFERENCES journal_setups(id),
+  ADD COLUMN IF NOT EXISTS instrument TEXT,
+  ADD COLUMN IF NOT EXISTS direction TEXT,
+  ADD COLUMN IF NOT EXISTS trade_date DATE,
+  ADD COLUMN IF NOT EXISTS entry_price NUMERIC,
+  ADD COLUMN IF NOT EXISTS stop_price NUMERIC,
+  ADD COLUMN IF NOT EXISTS exit_price NUMERIC,
+  ADD COLUMN IF NOT EXISTS conditions_met JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS variant_used TEXT;
+```
+
+⚠️ **Still pending in Supabase:**
+```sql
+ALTER TABLE journal_setups
+  ADD COLUMN IF NOT EXISTS stop_config JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS profit_config JSONB DEFAULT '{}'::jsonb;
+```
+
+### Trade logging wizard ✅ (`app/journal/log/new/page.js`)
+- 5-step wizard: (1) Setup selection, (2) Instrument/Direction/Date, (3) Prices, (4) Execution (conditions + variants), (5) Behavior + outcome
+- Step 3 (Prices) conditionally skipped if no setup selected
+- **Execution step v2**: each condition shows all its variants as selectable chips (A–E color-coded) + N/A chip; no separate "qual variante você operou?" question (was redundant)
+- Backward-compatible: old `{variantA, variantB}` format auto-converted to variant chip format on render
+- `conditions_met` stored as: `[{ id, text, selected_variant, selected_description }]`
+- Behavioral questions imported from `lib/journal-helpers.js`
+- On success: redirects to `/journal?trade=logged`
+
+### API updates ✅
+- `app/api/journal/route.js` (POST): accepts all new fields — `setup_id`, `instrument`, `direction`, `trade_date`, `entry_price`, `stop_price`, `exit_price`, `conditions_met`, `variant_used`
+- `app/api/journal/setups/route.js` (POST): accepts and saves `stop_config` and `profit_config`
+- `app/api/journal/[id]/route.js` (GET): **new file** — fetches single trade entry by ID, auth-gated and user-scoped
+
+### Trade detail view ✅ (`app/journal/log/[id]/page.js`)
+- Full detail page for any logged trade
+- Shows: direction + instrument header, outcome (colored), prices section with auto-calculated R:R, conditions_met with color-coded variant labels, behavioral summary in plain language (`behaviorLines()` function), notes, logged timestamp
+- Uses `Suspense` wrapper pattern (required by Next.js App Router for `useParams`)
+- Back button → `/journal`
+
+### Journal page updates ✅ (`app/journal/page.js`)
+- Removed inline PAINS/getNextQuestion definitions → imports from `lib/journal-helpers.js`
+- Added `Suspense` wrapper; inner component renamed `JournalContent`
+- Removed inline logging form state (replaced by `/journal/log/new` route)
+- Loads setups in parallel with trade entries on mount
+- "Your setups" section with setup cards (name + condition count)
+- "New setup" and "Log a trade" buttons both navigate to dedicated pages
+- Trade list rows are **clickable** → `router.push(\`/journal/log/${entry.id}\`)` with hover state
+- Richer row format: shows instrument + direction arrow + pain label for full trades; legacy format for older entries
+- Success banners: `?setup=created` and `?trade=logged` query params trigger toast-style messages
+
+---
+
 ## Pending
 
-### Git push (FOMO changes)
-- HEAD.lock error blocked push — run `rm -f .git/HEAD.lock .git/index.lock` then:
+### Supabase migration (still needed)
+```sql
+ALTER TABLE journal_setups
+  ADD COLUMN IF NOT EXISTS stop_config JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS profit_config JSONB DEFAULT '{}'::jsonb;
+```
+
+### Git push (journal v2)
+```
+git add -A && git commit -m "Journal v2: 5 variants, multi-targets, structured stop/profit, execution fix, trade detail view" && git push
+```
+
+### Recreate test setup
+- Delete old "Reversal 1" setup in the app (uses old `variantA`/`variantB` format)
+- Recreate it with the new wizard to get proper `variants` array structure
+
+### Git push (FOMO changes — from May 14)
 - `git add -A && git commit -m "FOMO experiment: level-hit framing, report prompts, remove beta test buttons" && git push`
+- (May already be done — verify with `git log`)
 
 ### Contact form fix (now unblocked)
 - Resend SPF confirmed present → update `app/api/contact/route.js`:
@@ -201,6 +300,12 @@
 ### Report fine-tuning
 - FOMO-specific report prompts live — test with real trades
 - Potential adjustments to tone/wording after first real reports
+
+### Deferred features (noted during v2 session)
+- **Stop question on clean trades**: even clean trades can get stopped out; consider adding stop outcome question
+- **FOMO/hesitation/revenge "other" option**: only 2 behavioral options currently — revisit with more nuance ("vamos revisar isso com mais cuidado depois")
+- **Insights/Pro paywall**: behavioral patterns section, teaser mechanic for free users
+- **Bridge from experiment to journal**: prompt after experiment completion
 
 ### Pre-launch
 - Send to 2 close friends for testing
