@@ -1,0 +1,66 @@
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export async function GET(request) {
+  try {
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { data, error } = await supabase
+      .from("journal_setups")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return Response.json(data || []);
+  } catch (err) {
+    console.error("Setups GET error:", err);
+    return Response.json({ error: err.message }, { status: 500 });
+  }
+}
+
+export async function POST(request) {
+  try {
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+    const body = await request.json();
+    const { name, conditions, stop_strategy, profit_strategy } = body;
+
+    if (!name?.trim()) {
+      return Response.json({ error: "Setup name is required" }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from("journal_setups")
+      .insert({
+        user_id: user.id,
+        name: name.trim(),
+        conditions: conditions || [],
+        stop_strategy: stop_strategy?.trim() || null,
+        profit_strategy: profit_strategy?.trim() || null,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return Response.json({ success: true, setup: data });
+  } catch (err) {
+    console.error("Setups POST error:", err);
+    return Response.json({ error: err.message }, { status: 500 });
+  }
+}

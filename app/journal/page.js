@@ -1,154 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getLang, setLang } from "@/lib/i18n";
 import { supabaseBrowser } from "@/lib/supabase-browser";
-
-// ── Pain definitions ──────────────────────────────────────────────────────────
-
-const PAINS = [
-  { id: "fomo",     en: "FOMO / Early entry",      pt: "FOMO / Entrada antecipada" },
-  { id: "late",     en: "Hesitation / Late entry",  pt: "Hesitação / Entrada tardia" },
-  { id: "exit",     en: "Early exit",               pt: "Saída prematura" },
-  { id: "revenge",  en: "Revenge / Overtrade",      pt: "Vingança / Excessos" },
-  { id: "stoploss", en: "Stop tampering",           pt: "Mexendo no stop" },
-  { id: "boredom",  en: "Boredom / No setup",       pt: "Tédio / Sem setup" },
-  { id: "clean",    en: "✓ Clean trade",            pt: "✓ Operação limpa" },
-];
-
-// ── Behavioral question tree ──────────────────────────────────────────────────
-// Returns the next question to show given painType + answers so far,
-// or null if we're ready for the outcome step.
-
-function getNextQuestion(painType, behavior) {
-  switch (painType) {
-    case "fomo":
-      if (!("entry_type" in behavior)) {
-        return {
-          key: "entry_type",
-          question: {
-            en: "Did you enter early or wait for your level?",
-            pt: "Você entrou antes ou esperou seu nível?",
-          },
-          options: [
-            { value: "early",  en: "Entered early",      pt: "Entrei antes" },
-            { value: "waited", en: "Waited for my level", pt: "Esperei o nível" },
-          ],
-        };
-      }
-      if (behavior.entry_type === "early" && !("level_reached" in behavior)) {
-        return {
-          key: "level_reached",
-          question: {
-            en: "Did your level also get hit afterward?",
-            pt: "O seu nível também foi atingido depois?",
-          },
-          options: [
-            { value: true,  en: "Yes — level was hit",        pt: "Sim — nível foi atingido" },
-            { value: false, en: "No — price didn't reach it", pt: "Não — preço não chegou" },
-          ],
-        };
-      }
-      return null;
-
-    case "stoploss":
-      if (!("tampered" in behavior)) {
-        return {
-          key: "tampered",
-          question: {
-            en: "Did you move or remove your stop?",
-            pt: "Você moveu ou removeu seu stop?",
-          },
-          options: [
-            { value: true,  en: "Yes, I moved it", pt: "Sim, mexi nele" },
-            { value: false, en: "No, I kept it",   pt: "Não, mantive" },
-          ],
-        };
-      }
-      if (behavior.tampered === true && !("tamper_outcome" in behavior)) {
-        return {
-          key: "tamper_outcome",
-          question: {
-            en: "What happened after you moved it?",
-            pt: "O que aconteceu depois que você mexeu?",
-          },
-          options: [
-            { value: "reversal",   en: "Stop hit → price reversed (painful)", pt: "Stop ativado → preço reverteu (doloroso)" },
-            { value: "protection", en: "Stop protected my profit",             pt: "Stop protegeu meu lucro" },
-          ],
-        };
-      }
-      return null;
-
-    case "revenge":
-      if (!("used_best_setup" in behavior)) {
-        return {
-          key: "used_best_setup",
-          question: {
-            en: "Did you use your most tested setup?",
-            pt: "Você usou seu setup mais testado?",
-          },
-          options: [
-            { value: true,  en: "Yes — my best setup", pt: "Sim — meu melhor setup" },
-            { value: false, en: "No — different setup", pt: "Não — setup diferente" },
-          ],
-        };
-      }
-      return null;
-
-    case "exit":
-      if (!("target_hit_after" in behavior)) {
-        return {
-          key: "target_hit_after",
-          question: {
-            en: "Did price hit your original target after you exited?",
-            pt: "O preço atingiu seu alvo original depois que você saiu?",
-          },
-          options: [
-            { value: true,  en: "Yes — it went there", pt: "Sim — foi lá" },
-            { value: false, en: "No — it didn't",       pt: "Não — não foi" },
-          ],
-        };
-      }
-      return null;
-
-    case "late":
-      if (!("outcome_type" in behavior)) {
-        return {
-          key: "outcome_type",
-          question: {
-            en: "What happened?",
-            pt: "O que aconteceu?",
-          },
-          options: [
-            { value: "missed",      en: "Missed the move entirely",             pt: "Perdi o movimento inteiro" },
-            { value: "caught_late", en: "Caught it but entry hurt R:R",         pt: "Peguei, mas entrada tardia prejudicou R:R" },
-          ],
-        };
-      }
-      return null;
-
-    case "boredom":
-      if (!("had_plan" in behavior)) {
-        return {
-          key: "had_plan",
-          question: {
-            en: "Was this trade in your plan?",
-            pt: "Essa operação estava no seu plano?",
-          },
-          options: [
-            { value: false, en: "No — I manufactured a reason", pt: "Não — criei um motivo" },
-            { value: true,  en: "Yes — it was valid",            pt: "Sim — era válida" },
-          ],
-        };
-      }
-      return null;
-
-    case "clean":
-    default:
-      return null;
-  }
-}
+import { PAINS, getNextQuestion } from "@/lib/journal-helpers";
 
 // ── Stats computation ─────────────────────────────────────────────────────────
 
@@ -268,19 +123,32 @@ function getBehaviorSummary(painType, behavior, lang) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function JournalPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+        <div className="flex gap-1">
+          <span className="w-1.5 h-1.5 bg-slate-600 rounded-full animate-bounce [animation-delay:0ms]" />
+          <span className="w-1.5 h-1.5 bg-slate-600 rounded-full animate-bounce [animation-delay:150ms]" />
+          <span className="w-1.5 h-1.5 bg-slate-600 rounded-full animate-bounce [animation-delay:300ms]" />
+        </div>
+      </div>
+    }>
+      <JournalContent />
+    </Suspense>
+  );
+}
+
+function JournalContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [lang, setLangState] = useState(() => getLang());
   const [authReady, setAuthReady] = useState(false);
   const [token, setToken] = useState(null);
   const [entries, setEntries] = useState([]);
+  const [setups, setSetups] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Form state
-  const [showForm, setShowForm] = useState(false);
-  const [formPhase, setFormPhase] = useState("pain"); // "pain" | "questions" | "outcome"
-  const [selectedPain, setSelectedPain] = useState(null);
-  const [behavior, setBehavior] = useState({});
-  const [saving, setSaving] = useState(false);
+  const [setupCreated, setSetupCreated] = useState(false);
+  const [tradeLogged, setTradeLogged] = useState(false);
 
   const pt = lang === "pt";
 
@@ -293,6 +161,17 @@ export default function JournalPage() {
   // ── Auth + data load ──────────────────────────────────────────────────────
 
   useEffect(() => {
+    if (searchParams.get("setup") === "created") {
+      setSetupCreated(true);
+      setTimeout(() => setSetupCreated(false), 4000);
+    }
+    if (searchParams.get("logged") === "1") {
+      setTradeLogged(true);
+      setTimeout(() => setTradeLogged(false), 4000);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     async function checkAuth() {
       const { data: { session } } = await supabaseBrowser.auth.getSession();
       if (!session) {
@@ -302,7 +181,10 @@ export default function JournalPage() {
       }
       setToken(session.access_token);
       setAuthReady(true);
-      await loadEntries(session.access_token);
+      await Promise.all([
+        loadEntries(session.access_token),
+        loadSetups(session.access_token),
+      ]);
     }
     checkAuth();
   }, []);
@@ -321,68 +203,21 @@ export default function JournalPage() {
     }
   }
 
-  // ── Form helpers ──────────────────────────────────────────────────────────
-
-  function resetForm() {
-    setShowForm(false);
-    setFormPhase("pain");
-    setSelectedPain(null);
-    setBehavior({});
-  }
-
-  function selectPain(painId) {
-    setSelectedPain(painId);
-    if (painId === "clean") {
-      setFormPhase("outcome");
-    } else {
-      // Check if this pain has any questions
-      const firstQ = getNextQuestion(painId, {});
-      setFormPhase(firstQ ? "questions" : "outcome");
-    }
-  }
-
-  function answerQuestion(key, value) {
-    const newBehavior = { ...behavior, [key]: value };
-    setBehavior(newBehavior);
-    const next = getNextQuestion(selectedPain, newBehavior);
-    if (!next) setFormPhase("outcome");
-    // else stay in "questions" — getNextQuestion will return the new question
-  }
-
-  async function submitOutcome(outcome) {
-    setSaving(true);
+  async function loadSetups(tok) {
     try {
-      const res = await fetch("/api/journal", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          pain_type: selectedPain === "clean" ? null : selectedPain,
-          behavior,
-          outcome,
-          lang,
-        }),
+      const res = await fetch("/api/journal/setups", {
+        headers: { Authorization: `Bearer ${tok || token}` },
       });
       const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      resetForm();
-      await loadEntries();
+      setSetups(Array.isArray(data) ? data : []);
     } catch (e) {
-      alert(pt ? "Erro ao salvar. Tente novamente." : "Failed to save. Try again.");
-    } finally {
-      setSaving(false);
+      console.error("Setups load error:", e);
     }
   }
 
   // ── Computed ──────────────────────────────────────────────────────────────
 
   const stats = computeStats(entries);
-  const currentQuestion =
-    formPhase === "questions" && selectedPain
-      ? getNextQuestion(selectedPain, behavior)
-      : null;
 
   // ── Loading state ─────────────────────────────────────────────────────────
 
@@ -427,131 +262,86 @@ export default function JournalPage() {
 
       <main className="max-w-2xl mx-auto px-6 py-8">
 
-        {/* Log button */}
-        {!showForm && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="w-full py-4 rounded-full bg-blue-500 hover:bg-blue-400 text-white font-medium transition-colors mb-8"
-          >
-            {pt ? "+ Registrar operação" : "+ Log a trade"}
-          </button>
-        )}
-
-        {/* ── Form ── */}
-        {showForm && (
-          <div className="mb-8 p-5 rounded-2xl border border-slate-700 bg-slate-900">
-
-            {/* Step 1: Pain selector */}
-            {formPhase === "pain" && (
-              <div>
-                <p className="text-sm text-slate-400 mb-4">
-                  {pt ? "O que apareceu nessa operação?" : "What showed up in this trade?"}
-                </p>
-                <div className="flex flex-col gap-2">
-                  {PAINS.map((pain) => (
-                    <button
-                      key={pain.id}
-                      onClick={() => selectPain(pain.id)}
-                      className="text-left px-4 py-3 rounded-xl border border-slate-700 hover:border-slate-500 hover:bg-slate-800 text-sm text-slate-200 transition-all"
-                    >
-                      {pt ? pain.pt : pain.en}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={resetForm}
-                  className="mt-4 w-full text-slate-500 hover:text-slate-300 text-sm transition-colors"
-                >
-                  {pt ? "Cancelar" : "Cancel"}
-                </button>
-              </div>
-            )}
-
-            {/* Step 2: Behavioral question(s) */}
-            {formPhase === "questions" && currentQuestion && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">
-                  {PAINS.find((p) => p.id === selectedPain)?.[pt ? "pt" : "en"]}
-                </p>
-                <p className="text-white font-medium mb-5 leading-snug">
-                  {pt ? currentQuestion.question.pt : currentQuestion.question.en}
-                </p>
-                <div className="flex flex-col gap-2">
-                  {currentQuestion.options.map((opt) => (
-                    <button
-                      key={String(opt.value)}
-                      onClick={() => answerQuestion(currentQuestion.key, opt.value)}
-                      className="text-left px-4 py-3 rounded-xl border border-slate-700 hover:border-blue-400 hover:bg-blue-950/30 text-sm text-slate-200 transition-all"
-                    >
-                      {pt ? opt.pt : opt.en}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={() => { setFormPhase("pain"); setSelectedPain(null); setBehavior({}); }}
-                  className="mt-4 w-full text-slate-500 hover:text-slate-300 text-sm transition-colors"
-                >
-                  ← {pt ? "Voltar" : "Back"}
-                </button>
-              </div>
-            )}
-
-            {/* Step 3: Outcome */}
-            {formPhase === "outcome" && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">
-                  {selectedPain && PAINS.find((p) => p.id === selectedPain)?.[pt ? "pt" : "en"]}
-                </p>
-                <p className="text-white font-medium mb-5">
-                  {pt ? "Como essa operação terminou?" : "How did this trade end?"}
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  <button
-                    onClick={() => submitOutcome("win")}
-                    disabled={saving}
-                    className="py-3 rounded-xl border border-green-500/40 hover:border-green-400 hover:bg-green-950/30 text-green-400 text-sm font-medium transition-all disabled:opacity-50"
-                  >
-                    {pt ? "Ganhou" : "Win"}
-                  </button>
-                  <button
-                    onClick={() => submitOutcome("loss")}
-                    disabled={saving}
-                    className="py-3 rounded-xl border border-red-500/40 hover:border-red-400 hover:bg-red-950/30 text-red-400 text-sm font-medium transition-all disabled:opacity-50"
-                  >
-                    {pt ? "Perdeu" : "Loss"}
-                  </button>
-                  <button
-                    onClick={() => submitOutcome("breakeven")}
-                    disabled={saving}
-                    className="py-3 rounded-xl border border-slate-600 hover:border-slate-400 text-slate-400 text-sm font-medium transition-all disabled:opacity-50"
-                  >
-                    BE
-                  </button>
-                </div>
-                <button
-                  onClick={() => {
-                    if (selectedPain === "clean") {
-                      setFormPhase("pain");
-                      setSelectedPain(null);
-                    } else {
-                      const firstQ = getNextQuestion(selectedPain, {});
-                      if (firstQ) {
-                        setFormPhase("questions");
-                        setBehavior({});
-                      } else {
-                        setFormPhase("pain");
-                        setSelectedPain(null);
-                      }
-                    }
-                  }}
-                  className="mt-4 w-full text-slate-500 hover:text-slate-300 text-sm transition-colors"
-                >
-                  ← {pt ? "Voltar" : "Back"}
-                </button>
-              </div>
-            )}
+        {/* Setup created banner */}
+        {setupCreated && (
+          <div className="mb-6 px-4 py-3 rounded-xl border border-green-500/30 bg-green-950/20 text-green-400 text-sm flex items-center gap-2">
+            <span>✓</span>
+            <span>{pt ? "Setup criado com sucesso!" : "Setup created successfully!"}</span>
           </div>
         )}
+
+        {/* Trade logged banner */}
+        {tradeLogged && (
+          <div className="mb-6 px-4 py-3 rounded-xl border border-blue-500/30 bg-blue-950/20 text-blue-300 text-sm flex items-center gap-2">
+            <span>✓</span>
+            <span>{pt ? "Operação registrada!" : "Trade logged!"}</span>
+          </div>
+        )}
+
+        {/* Your setups section */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs text-slate-500 uppercase tracking-wider">
+              {pt ? "Seus setups" : "Your setups"}
+            </p>
+            <button
+              onClick={() => router.push("/journal/setups/new")}
+              className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              + {pt ? "Novo setup" : "New setup"}
+            </button>
+          </div>
+
+          {setups.length === 0 ? (
+            <button
+              onClick={() => router.push("/journal/setups/new")}
+              className="w-full py-4 rounded-xl border border-dashed border-slate-700 hover:border-slate-500 text-slate-500 hover:text-slate-300 text-sm transition-colors"
+            >
+              {pt ? "Defina seu primeiro setup →" : "Define your first setup →"}
+            </button>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {setups.map((setup) => (
+                <div
+                  key={setup.id}
+                  className="flex items-center justify-between px-4 py-3 rounded-xl border border-slate-800 bg-slate-900"
+                >
+                  <div>
+                    <p className="text-sm text-slate-200 font-medium">{setup.name}</p>
+                    {setup.conditions?.length > 0 && (
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {setup.conditions.length} {pt ? "condições" : "conditions"}
+                        {setup.stop_strategy || setup.profit_strategy
+                          ? ` · ${pt ? "saídas definidas" : "exits defined"}`
+                          : ""}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-slate-700 text-xs">
+                    {new Date(setup.created_at).toLocaleDateString(
+                      pt ? "pt-BR" : "en-GB",
+                      { day: "2-digit", month: "short" }
+                    )}
+                  </span>
+                </div>
+              ))}
+              <button
+                onClick={() => router.push("/journal/setups/new")}
+                className="mt-1 text-xs text-slate-500 hover:text-slate-300 transition-colors text-left px-1"
+              >
+                + {pt ? "Adicionar outro setup" : "Add another setup"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Log button */}
+        <button
+          onClick={() => router.push("/journal/log/new")}
+          className="w-full py-4 rounded-full bg-blue-500 hover:bg-blue-400 text-white font-medium transition-colors mb-8"
+        >
+          {pt ? "+ Registrar operação" : "+ Log a trade"}
+        </button>
 
         {/* ── Behavioral insights ── */}
         {stats.insights.length > 0 && (
@@ -607,47 +397,88 @@ export default function JournalPage() {
               {entries.slice(0, 50).map((entry) => {
                 const painInfo = PAINS.find((p) => p.id === entry.pain_type) || null;
                 const summary = getBehaviorSummary(entry.pain_type, entry.behavior, lang);
+                const hasTradeData = entry.instrument || entry.direction;
                 return (
                   <div
                     key={entry.id}
-                    className="flex items-center justify-between px-4 py-3 rounded-xl bg-slate-900 border border-slate-800"
+                    className="px-4 py-3 rounded-xl bg-slate-900 border border-slate-800"
                   >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`text-xs flex-shrink-0 ${entry.pain_type ? "text-slate-400" : "text-green-500"}`}>
-                        {painInfo
-                          ? (pt ? painInfo.pt : painInfo.en)
-                          : (pt ? "Limpa" : "Clean")}
-                      </span>
-                      {summary && (
-                        <>
-                          <span className="text-slate-700 text-xs flex-shrink-0">·</span>
-                          <span className="text-xs text-slate-500 truncate">{summary}</span>
-                        </>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 flex-shrink-0 ml-3">
-                      <span
-                        className={`text-sm font-medium ${
+                    <div className="flex items-center justify-between">
+                      {/* Left: trade identity */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        {hasTradeData ? (
+                          <>
+                            {entry.direction && (
+                              <span className={`text-xs font-medium flex-shrink-0 ${
+                                entry.direction === "long" ? "text-green-400" : "text-red-400"
+                              }`}>
+                                {entry.direction === "long" ? "↑" : "↓"}
+                              </span>
+                            )}
+                            {entry.instrument && (
+                              <span className="text-sm font-medium text-slate-200 flex-shrink-0">
+                                {entry.instrument}
+                              </span>
+                            )}
+                            {painInfo && (
+                              <>
+                                <span className="text-slate-700 text-xs flex-shrink-0">·</span>
+                                <span className="text-xs text-slate-500 truncate">
+                                  {pt ? painInfo.pt : painInfo.en}
+                                </span>
+                              </>
+                            )}
+                            {!painInfo && (
+                              <span className="text-xs text-green-600 flex-shrink-0">
+                                {pt ? "Limpa" : "Clean"}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <span className={`text-xs flex-shrink-0 ${entry.pain_type ? "text-slate-400" : "text-green-500"}`}>
+                              {painInfo
+                                ? (pt ? painInfo.pt : painInfo.en)
+                                : (pt ? "Limpa" : "Clean")}
+                            </span>
+                            {summary && (
+                              <>
+                                <span className="text-slate-700 text-xs flex-shrink-0">·</span>
+                                <span className="text-xs text-slate-500 truncate">{summary}</span>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      {/* Right: outcome + date */}
+                      <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+                        <span className={`text-sm font-medium ${
                           entry.outcome === "win"
                             ? "text-green-400"
                             : entry.outcome === "loss"
                             ? "text-red-400"
                             : "text-slate-500"
-                        }`}
-                      >
-                        {entry.outcome === "win"
-                          ? (pt ? "Ganhou" : "Win")
-                          : entry.outcome === "loss"
-                          ? (pt ? "Perdeu" : "Loss")
-                          : "BE"}
-                      </span>
-                      <span className="text-slate-600 text-xs">
-                        {new Date(entry.logged_at).toLocaleDateString(
-                          pt ? "pt-BR" : "en-GB",
-                          { day: "2-digit", month: "short" }
-                        )}
-                      </span>
+                        }`}>
+                          {entry.outcome === "win"
+                            ? (pt ? "Ganhou" : "Win")
+                            : entry.outcome === "loss"
+                            ? (pt ? "Perdeu" : "Loss")
+                            : "BE"}
+                        </span>
+                        <span className="text-slate-600 text-xs">
+                          {new Date(entry.trade_date || entry.logged_at).toLocaleDateString(
+                            pt ? "pt-BR" : "en-GB",
+                            { day: "2-digit", month: "short" }
+                          )}
+                        </span>
+                      </div>
                     </div>
+
+                    {/* Second line: behavioral summary (only for full trade entries) */}
+                    {hasTradeData && summary && (
+                      <p className="mt-1 text-xs text-slate-600 pl-4">{summary}</p>
+                    )}
                   </div>
                 );
               })}
@@ -660,7 +491,7 @@ export default function JournalPage() {
             )}
           </div>
         ) : (
-          !showForm && (
+          (
             <div className="text-center py-16">
               <p className="text-slate-600 text-sm">
                 {pt ? "Nenhuma operação registrada ainda." : "No trades logged yet."}

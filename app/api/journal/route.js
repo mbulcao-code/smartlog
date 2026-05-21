@@ -42,7 +42,14 @@ export async function POST(request) {
     if (authError || !user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { pain_type, behavior, outcome, notes, lang } = body;
+    const {
+      // Behavioral fields (always present)
+      pain_type, behavior, outcome, notes, lang,
+      // Full trade fields (from /journal/log/new)
+      setup_id, instrument, direction, trade_date,
+      entry_price, stop_price, exit_price,
+      conditions_met, variant_used,
+    } = body;
 
     if (!outcome) {
       return Response.json({ error: "outcome is required" }, { status: 400 });
@@ -56,12 +63,22 @@ export async function POST(request) {
     const { data, error } = await supabase
       .from("trade_journal")
       .insert({
-        user_id: user.id,
-        pain_type: pain_type || null,
-        behavior: behavior || {},
+        user_id:        user.id,
+        pain_type:      pain_type || null,
+        behavior:       behavior || {},
         outcome,
-        notes: notes || null,
-        lang: lang || "en",
+        notes:          notes || null,
+        lang:           lang || "en",
+        // Full trade fields
+        setup_id:       setup_id || null,
+        instrument:     instrument || null,
+        direction:      direction || null,
+        trade_date:     trade_date || null,
+        entry_price:    entry_price ?? null,
+        stop_price:     stop_price ?? null,
+        exit_price:     exit_price ?? null,
+        conditions_met: conditions_met || [],
+        variant_used:   variant_used || null,
       })
       .select()
       .single();
