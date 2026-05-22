@@ -11,6 +11,7 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [experiments, setExperiments] = useState([]);
+  const [setups, setSetups] = useState([]);
   const [canLog, setCanLog] = useState(false);
   const [periodEnd, setPeriodEnd] = useState(null);
   const cardsRef = useRef(null);
@@ -23,19 +24,24 @@ export default function Home() {
   useEffect(() => {
     async function loadUser(session) {
       setUser(session.user);
-      const [accessRes, dashRes] = await Promise.all([
+      const [accessRes, dashRes, setupsRes] = await Promise.all([
         fetch("/api/check-access", {
           headers: { Authorization: `Bearer ${session.access_token}` },
         }),
         fetch("/api/dashboard", {
           headers: { Authorization: `Bearer ${session.access_token}` },
         }),
+        fetch("/api/journal/setups", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }),
       ]);
       const accessData = await accessRes.json();
       const dashData = await dashRes.json();
+      const setupsData = await setupsRes.json();
       setCanLog(!!accessData.hasAccess);
       setPeriodEnd(accessData.periodEnd || null);
       setExperiments(dashData.experiments || []);
+      setSetups(Array.isArray(setupsData) ? setupsData : []);
       setAuthLoading(false);
     }
 
@@ -152,6 +158,7 @@ export default function Home() {
           canLog={canLog}
           periodEnd={periodEnd}
           experiments={experiments}
+          setups={setups}
           lang={lang}
           onSignOut={handleSignOut}
           onNewSession={scrollToCards}

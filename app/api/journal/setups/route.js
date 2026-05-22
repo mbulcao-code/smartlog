@@ -38,6 +38,20 @@ export async function POST(request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+    // Enforce 10-setup limit
+    const { count: existingCount } = await supabase
+      .from("journal_setups")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("is_active", true);
+
+    if ((existingCount || 0) >= 10) {
+      return Response.json(
+        { error: "setup_limit_reached", message: "You have reached the maximum of 10 setups. Delete an existing setup to create a new one." },
+        { status: 422 }
+      );
+    }
+
     const body = await request.json();
     const { name, conditions, stop_strategy, profit_strategy, stop_config, profit_config } = body;
 

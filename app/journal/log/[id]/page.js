@@ -67,14 +67,6 @@ const AFTER_TRADE_LABELS = {
       hit_left_money:       { en: "Hit — price kept going after",     pt: "Atingido — preço continuou depois"     },
     },
   },
-  setup_type: {
-    en: "Trade type",  pt: "Tipo de operação",
-    values: {
-      repeatable:          { en: "Repeatable tested setup",    pt: "Setup testado e repetível" },
-      planned_not_repeat:  { en: "Planned but not repeatable", pt: "Planejado mas não repetível" },
-      random:              { en: "Random — no clear setup",    pt: "Aleatório — sem setup claro" },
-    },
-  },
   plan_deviation: {
     en: "Plan deviation", pt: "Desvio do plano",
     values: {
@@ -189,6 +181,7 @@ function TradeDetailContent() {
   const [notFound, setNotFound] = useState(false);
   const [token, setToken] = useState(null);
   const [isPro, setIsPro] = useState(null); // null = unknown, true/false once loaded
+  const [setupName, setSetupName] = useState(null);
 
   // Edit state
   const [editing, setEditing] = useState(false);
@@ -223,6 +216,18 @@ function TradeDetailContent() {
         setEntry(data);
         const accessData = await accessRes.json();
         setIsPro(accessData.hasAccess === true);
+        // Fetch setup name if trade has a setup
+        if (data.setup_id) {
+          try {
+            const setupRes = await fetch(`/api/journal/setups/${data.setup_id}`, {
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+            if (setupRes.ok) {
+              const setupData = await setupRes.json();
+              setSetupName(setupData.name || null);
+            }
+          } catch (_) { /* non-critical — setup name just stays null */ }
+        }
       } catch (e) {
         console.error("Trade detail load error:", e);
         setNotFound(true);
@@ -428,20 +433,26 @@ function TradeDetailContent() {
 
         {/* Trade title */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-1">
+          {/* Setup name — primary identifier */}
+          <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">
+            {pt ? "Setup" : "Setup"}
+          </p>
+          <h1 className="text-xl font-bold text-white mb-3">
+            {setupName || <span className="italic text-slate-500">{pt ? "Sem setup" : "No setup"}</span>}
+          </h1>
+          {/* Direction + instrument + outcome as secondary info */}
+          <div className="flex items-center gap-2 flex-wrap">
             {directionLabel && (
-              <span className={`text-2xl font-bold ${directionColor}`}>{directionLabel}</span>
+              <span className={`text-base font-semibold ${directionColor}`}>{directionLabel}</span>
             )}
             {entry.instrument && (
-              <span className="text-2xl font-bold text-white">{entry.instrument}</span>
+              <span className="text-base font-semibold text-slate-300">{entry.instrument}</span>
             )}
-            {!entry.instrument && !directionLabel && (
-              <span className="text-lg font-semibold text-slate-400">
-                {pt ? "Operação" : "Trade"}
-              </span>
+            {(directionLabel || entry.instrument) && (
+              <span className="text-slate-700">·</span>
             )}
+            <span className={`text-base font-semibold ${outcomeColor}`}>{outcomeLabel}</span>
           </div>
-          <span className={`text-lg font-semibold ${outcomeColor}`}>{outcomeLabel}</span>
         </div>
 
         {/* Prices */}

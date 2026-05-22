@@ -412,65 +412,76 @@ function JournalContent() {
             </p>
             <div className="flex flex-col gap-2">
               {entries.slice(0, 50).map((entry) => {
-                const painInfo = PAINS.find((p) => p.id === entry.pain_type) || null;
-                const summary = getBehaviorSummary(entry.pain_type, entry.behavior, lang);
-                const hasTradeData = entry.instrument || entry.direction;
+                // Resolve setup name
+                const setupName = entry.setup_id
+                  ? setups.find((s) => s.id === entry.setup_id)?.name
+                  : null;
+
+                // Resolve pain labels (handles both new pain_types array and legacy pain_type)
+                const isNewFormat = Array.isArray(entry.pain_types) && entry.pain_types.length > 0;
+                let painLabels = [];
+                if (isNewFormat) {
+                  const nonClean = entry.pain_types.filter((p) => p !== "clean");
+                  if (nonClean.length === 0) {
+                    painLabels = [{ label: pt ? "Limpa" : "Clean", clean: true }];
+                  } else {
+                    painLabels = nonClean.map((pid) => {
+                      const p = PAINS.find((x) => x.id === pid);
+                      return { label: p ? (pt ? p.pt : p.en) : pid, clean: false };
+                    });
+                  }
+                } else if (entry.pain_type) {
+                  const p = PAINS.find((x) => x.id === entry.pain_type);
+                  painLabels = [{ label: p ? (pt ? p.pt : p.en) : entry.pain_type, clean: false }];
+                } else {
+                  painLabels = [{ label: pt ? "Limpa" : "Clean", clean: true }];
+                }
+
                 return (
                   <div
                     key={entry.id}
                     onClick={() => router.push(`/journal/log/${entry.id}`)}
                     className="px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 cursor-pointer hover:border-slate-700 hover:bg-slate-800/60 transition-colors"
                   >
-                    <div className="flex items-center justify-between">
-                      {/* Left: trade identity */}
-                      <div className="flex items-center gap-2 min-w-0">
-                        {hasTradeData ? (
-                          <>
-                            {entry.direction && (
-                              <span className={`text-xs font-medium flex-shrink-0 ${
-                                entry.direction === "long" ? "text-green-400" : "text-red-400"
-                              }`}>
-                                {entry.direction === "long" ? "↑" : "↓"}
-                              </span>
-                            )}
-                            {entry.instrument && (
-                              <span className="text-sm font-medium text-slate-200 flex-shrink-0">
-                                {entry.instrument}
-                              </span>
-                            )}
-                            {painInfo && (
-                              <>
-                                <span className="text-slate-700 text-xs flex-shrink-0">·</span>
-                                <span className="text-xs text-slate-500 truncate">
-                                  {pt ? painInfo.pt : painInfo.en}
-                                </span>
-                              </>
-                            )}
-                            {!painInfo && (
-                              <span className="text-xs text-green-600 flex-shrink-0">
-                                {pt ? "Limpa" : "Clean"}
-                              </span>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <span className={`text-xs flex-shrink-0 ${entry.pain_type ? "text-slate-400" : "text-green-500"}`}>
-                              {painInfo
-                                ? (pt ? painInfo.pt : painInfo.en)
-                                : (pt ? "Limpa" : "Clean")}
+                    <div className="flex items-start justify-between gap-3">
+                      {/* Left: setup name + secondary info */}
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        {/* Row 1: direction arrow + setup name + instrument */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {entry.direction && (
+                            <span className={`text-xs font-bold flex-shrink-0 ${
+                              entry.direction === "long" ? "text-green-400" : "text-red-400"
+                            }`}>
+                              {entry.direction === "long" ? "↑" : "↓"}
                             </span>
-                            {summary && (
-                              <>
-                                <span className="text-slate-700 text-xs flex-shrink-0">·</span>
-                                <span className="text-xs text-slate-500 truncate">{summary}</span>
-                              </>
-                            )}
-                          </>
-                        )}
+                          )}
+                          <span className={`text-sm font-medium flex-shrink-0 ${
+                            setupName ? "text-slate-100" : "text-slate-500 italic"
+                          }`}>
+                            {setupName || (pt ? "Sem setup" : "No setup")}
+                          </span>
+                          {entry.instrument && (
+                            <>
+                              <span className="text-slate-700 text-xs flex-shrink-0">·</span>
+                              <span className="text-xs text-slate-400 flex-shrink-0">{entry.instrument}</span>
+                            </>
+                          )}
+                        </div>
+                        {/* Row 2: pain labels */}
+                        <div className="flex items-center gap-1">
+                          {painLabels.map((pl, i) => (
+                            <span key={i} className={`text-xs ${pl.clean ? "text-green-700" : "text-slate-500"}`}>
+                              {pl.label}
+                              {i < painLabels.length - 1 && (
+                                <span className="text-slate-700 ml-1">·</span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
                       </div>
 
                       {/* Right: outcome + date */}
-                      <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                         <span className={`text-sm font-medium ${
                           entry.outcome === "win"
                             ? "text-green-400"
@@ -492,11 +503,6 @@ function JournalContent() {
                         </span>
                       </div>
                     </div>
-
-                    {/* Second line: behavioral summary (only for full trade entries) */}
-                    {hasTradeData && summary && (
-                      <p className="mt-1 text-xs text-slate-600 pl-4">{summary}</p>
-                    )}
                   </div>
                 );
               })}

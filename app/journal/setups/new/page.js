@@ -27,6 +27,7 @@ export default function NewSetupPage() {
   const [lang, setLangState] = useState(() => getLang());
   const [token, setToken] = useState(null);
   const [authReady, setAuthReady] = useState(false);
+  const [setupCount, setSetupCount] = useState(0);
 
   // Wizard state
   const [step, setStep] = useState(1); // 1=name, 2=conditions, 3=strategies, 4=review
@@ -67,6 +68,14 @@ export default function NewSetupPage() {
         return;
       }
       setToken(session.access_token);
+      // Check existing setup count
+      try {
+        const res = await fetch("/api/journal/setups", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const data = await res.json();
+        setSetupCount(Array.isArray(data) ? data.length : 0);
+      } catch (_) { /* non-critical */ }
       setAuthReady(true);
     }
     checkAuth();
@@ -213,6 +222,30 @@ export default function NewSetupPage() {
           <span className="w-1.5 h-1.5 bg-slate-600 rounded-full animate-bounce [animation-delay:150ms]" />
           <span className="w-1.5 h-1.5 bg-slate-600 rounded-full animate-bounce [animation-delay:300ms]" />
         </div>
+      </div>
+    );
+  }
+
+  if (setupCount >= 10) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center gap-6 px-6 text-center">
+        <p className="text-3xl">🔒</p>
+        <div>
+          <h1 className="text-xl font-bold text-white mb-2">
+            {pt ? "Limite de setups atingido" : "Setup limit reached"}
+          </h1>
+          <p className="text-sm text-slate-400 max-w-xs">
+            {pt
+              ? "Você já tem 10 setups ativos. Esse é o limite — mais setups significam mais ruído, não mais clareza. Exclua um setup existente para criar um novo."
+              : "You already have 10 active setups. That's the limit — more setups mean more noise, not more clarity. Delete an existing setup to create a new one."}
+          </p>
+        </div>
+        <button
+          onClick={() => router.push("/journal")}
+          className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+        >
+          ← {pt ? "Voltar ao diário" : "Back to journal"}
+        </button>
       </div>
     );
   }
