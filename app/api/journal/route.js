@@ -43,12 +43,14 @@ export async function POST(request) {
 
     const body = await request.json();
     const {
-      // Behavioral fields (always present)
+      // Legacy single-pain fields (kept for backward compat)
       pain_type, behavior, outcome, notes, lang,
-      // Full trade fields (from /journal/log/new)
+      // Full trade fields
       setup_id, instrument, direction, trade_date,
       entry_price, stop_price, exit_price,
       conditions_met, variant_used,
+      // New multi-pain + after-trade fields
+      pain_types, behaviors, after_trade,
     } = body;
 
     if (!outcome) {
@@ -64,12 +66,17 @@ export async function POST(request) {
       .from("trade_journal")
       .insert({
         user_id:        user.id,
+        // Legacy fields
         pain_type:      pain_type || null,
         behavior:       behavior || {},
+        // New multi-pain fields
+        pain_types:     pain_types || [],
+        behaviors:      behaviors || {},
+        after_trade:    after_trade || {},
         outcome,
         notes:          notes || null,
         lang:           lang || "en",
-        // Full trade fields
+        // Trade detail fields
         setup_id:       setup_id || null,
         instrument:     instrument || null,
         direction:      direction || null,
