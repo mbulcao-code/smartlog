@@ -16,15 +16,16 @@ async function authenticate(request) {
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 
-export async function GET(request, { params }) {
+export async function GET(request, context) {
   try {
+    const { id } = await context.params;
     const { user, error: authError } = await authenticate(request);
     if (authError) return Response.json({ error: authError }, { status: 401 });
 
     const { data, error } = await supabase
       .from("trade_journal")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .single();
 
@@ -39,8 +40,9 @@ export async function GET(request, { params }) {
 
 // ── PATCH — edit notes, outcome, exit_price ───────────────────────────────────
 
-export async function PATCH(request, { params }) {
+export async function PATCH(request, context) {
   try {
+    const { id } = await context.params;
     const { user, error: authError } = await authenticate(request);
     if (authError) return Response.json({ error: authError }, { status: 401 });
 
@@ -64,7 +66,7 @@ export async function PATCH(request, { params }) {
     const { data, error } = await supabase
       .from("trade_journal")
       .update(updates)
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .select()
       .single();
@@ -80,15 +82,16 @@ export async function PATCH(request, { params }) {
 
 // ── DELETE ────────────────────────────────────────────────────────────────────
 
-export async function DELETE(request, { params }) {
+export async function DELETE(request, context) {
   try {
+    const { id } = await context.params;
     const { user, error: authError } = await authenticate(request);
     if (authError) return Response.json({ error: authError }, { status: 401 });
 
     const { error } = await supabase
       .from("trade_journal")
       .delete()
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id);
 
     if (error) throw error;

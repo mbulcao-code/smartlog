@@ -217,15 +217,16 @@ function TradeDetailContent() {
             headers: { Authorization: `Bearer ${session.access_token}` },
           }),
         ]);
-        if (tradeRes.status === 404) { setNotFound(true); return; }
+        if (tradeRes.status === 404) { setNotFound(true); setIsPro(false); return; }
         const data = await tradeRes.json();
-        if (data.error) { setNotFound(true); return; }
+        if (data.error) { setNotFound(true); setIsPro(false); return; }
         setEntry(data);
         const accessData = await accessRes.json();
         setIsPro(accessData.hasAccess === true);
       } catch (e) {
         console.error("Trade detail load error:", e);
         setNotFound(true);
+        setIsPro(false);
       } finally {
         setLoading(false);
       }

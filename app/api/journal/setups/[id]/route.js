@@ -16,15 +16,16 @@ async function authenticate(request) {
 
 // ── GET /api/journal/setups/[id] ──────────────────────────────────────────────
 
-export async function GET(request, { params }) {
+export async function GET(request, context) {
   try {
+    const { id } = await context.params;
     const { user, error: authError } = await authenticate(request);
     if (authError) return Response.json({ error: authError }, { status: 401 });
 
     const { data, error } = await supabase
       .from("journal_setups")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .single();
 
@@ -44,8 +45,9 @@ export async function GET(request, { params }) {
 //   - conditions[].variants: freely addable/editable
 //   - stop_config, profit_config, stop_strategy, profit_strategy: freely editable
 
-export async function PUT(request, { params }) {
+export async function PUT(request, context) {
   try {
+    const { id } = await context.params;
     const { user, error: authError } = await authenticate(request);
     if (authError) return Response.json({ error: authError }, { status: 401 });
 
@@ -53,7 +55,7 @@ export async function PUT(request, { params }) {
     const { data: current, error: fetchError } = await supabase
       .from("journal_setups")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .single();
 
@@ -63,7 +65,7 @@ export async function PUT(request, { params }) {
     const { count } = await supabase
       .from("trade_journal")
       .select("id", { count: "exact", head: true })
-      .eq("setup_id", params.id)
+      .eq("setup_id", id)
       .eq("user_id", user.id);
 
     const hasTradeHistory = (count || 0) > 0;
@@ -100,7 +102,7 @@ export async function PUT(request, { params }) {
         stop_config:     stop_config    !== undefined ? stop_config    : current.stop_config,
         profit_config:   profit_config  !== undefined ? profit_config  : current.profit_config,
       })
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .select()
       .single();
@@ -115,8 +117,9 @@ export async function PUT(request, { params }) {
 
 // ── DELETE /api/journal/setups/[id] ──────────────────────────────────────────
 
-export async function DELETE(request, { params }) {
+export async function DELETE(request, context) {
   try {
+    const { id } = await context.params;
     const { user, error: authError } = await authenticate(request);
     if (authError) return Response.json({ error: authError }, { status: 401 });
 
@@ -124,14 +127,14 @@ export async function DELETE(request, { params }) {
     const { count } = await supabase
       .from("trade_journal")
       .select("id", { count: "exact", head: true })
-      .eq("setup_id", params.id)
+      .eq("setup_id", id)
       .eq("user_id", user.id);
 
     // Soft delete — set is_active = false (preserves trade history integrity)
     const { error } = await supabase
       .from("journal_setups")
       .update({ is_active: false })
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id);
 
     if (error) throw error;
