@@ -76,7 +76,7 @@ function NewTradeContent() {
     B: { text: "text-purple-300", border: "border-purple-400", bg: "bg-purple-950/20" },
     C: { text: "text-green-300",  border: "border-green-400",  bg: "bg-green-950/20"  },
     D: { text: "text-amber-300",  border: "border-amber-400",  bg: "bg-amber-950/20"  },
-    E: { text: "text-rose-300",   border: "border-rose-400",   bg: "bg-rose-950/20"   },
+    E: { text: "text-cyan-300",   border: "border-cyan-400",   bg: "bg-cyan-950/20"   },
   };
 
   // Step sequence (skip step 3 when no setup selected)

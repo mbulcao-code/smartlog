@@ -43,7 +43,7 @@ const VARIANT_COLORS = {
   B: "text-purple-400",
   C: "text-green-400",
   D: "text-amber-400",
-  E: "text-rose-400",
+  E: "text-cyan-400",
 };
 
 // Human-readable labels for after-trade keys
@@ -68,7 +68,7 @@ const AFTER_TRADE_LABELS = {
     },
   },
   setup_type: {
-    en: "Setup type",  pt: "Tipo de setup",
+    en: "Trade type",  pt: "Tipo de operação",
     values: {
       repeatable:          { en: "Repeatable tested setup",    pt: "Setup testado e repetível" },
       planned_not_repeat:  { en: "Planned but not repeatable", pt: "Planejado mas não repetível" },
@@ -120,6 +120,9 @@ function behaviorLinesNew(painType, behavior, pt) {
       if (b.sub_type === "revenge")     lines.push(pt ? "Vingança — tentando recuperar" : "Revenge — trying to make money back");
       if (b.sub_type === "overtrading") lines.push(pt ? "Excesso de operações" : "Overtrading");
       if (b.sub_type === "oversizing")  lines.push(pt ? "Tamanho excessivo de posição" : "Oversizing");
+      if (b.has_tested_setup === "no")           lines.push(pt ? "Sem setup testado — trabalhar nisso urgente" : "No tested setup — needs immediate work");
+      if (b.has_tested_setup === "yes_used")     lines.push(pt ? "Setup testado disponível e foi usado" : "Had a tested setup and used it");
+      if (b.has_tested_setup === "yes_not_used") lines.push(pt ? "Setup testado disponível mas não foi usado" : "Had a tested setup but didn't use it");
       break;
   }
   return lines;

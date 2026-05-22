@@ -17,7 +17,7 @@ const VARIANT_COLORS = {
   B: { text: "text-purple-400", ring: "ring-purple-500", bg: "bg-purple-500/10", border: "border-purple-500/30" },
   C: { text: "text-green-400",  ring: "ring-green-500",  bg: "bg-green-500/10",  border: "border-green-500/30"  },
   D: { text: "text-amber-400",  ring: "ring-amber-500",  bg: "bg-amber-500/10",  border: "border-amber-500/30"  },
-  E: { text: "text-rose-400",   ring: "ring-rose-500",   bg: "bg-rose-500/10",   border: "border-rose-500/30"   },
+  E: { text: "text-cyan-400",   ring: "ring-cyan-500",   bg: "bg-cyan-500/10",   border: "border-cyan-500/30"   },
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
