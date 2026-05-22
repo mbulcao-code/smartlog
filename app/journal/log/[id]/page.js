@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { getLang } from "@/lib/i18n";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { PAINS } from "@/lib/journal-helpers";
@@ -181,10 +181,25 @@ export default function TradeDetailPage() {
 function TradeDetailContent() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
+  const isReceipt = searchParams.get("receipt") === "1";
   const [lang] = useState(() => getLang());
   const [entry, setEntry] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [token, setToken] = useState(null);
+  const [isPro, setIsPro] = useState(null); // null = unknown, true/false once loaded
+
+  // Edit state
+  const [editing, setEditing] = useState(false);
+  const [editOutcome, setEditOutcome] = useState(null);
+  const [editExitPrice, setEditExitPrice] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Delete state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const pt = lang === "pt";
 
@@ -192,14 +207,22 @@ function TradeDetailContent() {
     async function load() {
       const { data: { session } } = await supabaseBrowser.auth.getSession();
       if (!session) { router.push("/auth"); return; }
+      setToken(session.access_token);
       try {
-        const res = await fetch(`/api/journal/${params.id}`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-        if (res.status === 404) { setNotFound(true); return; }
-        const data = await res.json();
+        const [tradeRes, accessRes] = await Promise.all([
+          fetch(`/api/journal/${params.id}`, {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }),
+          fetch("/api/check-access", {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }),
+        ]);
+        if (tradeRes.status === 404) { setNotFound(true); return; }
+        const data = await tradeRes.json();
         if (data.error) { setNotFound(true); return; }
         setEntry(data);
+        const accessData = await accessRes.json();
+        setIsPro(accessData.hasAccess === true);
       } catch (e) {
         console.error("Trade detail load error:", e);
         setNotFound(true);
@@ -210,7 +233,94 @@ function TradeDetailContent() {
     load();
   }, [params.id]);
 
-  if (loading) return <LoadingSpinner />;
+  function enterEditMode() {
+    setEditOutcome(entry.outcome);
+    setEditExitPrice(entry.exit_price ?? "");
+    setEditNotes(entry.notes ?? "");
+    setEditing(true);
+  }
+
+  async function handleSaveEdit() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/journal/${params.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          outcome:    editOutcome,
+          exit_price: editExitPrice,
+          notes:      editNotes,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setEntry(data.entry);
+      setEditing(false);
+    } catch (e) {
+      alert(pt ? "Erro ao salvar." : "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/journal/${params.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      router.push("/journal");
+    } catch (e) {
+      alert(pt ? "Erro ao excluir." : "Failed to delete.");
+      setDeleting(false);
+    }
+  }
+
+  if (loading || isPro === null) return <LoadingSpinner />;
+
+  // Free user revisiting an old trade (not a fresh receipt) → paywall gate
+  if (!isPro && !isReceipt) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center gap-6 px-6 text-center">
+        <div className="text-4xl">🔒</div>
+        <div>
+          <h2 className="text-lg font-semibold text-white mb-2">
+            {pt ? "Acesse suas operações com o plano Pro" : "Access your trades with Pro"}
+          </h2>
+          <p className="text-sm text-slate-400 leading-relaxed max-w-xs">
+            {pt
+              ? "Você pode registrar operações gratuitamente. Para visualizar seu histórico e relatórios completos, desbloqueie o Pro."
+              : "You can log trades for free. To view your full history and reports, unlock Pro."}
+          </p>
+        </div>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button
+            onClick={() => router.push("/subscribe")}
+            className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
+          >
+            {pt ? "Ver planos →" : "See plans →"}
+          </button>
+          <button
+            onClick={() => router.push("/subscribe?demo=1")}
+            className="w-full py-3 rounded-xl border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white text-sm transition-colors"
+          >
+            {pt ? "Ver exemplo de relatório" : "See a sample report"}
+          </button>
+          <button
+            onClick={() => router.push("/journal/log/new")}
+            className="text-xs text-slate-600 hover:text-slate-400 transition-colors"
+          >
+            ← {pt ? "Registrar outra operação" : "Log another trade"}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (notFound) {
     return (
@@ -276,11 +386,44 @@ function TradeDetailContent() {
             ← {pt ? "Diário" : "Journal"}
           </button>
           <span className="text-sm font-medium text-slate-400">{tradeDate}</span>
-          <div className="w-16" />
+          <button
+            onClick={enterEditMode}
+            className="text-xs px-3 py-1.5 rounded-full border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white transition-colors"
+          >
+            {pt ? "Editar" : "Edit"}
+          </button>
         </div>
       </header>
 
       <main className="max-w-xl mx-auto px-6 py-8">
+
+        {/* Free plan receipt banner */}
+        {!isPro && isReceipt && (
+          <div className="mb-6 p-4 rounded-xl border border-blue-500/20 bg-blue-950/20">
+            <p className="text-sm text-blue-300 font-medium mb-1">
+              {pt ? "Operação registrada ✓" : "Trade logged ✓"}
+            </p>
+            <p className="text-xs text-slate-400 mb-3">
+              {pt
+                ? "Esta é sua visualização única. Para acessar todas as suas operações e relatórios completos, desbloqueie o Pro."
+                : "This is your one-time view. To access all your trades and full reports, unlock Pro."}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => router.push("/subscribe")}
+                className="text-xs px-3 py-1.5 rounded-full bg-blue-500 hover:bg-blue-400 text-white font-medium transition-colors"
+              >
+                {pt ? "Ver planos →" : "See plans →"}
+              </button>
+              <button
+                onClick={() => router.push("/subscribe?demo=1")}
+                className="text-xs px-3 py-1.5 rounded-full border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white transition-colors"
+              >
+                {pt ? "Ver relatório exemplo" : "Sample report"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Trade title */}
         <div className="mb-8">
@@ -414,18 +557,110 @@ function TradeDetailContent() {
           </Section>
         )}
 
-        {/* Meta */}
-        <div className="mt-8 pt-4 border-t border-slate-800">
-          <p className="text-xs text-slate-700 text-center">
+        {/* Meta + delete */}
+        <div className="mt-8 pt-4 border-t border-slate-800 flex items-center justify-between">
+          <p className="text-xs text-slate-700">
             {pt ? "Registrado em" : "Logged"}{" "}
             {new Date(entry.logged_at).toLocaleString(pt ? "pt-BR" : "en-GB", {
               day: "2-digit", month: "short", year: "numeric",
               hour: "2-digit", minute: "2-digit",
             })}
           </p>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="text-xs text-slate-700 hover:text-red-400 transition-colors"
+          >
+            {pt ? "Excluir" : "Delete"}
+          </button>
         </div>
 
       </main>
+
+      {/* ── Edit modal ── */}
+      {editing && (
+        <div className="fixed inset-0 bg-black/70 flex items-end justify-center p-0 z-50">
+          <div className="bg-slate-900 border border-slate-700 rounded-t-2xl w-full max-w-xl p-6 pb-8">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-white font-semibold">{pt ? "Editar operação" : "Edit trade"}</h3>
+              <button onClick={() => setEditing(false)} className="text-slate-500 hover:text-white text-sm">✕</button>
+            </div>
+
+            {/* Outcome */}
+            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Resultado" : "Outcome"}</p>
+            <div className="grid grid-cols-3 gap-2 mb-5">
+              {[
+                { val: "win",       label: pt ? "Ganhou" : "Win",  active: "border-green-400 bg-green-950/30 text-green-300", inactive: "border-green-500/30 text-green-700" },
+                { val: "loss",      label: pt ? "Perdeu" : "Loss", active: "border-red-400 bg-red-950/30 text-red-300",       inactive: "border-red-500/30 text-red-800"     },
+                { val: "breakeven", label: "BE",                    active: "border-slate-400 bg-slate-800 text-slate-300",    inactive: "border-slate-700 text-slate-600"    },
+              ].map((o) => (
+                <button
+                  key={o.val}
+                  onClick={() => setEditOutcome(o.val)}
+                  className={`py-3 rounded-xl border text-sm font-medium transition-all ${editOutcome === o.val ? o.active : o.inactive}`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Exit price */}
+            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Preço de saída" : "Exit price"}</p>
+            <input
+              type="number"
+              step="any"
+              value={editExitPrice}
+              onChange={(e) => setEditExitPrice(e.target.value)}
+              placeholder={pt ? "Opcional" : "Optional"}
+              className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none text-sm mb-5"
+            />
+
+            {/* Notes */}
+            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Notas" : "Notes"}</p>
+            <textarea
+              value={editNotes}
+              onChange={(e) => setEditNotes(e.target.value)}
+              rows={3}
+              placeholder={pt ? "Observações..." : "Observations..."}
+              className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none text-sm resize-none mb-5"
+            />
+
+            <button
+              onClick={handleSaveEdit}
+              disabled={saving || !editOutcome}
+              className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-40 text-white text-sm font-medium transition-colors"
+            >
+              {saving ? "..." : pt ? "Salvar →" : "Save →"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete confirm ── */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-6 z-50">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full">
+            <h3 className="text-white font-semibold mb-2">{pt ? "Excluir operação?" : "Delete trade?"}</h3>
+            <p className="text-sm text-slate-400 mb-6">
+              {pt ? "Essa ação não pode ser desfeita." : "This action cannot be undone."}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-400 hover:text-white text-sm transition-colors"
+              >
+                {pt ? "Cancelar" : "Cancel"}
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+              >
+                {deleting ? "..." : pt ? "Excluir" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

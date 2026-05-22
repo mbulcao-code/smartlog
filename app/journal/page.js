@@ -148,6 +148,7 @@ function JournalContent() {
   const [setups, setSetups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [setupCreated, setSetupCreated] = useState(false);
+  const [setupDeleted, setSetupDeleted] = useState(false);
   const [tradeLogged, setTradeLogged] = useState(false);
 
   const pt = lang === "pt";
@@ -165,7 +166,11 @@ function JournalContent() {
       setSetupCreated(true);
       setTimeout(() => setSetupCreated(false), 4000);
     }
-    if (searchParams.get("logged") === "1") {
+    if (searchParams.get("setup") === "deleted") {
+      setSetupDeleted(true);
+      setTimeout(() => setSetupDeleted(false), 4000);
+    }
+    if (searchParams.get("trade") === "logged" || searchParams.get("logged") === "1") {
       setTradeLogged(true);
       setTimeout(() => setTradeLogged(false), 4000);
     }
@@ -270,6 +275,14 @@ function JournalContent() {
           </div>
         )}
 
+        {/* Setup deleted banner */}
+        {setupDeleted && (
+          <div className="mb-6 px-4 py-3 rounded-xl border border-slate-600/30 bg-slate-800/50 text-slate-400 text-sm flex items-center gap-2">
+            <span>✓</span>
+            <span>{pt ? "Setup excluído." : "Setup deleted."}</span>
+          </div>
+        )}
+
         {/* Trade logged banner */}
         {tradeLogged && (
           <div className="mb-6 px-4 py-3 rounded-xl border border-blue-500/30 bg-blue-950/20 text-blue-300 text-sm flex items-center gap-2">
@@ -304,25 +317,29 @@ function JournalContent() {
               {setups.map((setup) => (
                 <div
                   key={setup.id}
-                  className="flex items-center justify-between px-4 py-3 rounded-xl border border-slate-800 bg-slate-900"
+                  onClick={() => router.push(`/journal/setups/${setup.id}`)}
+                  className="flex items-center justify-between px-4 py-3 rounded-xl border border-slate-800 bg-slate-900 cursor-pointer hover:border-slate-700 hover:bg-slate-800/60 transition-colors"
                 >
                   <div>
                     <p className="text-sm text-slate-200 font-medium">{setup.name}</p>
                     {setup.conditions?.length > 0 && (
                       <p className="text-xs text-slate-500 mt-0.5">
                         {setup.conditions.length} {pt ? "condições" : "conditions"}
-                        {setup.stop_strategy || setup.profit_strategy
+                        {setup.stop_config?.initial || setup.stop_strategy
                           ? ` · ${pt ? "saídas definidas" : "exits defined"}`
                           : ""}
                       </p>
                     )}
                   </div>
-                  <span className="text-slate-700 text-xs">
-                    {new Date(setup.created_at).toLocaleDateString(
-                      pt ? "pt-BR" : "en-GB",
-                      { day: "2-digit", month: "short" }
-                    )}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-slate-700 text-xs">
+                      {new Date(setup.created_at).toLocaleDateString(
+                        pt ? "pt-BR" : "en-GB",
+                        { day: "2-digit", month: "short" }
+                      )}
+                    </span>
+                    <span className="text-slate-600 text-xs">→</span>
+                  </div>
                 </div>
               ))}
               <button

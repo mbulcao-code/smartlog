@@ -254,7 +254,7 @@ function NewTradeContent() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      router.push("/journal?trade=logged");
+      router.push(`/journal/log/${data.entry.id}?receipt=1`);
     } catch (e) {
       alert(pt ? "Erro ao salvar. Tente novamente." : "Failed to save. Try again.");
     } finally {
