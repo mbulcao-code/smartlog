@@ -51,6 +51,8 @@ export async function POST(request) {
       conditions_met, variant_used,
       // New multi-pain + after-trade fields
       pain_types, behaviors, after_trade,
+      // New v2 field
+      pnl,
     } = body;
 
     if (!outcome) {
@@ -86,6 +88,7 @@ export async function POST(request) {
         exit_price:     exit_price ?? null,
         conditions_met: conditions_met || [],
         variant_used:   variant_used || null,
+        pnl:            pnl !== undefined && pnl !== "" ? parseFloat(pnl) : null,
       })
       .select()
       .single();

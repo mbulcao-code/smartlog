@@ -3,7 +3,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { getLang } from "@/lib/i18n";
 import { supabaseBrowser } from "@/lib/supabase-browser";
-import { PAINS } from "@/lib/journal-helpers";
+import { PAINS, ENTRY_TYPE_LABELS, STOP_OUTCOME_LABELS, TARGET_OUTCOME_LABELS, OTHER_ISSUE_LABELS } from "@/lib/journal-helpers";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -46,8 +46,8 @@ const VARIANT_COLORS = {
   E: "text-cyan-400",
 };
 
-// Human-readable labels for after-trade keys
-const AFTER_TRADE_LABELS = {
+// Legacy after-trade labels (for trades saved with old keys before v2 wizard)
+const LEGACY_AFTER_TRADE_LABELS = {
   stop_outcome: {
     en: "Stop",        pt: "Stop",
     values: {
@@ -371,8 +371,10 @@ function TradeDetailContent() {
         { day: "numeric", month: "long", year: "numeric" }
       );
 
-  // Determine if this is a new-format (pain_types array) or legacy record
-  const isNewFormat = Array.isArray(entry.pain_types) && entry.pain_types.length > 0;
+  // v2: structured after_trade from the new 7-step wizard
+  const isV2 = !!(entry.after_trade?.entry_type);
+  // mid-format: pain_types array (used before v2 wizard)
+  const isNewFormat = !isV2 && Array.isArray(entry.pain_types) && entry.pain_types.length > 0;
   const isClean = isNewFormat
     ? entry.pain_types.includes("clean")
     : !entry.pain_type;
@@ -497,7 +499,72 @@ function TradeDetailContent() {
           </Section>
         )}
 
-        {/* Behavioral data — new format (multiple pains) */}
+        {/* ── V2 behavioral section (new 7-step wizard) ── */}
+        {isV2 && (() => {
+          const at = entry.after_trade;
+          const entryTypeMeta = ENTRY_TYPE_LABELS[at.entry_type];
+          const stopMeta      = STOP_OUTCOME_LABELS[at.stop_outcome];
+          const targetMeta    = TARGET_OUTCOME_LABELS[at.target_outcome];
+          const otherIssues   = Array.isArray(at.other_issues) ? at.other_issues : [];
+
+          return (
+            <Section label={pt ? "Comportamento" : "Behavior"}>
+              <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
+
+                {/* Entry type */}
+                {entryTypeMeta && (
+                  <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+                    <span className="text-xs text-slate-500">{pt ? "Tipo de entrada" : "Entry type"}</span>
+                    <span className="text-sm text-slate-200">{pt ? entryTypeMeta.pt : entryTypeMeta.en}</span>
+                  </div>
+                )}
+
+                {/* Level met after (only for early entry) */}
+                {at.entry_type === "early" && at.level_met_after !== undefined && (
+                  <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+                    <span className="text-xs text-slate-500">{pt ? "Nível também atingido?" : "Level also hit?"}</span>
+                    <span className={`text-sm font-medium ${at.level_met_after ? "text-amber-400" : "text-green-400"}`}>
+                      {at.level_met_after
+                        ? (pt ? "Sim — entrada cedo foi pior" : "Yes — early entry was worse")
+                        : (pt ? "Não — única forma de entrar" : "No — only way to catch it")}
+                    </span>
+                  </div>
+                )}
+
+                {/* Stop outcome */}
+                {stopMeta && (
+                  <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+                    <span className="text-xs text-slate-500">Stop</span>
+                    <span className="text-sm text-slate-200">{pt ? stopMeta.pt : stopMeta.en}</span>
+                  </div>
+                )}
+
+                {/* Target outcome */}
+                {targetMeta && (
+                  <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+                    <span className="text-xs text-slate-500">{pt ? "Alvo" : "Target"}</span>
+                    <span className="text-sm text-slate-200">{pt ? targetMeta.pt : targetMeta.en}</span>
+                  </div>
+                )}
+
+                {/* Other issues */}
+                {otherIssues.length > 0 && (
+                  <div className="flex items-baseline justify-between py-2">
+                    <span className="text-xs text-slate-500">{pt ? "Outros problemas" : "Other issues"}</span>
+                    <span className="text-sm text-slate-200">
+                      {otherIssues.map((id) => {
+                        const m = OTHER_ISSUE_LABELS[id];
+                        return m ? (pt ? m.pt : m.en) : id;
+                      }).join(", ")}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </Section>
+          );
+        })()}
+
+        {/* ── Mid-format behavioral data (pain_types array, pre-v2) ── */}
         {isNewFormat && !isClean && (
           <Section label={pt ? "Ocorrências" : "Pains"}>
             <div className="flex flex-col gap-2">
@@ -520,8 +587,8 @@ function TradeDetailContent() {
           </Section>
         )}
 
-        {/* Behavioral data — legacy format (single pain) */}
-        {!isNewFormat && entry.pain_type && (
+        {/* ── Legacy behavioral data (single pain_type) ── */}
+        {!isV2 && !isNewFormat && entry.pain_type && (
           <Section label={pt ? "Comportamento" : "Behavior"}>
             <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
               <p className="text-sm font-medium text-slate-200 mb-2">
@@ -534,18 +601,18 @@ function TradeDetailContent() {
           </Section>
         )}
 
-        {/* Clean trade */}
-        {isClean && (
+        {/* Clean trade (mid-format only — v2 has no explicit clean label) */}
+        {!isV2 && isClean && (
           <Section label={pt ? "Comportamento" : "Behavior"}>
             <p className="text-sm text-green-500">{pt ? "✓ Operação limpa" : "✓ Clean trade"}</p>
           </Section>
         )}
 
-        {/* After-trade data */}
-        {entry.after_trade && Object.keys(entry.after_trade).length > 0 && (
+        {/* Legacy after-trade data (old keys, pre-v2) */}
+        {!isV2 && entry.after_trade && Object.keys(entry.after_trade).length > 0 && (
           <Section label={pt ? "Pós-operação" : "After trade"}>
             <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
-              {Object.entries(AFTER_TRADE_LABELS).map(([key, meta]) => {
+              {Object.entries(LEGACY_AFTER_TRADE_LABELS).map(([key, meta]) => {
                 const val = entry.after_trade[key];
                 if (!val) return null;
                 const label = meta.values[val];
@@ -556,6 +623,20 @@ function TradeDetailContent() {
                   </div>
                 );
               })}
+            </div>
+          </Section>
+        )}
+
+        {/* P&L */}
+        {entry.pnl !== null && entry.pnl !== undefined && (
+          <Section label="P&L">
+            <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
+              <div className="flex items-baseline justify-between">
+                <span className="text-xs text-slate-500">{pt ? "Resultado ($)" : "Result ($)"}</span>
+                <span className={`text-sm font-semibold ${entry.pnl > 0 ? "text-green-400" : entry.pnl < 0 ? "text-red-400" : "text-slate-400"}`}>
+                  {entry.pnl > 0 ? "+" : ""}{entry.pnl.toFixed(2)}
+                </span>
+              </div>
             </div>
           </Section>
         )}
