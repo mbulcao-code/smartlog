@@ -64,6 +64,21 @@ const UNIVERSAL_REMINDER = {
   pt: "Confiança não é um estado de espírito. É uma função do desempenho passado. Setups testados e lucrativos são o caminho para construir confiança real. O tamanho da posição deve refletir tanto a lucratividade quanto o tamanho da amostragem. Um setup testado 5 vezes não é suficiente. Aumente seu tamanho financeiro com sua amostragem.",
 };
 
+// ── other_issues helpers (handles both old string[] and new object[] format) ──
+
+function hasIssue(trade, issueId) {
+  const items = trade.after_trade?.other_issues;
+  if (!Array.isArray(items) || items.length === 0) return false;
+  return items.some(item => typeof item === "string" ? item === issueId : item.id === issueId);
+}
+
+function getIssueSetupType(trade, issueId) {
+  const items = trade.after_trade?.other_issues;
+  if (!Array.isArray(items)) return null;
+  const item = items.find(i => typeof i !== "string" && i.id === issueId);
+  return item?.setup_type || null;
+}
+
 // ── Compute report data from trades ──────────────────────────────────────────
 
 function computeReportData(trades) {
@@ -126,14 +141,22 @@ function computeReportData(trades) {
   const lastOptimal    = targetTrades.filter(t => t.after_trade.target_outcome === "last_optimal");
   const lastKeptGoing  = targetTrades.filter(t => t.after_trade.target_outcome === "last_kept_going");
 
-  // Other issues
+  // Other issues (supports both old string[] and new object[] format)
   const otherIssuesTrades = v2.filter(t => t.after_trade?.other_issues?.length > 0);
-  const revengeT    = v2.filter(t => t.after_trade?.other_issues?.includes("revenge"));
-  const overtradingT= v2.filter(t => t.after_trade?.other_issues?.includes("overtrading"));
-  const oversizingT = v2.filter(t => t.after_trade?.other_issues?.includes("oversizing"));
-  // For other issues: trusted (had a setup) vs random
-  const otherWithSetup    = otherIssuesTrades.filter(t => t.setup_id);
-  const otherWithoutSetup = otherIssuesTrades.filter(t => !t.setup_id);
+  const revengeT     = v2.filter(t => hasIssue(t, "revenge"));
+  const overtradingT = v2.filter(t => hasIssue(t, "overtrading"));
+  const oversizingT  = v2.filter(t => hasIssue(t, "oversizing"));
+  const otherTextT   = v2.filter(t => hasIssue(t, "other"));
+
+  // Per-issue trusted/random breakdown (new format only)
+  function issueSplit(issueId, trades) {
+    const trusted = trades.filter(t => getIssueSetupType(t, issueId) === "trusted");
+    const random  = trades.filter(t => getIssueSetupType(t, issueId) === "random");
+    return { trusted, random };
+  }
+  const revengeSplit     = issueSplit("revenge",     revengeT);
+  const overtradingSplit = issueSplit("overtrading", overtradingT);
+  const oversizingSplit  = issueSplit("oversizing",  oversizingT);
 
   // P&L
   const pnlTrades = v2.filter(t => t.pnl != null);
@@ -156,7 +179,8 @@ function computeReportData(trades) {
     stopTrades, stopChanged, stopChangedWorse, stopChangedSmaller, stopChangedProfit,
     stopRespected, stopProtected, stopReversal, stopPanic,
     targetTrades, earlyExits, earlyExitHit, earlyExitNoHit, lastOptimal, lastKeptGoing,
-    otherIssuesTrades, revengeT, overtradingT, oversizingT, otherWithSetup, otherWithoutSetup,
+    otherIssuesTrades, revengeT, overtradingT, oversizingT, otherTextT,
+    revengeSplit, overtradingSplit, oversizingSplit,
     pnlTrades, totalPnl, pnlBySetup,
   };
 }
@@ -470,18 +494,41 @@ function BehavioralReport({ trades, setups, lang }) {
       {d.otherIssuesTrades.length > 0 && (
         <Section title={pt ? "Outros problemas" : "Other issues"}>
           <Card>
-            {d.revengeT.length > 0    && <div className="flex justify-between py-2 border-b border-slate-800"><span className="text-sm text-slate-400">{pt ? "Vingança" : "Revenge"}</span><span className="text-sm text-red-400 font-medium">{d.revengeT.length}×</span></div>}
-            {d.overtradingT.length > 0 && <div className="flex justify-between py-2 border-b border-slate-800"><span className="text-sm text-slate-400">{pt ? "Excesso de operações" : "Overtrading"}</span><span className="text-sm text-amber-400 font-medium">{d.overtradingT.length}×</span></div>}
-            {d.oversizingT.length > 0  && <div className="flex justify-between py-2 border-b border-slate-800"><span className="text-sm text-slate-400">{pt ? "Tamanho excessivo" : "Oversizing"}</span><span className="text-sm text-amber-400 font-medium">{d.oversizingT.length}×</span></div>}
-
-            {d.otherWithSetup.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-slate-800">
-                <StatRow label={pt ? "Com setup testado" : "With trusted setup"} wins={d.wins(d.otherWithSetup)} losses={d.losses(d.otherWithSetup)} total={d.otherWithSetup.length} pt={pt} />
-              </div>
-            )}
-            {d.otherWithoutSetup.length > 0 && (
-              <StatRow label={pt ? "Sem setup (aleatória)" : "No setup (random)"} wins={d.wins(d.otherWithoutSetup)} losses={d.losses(d.otherWithoutSetup)} total={d.otherWithoutSetup.length} pt={pt} />
-            )}
+            {[
+              { key: "revengeT",     split: "revengeSplit",     en: "Revenge",     pt: "Vingança" },
+              { key: "overtradingT", split: "overtradingSplit", en: "Overtrading", pt: "Excesso de operações" },
+              { key: "oversizingT",  split: "oversizingSplit",  en: "Oversizing",  pt: "Tamanho excessivo" },
+            ].map(({ key, split, en, pt: ptLabel }) => {
+              const arr = d[key];
+              if (!arr.length) return null;
+              const s = d[split];
+              return (
+                <div key={key} className="border-b border-slate-800 last:border-0">
+                  <div className="flex justify-between py-2.5">
+                    <span className="text-sm text-slate-300">{pt ? ptLabel : en}</span>
+                    <span className="text-sm text-red-400 font-medium">{arr.length}×</span>
+                  </div>
+                  {(s.trusted.length > 0 || s.random.length > 0) && (
+                    <div className="mb-2 pl-4 space-y-1">
+                      {s.trusted.length > 0 && (
+                        <div className="flex items-center justify-between py-1">
+                          <span className="text-xs text-slate-500">{pt ? "↳ Setup testado" : "↳ Trusted setup"}</span>
+                          <span className="text-xs text-slate-400 tabular-nums">
+                            {d.wins(s.trusted)}W · {d.losses(s.trusted)}L · {s.trusted.length} ({d.wr(s.trusted)}%)
+                          </span>
+                        </div>
+                      )}
+                      {s.random.length > 0 && (
+                        <div className="flex items-center justify-between py-1">
+                          <span className="text-xs text-amber-700">{pt ? "↳ Aleatória" : "↳ Random"}</span>
+                          <span className="text-xs text-amber-700">{s.random.length}× — {pt ? "sem aprendizado" : "no learning"}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             {fullTrades.length >= 3 && d.wr(fullTrades) !== null && (
               <Moral pt={pt} highlight text={

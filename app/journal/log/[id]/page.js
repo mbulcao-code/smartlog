@@ -549,14 +549,31 @@ function TradeDetailContent() {
 
                 {/* Other issues */}
                 {otherIssues.length > 0 && (
-                  <div className="flex items-baseline justify-between py-2">
-                    <span className="text-xs text-slate-500">{pt ? "Outros problemas" : "Other issues"}</span>
-                    <span className="text-sm text-slate-200">
-                      {otherIssues.map((id) => {
+                  <div className="py-2">
+                    <p className="text-xs text-slate-500 mb-2">{pt ? "Outros problemas" : "Other issues"}</p>
+                    <div className="space-y-1.5">
+                      {otherIssues.map((item, i) => {
+                        // Support both old string format and new object format
+                        const id = typeof item === "string" ? item : item.id;
+                        const setupType = typeof item === "object" ? item.setup_type : null;
+                        const customText = typeof item === "object" && item.id === "other" ? item.text : null;
                         const m = OTHER_ISSUE_LABELS[id];
-                        return m ? (pt ? m.pt : m.en) : id;
-                      }).join(", ")}
-                    </span>
+                        const label = m ? (pt ? m.pt : m.en) : id;
+
+                        return (
+                          <div key={i} className="flex items-baseline justify-between">
+                            <span className="text-sm text-slate-300">{customText || label}</span>
+                            {setupType && (
+                              <span className={`text-xs font-medium ${setupType === "trusted" ? "text-blue-400" : "text-amber-500"}`}>
+                                {setupType === "trusted"
+                                  ? (pt ? "Setup testado" : "Trusted setup")
+                                  : (pt ? "Aleatória" : "Random")}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>

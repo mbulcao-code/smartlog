@@ -84,7 +84,9 @@ export default function NewTradePage() {
   const [targetOutcome, setTargetOutcome] = useState(null);
 
   // Step 6
-  const [otherIssues, setOtherIssues] = useState([]);
+  // otherIssues: { [id]: "trusted" | "random" | null }  for revenge/overtrading/oversizing
+  //              { other: "text..." }                    for free-text
+  const [otherIssues, setOtherIssues] = useState({});
   const [notes, setNotes] = useState("");
 
   // Step 2 (outcome captured early alongside trade facts)
@@ -164,7 +166,25 @@ export default function NewTradePage() {
   }
 
   function toggleIssue(id) {
-    setOtherIssues(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+    setOtherIssues(prev => {
+      const next = { ...prev };
+      if (id in next) { delete next[id]; } else { next[id] = id === "other" ? "" : null; }
+      return next;
+    });
+  }
+
+  function setIssueAnswer(id, val) {
+    setOtherIssues(prev => ({ ...prev, [id]: val }));
+  }
+
+  function allIssuesFilled() {
+    return Object.entries(otherIssues).every(([id, val]) => id === "other" || val !== null);
+  }
+
+  function buildOtherIssues() {
+    return Object.entries(otherIssues).map(([id, val]) =>
+      id === "other" ? { id: "other", text: val } : { id, setup_type: val }
+    );
   }
 
   // ── Save ──────────────────────────────────────────────────────────────────
@@ -190,7 +210,7 @@ export default function NewTradePage() {
             level_met_after: levelMetAfter,
             stop_outcome:    stopOutcome,
             target_outcome:  targetOutcome,
-            other_issues:    otherIssues,
+            other_issues:    buildOtherIssues(),
           },
           outcome,
           notes: notes.trim() || null,
@@ -542,21 +562,62 @@ export default function NewTradePage() {
               <p className="text-base font-semibold text-white mb-1">{pt ? "Algum outro problema?" : "Any other issue?"}</p>
               <p className="text-sm text-slate-500">{pt ? "Selecione todos que se aplicam, ou pule." : "Select all that apply, or skip."}</p>
             </div>
-            <div className="space-y-2">
+
+            <div className="space-y-3">
               {[
-                { id: "revenge",     en: "Revenge trade",                 pt: "Vingança" },
-                { id: "overtrading", en: "Overtrading",                   pt: "Excesso de operações" },
-                { id: "oversizing",  en: "Oversizing — position too big", pt: "Tamanho excessivo de posição" },
-              ].map(issue => (
-                <button key={issue.id} onClick={() => toggleIssue(issue.id)}
-                  className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
-                    otherIssues.includes(issue.id)
-                      ? "border-amber-500/50 bg-amber-950/20 text-amber-200"
-                      : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-slate-300"
-                  }`}>
-                  {pt ? issue.pt : issue.en}
-                </button>
-              ))}
+                { id: "revenge",     en: "Revenge trade",                      pt: "Vingança" },
+                { id: "overtrading", en: "Overtrading",                         pt: "Excesso de operações" },
+                { id: "oversizing",  en: "Oversizing — position too big",       pt: "Tamanho excessivo de posição" },
+                { id: "other",       en: "Other — help improve the app",        pt: "Outro — ajude a melhorar o app" },
+              ].map(issue => {
+                const selected = issue.id in otherIssues;
+                const val = otherIssues[issue.id];
+                return (
+                  <div key={issue.id}>
+                    <button onClick={() => toggleIssue(issue.id)}
+                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
+                        selected
+                          ? "border-amber-500/50 bg-amber-950/20 text-amber-200"
+                          : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+                      }`}>
+                      {pt ? issue.pt : issue.en}
+                    </button>
+
+                    {/* Sub-question: trusted vs random (Revenge / Overtrading / Oversizing) */}
+                    {selected && issue.id !== "other" && (
+                      <div className="mt-2 ml-3 flex flex-col gap-2">
+                        <button onClick={() => setIssueAnswer(issue.id, "trusted")}
+                          className={`w-full text-left px-3 py-2.5 rounded-lg border text-xs font-medium transition-colors ${
+                            val === "trusted"
+                              ? "border-blue-500/50 bg-blue-950/20 text-blue-200"
+                              : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+                          }`}>
+                          {pt ? "Usei um setup testado" : "Used a trusted setup"}
+                        </button>
+                        <button onClick={() => setIssueAnswer(issue.id, "random")}
+                          className={`w-full text-left px-3 py-2.5 rounded-lg border text-xs font-medium transition-colors ${
+                            val === "random"
+                              ? "border-amber-600/50 bg-amber-950/20 text-amber-300"
+                              : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+                          }`}>
+                          {pt ? "Operação aleatória — não se aprende com isso" : "Random trade — you can't learn from random trades"}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Sub-question: free text (Other) */}
+                    {selected && issue.id === "other" && (
+                      <input
+                        type="text"
+                        value={val}
+                        onChange={e => setIssueAnswer("other", e.target.value)}
+                        placeholder={pt ? "Descreva o problema…" : "Describe the issue…"}
+                        className="mt-2 ml-3 w-[calc(100%-0.75rem)] px-3 py-2.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-200 text-xs placeholder-slate-600 focus:outline-none focus:border-slate-500"
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Notes */}
@@ -570,7 +631,7 @@ export default function NewTradePage() {
 
             <div className="flex gap-3">
               <button onClick={() => backFrom(6)} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-sm transition-colors">←</button>
-              <button onClick={handleSave} disabled={saving}
+              <button onClick={handleSave} disabled={saving || !allIssuesFilled()}
                 className="flex-1 py-3.5 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-30 text-white text-sm font-medium transition-colors">
                 {saving ? "…" : (pt ? "Salvar operação" : "Save trade")}
               </button>
