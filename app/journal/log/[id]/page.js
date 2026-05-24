@@ -3,9 +3,15 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { getLang } from "@/lib/i18n";
 import { supabaseBrowser } from "@/lib/supabase-browser";
-import { PAINS, ENTRY_TYPE_LABELS, STOP_OUTCOME_LABELS, TARGET_OUTCOME_LABELS, OTHER_ISSUE_LABELS } from "@/lib/journal-helpers";
+import {
+  PAINS,
+  ENTRY_TYPE_LABELS,
+  STOP_OUTCOME_LABELS,
+  TARGET_OUTCOME_LABELS,
+  OTHER_ISSUE_LABELS,
+} from "@/lib/journal-helpers";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Small helpers ─────────────────────────────────────────────────────────────
 
 function LoadingSpinner() {
   return (
@@ -19,10 +25,21 @@ function LoadingSpinner() {
   );
 }
 
-function Section({ label, children }) {
+// Section with optional inline edit button
+function Section({ label, children, onEdit, pt }) {
   return (
     <div className="mb-5">
-      <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{label}</p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-slate-500 uppercase tracking-wider">{label}</p>
+        {onEdit && (
+          <button
+            onClick={onEdit}
+            className="text-xs text-slate-600 hover:text-blue-400 transition-colors px-1"
+          >
+            {pt ? "editar" : "edit"}
+          </button>
+        )}
+      </div>
       {children}
     </div>
   );
@@ -38,6 +55,34 @@ function Field({ label, value, color }) {
   );
 }
 
+// Bottom-sheet modal wrapper
+function BottomSheet({ open, onClose, title, children }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-50">
+      <div className="bg-slate-900 border border-slate-700 rounded-t-2xl w-full max-w-xl p-6 pb-10">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-white font-semibold">{title}</h3>
+          <button onClick={onClose} className="text-slate-500 hover:text-white text-sm">✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SaveBtn({ onSave, saving, disabled, pt }) {
+  return (
+    <button
+      onClick={onSave}
+      disabled={saving || disabled}
+      className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-40 text-white text-sm font-medium transition-colors mt-5"
+    >
+      {saving ? "..." : (pt ? "Salvar →" : "Save →")}
+    </button>
+  );
+}
+
 const VARIANT_COLORS = {
   A: "text-blue-400",
   B: "text-purple-400",
@@ -49,7 +94,7 @@ const VARIANT_COLORS = {
 // Legacy after-trade labels (for trades saved with old keys before v2 wizard)
 const LEGACY_AFTER_TRADE_LABELS = {
   stop_outcome: {
-    en: "Stop",        pt: "Stop",
+    en: "Stop", pt: "Stop",
     values: {
       no:        { en: "Not hit",                           pt: "Não ativado"                         },
       protected: { en: "Hit — protected from bigger loss",  pt: "Ativado — protegeu de perda maior"   },
@@ -58,7 +103,7 @@ const LEGACY_AFTER_TRADE_LABELS = {
     },
   },
   target_outcome: {
-    en: "Target",      pt: "Alvo",
+    en: "Target", pt: "Alvo",
     values: {
       not_hit_offside_stop: { en: "Never onside — stopped out",       pt: "Nunca favorável — stopou"              },
       not_hit_onside_be:    { en: "Onside → back to breakeven",       pt: "Favorável → voltou ao ponto de entrada" },
@@ -78,7 +123,6 @@ const LEGACY_AFTER_TRADE_LABELS = {
   },
 };
 
-// Build human-readable behavior lines for a single pain entry (new tree)
 function behaviorLinesNew(painType, behavior, pt) {
   const b = behavior || {};
   const lines = [];
@@ -120,7 +164,6 @@ function behaviorLinesNew(painType, behavior, pt) {
   return lines;
 }
 
-// Legacy behavior lines (old pain_type IDs)
 function behaviorLinesLegacy(painType, behavior, pt) {
   const b = behavior || {};
   const lines = [];
@@ -158,6 +201,15 @@ function behaviorLinesLegacy(painType, behavior, pt) {
   return lines;
 }
 
+// Derive entry category from entry_type value
+function entryTypeToCategory(et) {
+  if (et === "full_setup") return "full_setup";
+  if (et === "early")      return "early";
+  if (["hesitation_better","hesitation_worse","chase_profit","chase_loss"].includes(et)) return "late";
+  if (et === "random")     return "random";
+  return null;
+}
+
 // ── Page export ───────────────────────────────────────────────────────────────
 
 export default function TradeDetailPage() {
@@ -171,30 +223,50 @@ export default function TradeDetailPage() {
 // ── Main component ────────────────────────────────────────────────────────────
 
 function TradeDetailContent() {
-  const router = useRouter();
-  const params = useParams();
+  const router      = useRouter();
+  const params      = useParams();
   const searchParams = useSearchParams();
-  const isReceipt = searchParams.get("receipt") === "1";
-  const [lang] = useState(() => getLang());
-  const [entry, setEntry] = useState(null);
+  const isReceipt   = searchParams.get("receipt") === "1";
+  const [lang]      = useState(() => getLang());
+  const [entry, setEntry]     = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [token, setToken] = useState(null);
-  const [isPro, setIsPro] = useState(null); // null = unknown, true/false once loaded
+  const [token, setToken]     = useState(null);
+  const [isPro, setIsPro]     = useState(null);
   const [setupName, setSetupName] = useState(null);
+  const [allSetups, setAllSetups] = useState([]);
 
-  // Edit state
-  const [editing, setEditing] = useState(false);
-  const [editOutcome, setEditOutcome] = useState(null);
-  const [editExitPrice, setEditExitPrice] = useState("");
-  const [editNotes, setEditNotes] = useState("");
+  // Which edit modal is open
+  const [activeModal, setActiveModal] = useState(null); // "trade_info" | "outcome_pnl" | "behavior" | "notes"
   const [saving, setSaving] = useState(false);
 
-  // Delete state
+  // ── Trade info edit state ─────────────────────────────────────────────────
+  const [editSetupId,    setEditSetupId]    = useState(null);
+  const [editDirection,  setEditDirection]  = useState(null);
+  const [editTradeDate,  setEditTradeDate]  = useState("");
+  const [editInstrument, setEditInstrument] = useState("");
+
+  // ── Outcome + P&L edit state ──────────────────────────────────────────────
+  const [editOutcome, setEditOutcome] = useState(null);
+  const [editPnl,     setEditPnl]     = useState("");
+
+  // ── Behavior edit state (v2 only) ─────────────────────────────────────────
+  const [editEntryCategory,  setEditEntryCategory]  = useState(null);
+  const [editEntryType,      setEditEntryType]      = useState(null);
+  const [editLevelMetAfter,  setEditLevelMetAfter]  = useState(null);
+  const [editStopOutcome,    setEditStopOutcome]    = useState(null);
+  const [editTargetOutcome,  setEditTargetOutcome]  = useState(null);
+
+  // ── Notes edit state ──────────────────────────────────────────────────────
+  const [editNotes, setEditNotes] = useState("");
+
+  // Delete
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const pt = lang === "pt";
+
+  // ── Load data ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
     async function load() {
@@ -202,31 +274,42 @@ function TradeDetailContent() {
       if (!session) { router.push("/auth"); return; }
       setToken(session.access_token);
       try {
-        const [tradeRes, accessRes] = await Promise.all([
+        const [tradeRes, accessRes, setupsRes] = await Promise.all([
           fetch(`/api/journal/${params.id}`, {
             headers: { Authorization: `Bearer ${session.access_token}` },
           }),
           fetch("/api/check-access", {
             headers: { Authorization: `Bearer ${session.access_token}` },
           }),
+          fetch("/api/journal/setups", {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }),
         ]);
+
         if (tradeRes.status === 404) { setNotFound(true); setIsPro(false); return; }
         const data = await tradeRes.json();
         if (data.error) { setNotFound(true); setIsPro(false); return; }
         setEntry(data);
+
         const accessData = await accessRes.json();
         setIsPro(accessData.hasAccess === true);
-        // Fetch setup name if trade has a setup
-        if (data.setup_id) {
+
+        if (setupsRes.ok) {
+          const setupsData = await setupsRes.json();
+          const list = setupsData.setups || [];
+          setAllSetups(list);
+          if (data.setup_id) {
+            const found = list.find(s => s.id === data.setup_id);
+            setSetupName(found?.name || null);
+          }
+        } else if (data.setup_id) {
+          // Fallback: fetch individual setup
           try {
-            const setupRes = await fetch(`/api/journal/setups/${data.setup_id}`, {
+            const sr = await fetch(`/api/journal/setups/${data.setup_id}`, {
               headers: { Authorization: `Bearer ${session.access_token}` },
             });
-            if (setupRes.ok) {
-              const setupData = await setupRes.json();
-              setSetupName(setupData.name || null);
-            }
-          } catch (_) { /* non-critical — setup name just stays null */ }
+            if (sr.ok) { const sd = await sr.json(); setSetupName(sd.name || null); }
+          } catch (_) {}
         }
       } catch (e) {
         console.error("Trade detail load error:", e);
@@ -239,36 +322,105 @@ function TradeDetailContent() {
     load();
   }, [params.id]);
 
-  function enterEditMode() {
-    setEditOutcome(entry.outcome);
-    setEditExitPrice(entry.exit_price ?? "");
-    setEditNotes(entry.notes ?? "");
-    setEditing(true);
-  }
+  // ── Save helper ───────────────────────────────────────────────────────────
 
-  async function handleSaveEdit() {
+  async function saveField(updates) {
     if (saving) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/journal/${params.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          outcome:    editOutcome,
-          exit_price: editExitPrice,
-          notes:      editNotes,
-        }),
+        body: JSON.stringify(updates),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setEntry(data.entry);
-      setEditing(false);
+      // Sync setup name if changed
+      if ("setup_id" in updates) {
+        if (updates.setup_id) {
+          const found = allSetups.find(s => s.id === updates.setup_id);
+          setSetupName(found?.name || null);
+        } else {
+          setSetupName(null);
+        }
+      }
+      setActiveModal(null);
     } catch (e) {
       alert(pt ? "Erro ao salvar." : "Failed to save.");
     } finally {
       setSaving(false);
     }
   }
+
+  // ── Modal openers ─────────────────────────────────────────────────────────
+
+  function openTradeInfo() {
+    setEditSetupId(entry.setup_id || null);
+    setEditDirection(entry.direction || null);
+    setEditTradeDate(entry.trade_date || "");
+    setEditInstrument(entry.instrument || "");
+    setActiveModal("trade_info");
+  }
+
+  function openOutcomePnl() {
+    setEditOutcome(entry.outcome);
+    setEditPnl(entry.pnl !== null && entry.pnl !== undefined ? String(entry.pnl) : "");
+    setActiveModal("outcome_pnl");
+  }
+
+  function openBehavior() {
+    const at = entry.after_trade || {};
+    const cat = entryTypeToCategory(at.entry_type);
+    setEditEntryCategory(cat);
+    setEditEntryType(at.entry_type || null);
+    setEditLevelMetAfter(at.level_met_after ?? null);
+    setEditStopOutcome(at.stop_outcome || null);
+    setEditTargetOutcome(at.target_outcome || null);
+    setActiveModal("behavior");
+  }
+
+  function openNotes() {
+    setEditNotes(entry.notes || "");
+    setActiveModal("notes");
+  }
+
+  // ── Save handlers ─────────────────────────────────────────────────────────
+
+  function saveTradeInfo() {
+    saveField({
+      setup_id:   editSetupId,
+      direction:  editDirection,
+      trade_date: editTradeDate || null,
+      instrument: editInstrument,
+    });
+  }
+
+  function saveOutcomePnl() {
+    saveField({
+      outcome: editOutcome,
+      pnl: editPnl !== "" ? editPnl : null,
+    });
+  }
+
+  function saveBehavior() {
+    const newAfterTrade = {
+      ...(entry.after_trade || {}),
+      entry_type:      editEntryType,
+      level_met_after: editEntryCategory === "early" ? editLevelMetAfter : undefined,
+      stop_outcome:    editStopOutcome,
+      target_outcome:  editTargetOutcome,
+    };
+    // Remove undefined keys
+    Object.keys(newAfterTrade).forEach(k => newAfterTrade[k] === undefined && delete newAfterTrade[k]);
+    saveField({ after_trade: newAfterTrade });
+  }
+
+  function saveNotes() {
+    saveField({ notes: editNotes });
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
 
   async function handleDelete() {
     if (deleting) return;
@@ -287,9 +439,20 @@ function TradeDetailContent() {
     }
   }
 
+  // ── Entry category helper used in behavior edit modal ─────────────────────
+
+  function selectEditCategory(cat) {
+    setEditEntryCategory(cat);
+    setEditLevelMetAfter(null);
+    if (cat === "full_setup") setEditEntryType("full_setup");
+    else if (cat === "random") setEditEntryType("random");
+    else setEditEntryType(null);
+  }
+
+  // ── Guards ────────────────────────────────────────────────────────────────
+
   if (loading || isPro === null) return <LoadingSpinner />;
 
-  // Free user revisiting an old trade (not a fresh receipt) → paywall gate
   if (!isPro && !isReceipt) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center gap-6 px-6 text-center">
@@ -305,22 +468,16 @@ function TradeDetailContent() {
           </p>
         </div>
         <div className="flex flex-col gap-3 w-full max-w-xs">
-          <button
-            onClick={() => router.push("/subscribe")}
-            className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors"
-          >
+          <button onClick={() => router.push("/subscribe")}
+            className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors">
             {pt ? "Ver planos →" : "See plans →"}
           </button>
-          <button
-            onClick={() => router.push("/subscribe?demo=1")}
-            className="w-full py-3 rounded-xl border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white text-sm transition-colors"
-          >
+          <button onClick={() => router.push("/subscribe?demo=1")}
+            className="w-full py-3 rounded-xl border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white text-sm transition-colors">
             {pt ? "Ver exemplo de relatório" : "See a sample report"}
           </button>
-          <button
-            onClick={() => router.push("/journal/log/new")}
-            className="text-xs text-slate-600 hover:text-slate-400 transition-colors"
-          >
+          <button onClick={() => router.push("/journal/log/new")}
+            className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
             ← {pt ? "Registrar outra operação" : "Log another trade"}
           </button>
         </div>
@@ -339,7 +496,7 @@ function TradeDetailContent() {
     );
   }
 
-  // ── Derived values ──────────────────────────────────────────────────────────
+  // ── Derived display values ────────────────────────────────────────────────
 
   const outcomeColor =
     entry.outcome === "win"  ? "text-green-400"
@@ -371,15 +528,13 @@ function TradeDetailContent() {
         { day: "numeric", month: "long", year: "numeric" }
       );
 
-  // v2: structured after_trade from the new 7-step wizard
-  const isV2 = !!(entry.after_trade?.entry_type);
-  // mid-format: pain_types array (used before v2 wizard)
+  const isV2        = !!(entry.after_trade?.entry_type);
   const isNewFormat = !isV2 && Array.isArray(entry.pain_types) && entry.pain_types.length > 0;
-  const isClean = isNewFormat
+  const isClean     = isNewFormat
     ? entry.pain_types.includes("clean")
     : !entry.pain_type;
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -387,19 +542,13 @@ function TradeDetailContent() {
       {/* Header */}
       <header className="px-6 py-5 border-b border-slate-800">
         <div className="max-w-xl mx-auto flex items-center justify-between">
-          <button
-            onClick={() => router.push("/journal")}
-            className="text-slate-400 hover:text-white text-sm transition-colors"
-          >
+          <button onClick={() => router.push("/journal")}
+            className="text-slate-400 hover:text-white text-sm transition-colors">
             ← {pt ? "Diário" : "Journal"}
           </button>
           <span className="text-sm font-medium text-slate-400">{tradeDate}</span>
-          <button
-            onClick={enterEditMode}
-            className="text-xs px-3 py-1.5 rounded-full border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white transition-colors"
-          >
-            {pt ? "Editar" : "Edit"}
-          </button>
+          {/* Spacer to balance the back button */}
+          <div className="w-16" />
         </div>
       </header>
 
@@ -417,49 +566,71 @@ function TradeDetailContent() {
                 : "This is your one-time view. To access all your trades and full reports, unlock Pro."}
             </p>
             <div className="flex gap-2">
-              <button
-                onClick={() => router.push("/subscribe")}
-                className="text-xs px-3 py-1.5 rounded-full bg-blue-500 hover:bg-blue-400 text-white font-medium transition-colors"
-              >
+              <button onClick={() => router.push("/subscribe")}
+                className="text-xs px-3 py-1.5 rounded-full bg-blue-500 hover:bg-blue-400 text-white font-medium transition-colors">
                 {pt ? "Ver planos →" : "See plans →"}
               </button>
-              <button
-                onClick={() => router.push("/subscribe?demo=1")}
-                className="text-xs px-3 py-1.5 rounded-full border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white transition-colors"
-              >
+              <button onClick={() => router.push("/subscribe?demo=1")}
+                className="text-xs px-3 py-1.5 rounded-full border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white transition-colors">
                 {pt ? "Ver relatório exemplo" : "Sample report"}
               </button>
             </div>
           </div>
         )}
 
-        {/* Trade title */}
-        <div className="mb-8">
-          {/* Setup name — primary identifier */}
-          <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">
-            {pt ? "Setup" : "Setup"}
-          </p>
-          <h1 className="text-xl font-bold text-white mb-3">
-            {setupName || <span className="italic text-slate-500">{pt ? "Sem setup" : "No setup"}</span>}
-          </h1>
-          {/* Direction + instrument + outcome as secondary info */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {directionLabel && (
-              <span className={`text-base font-semibold ${directionColor}`}>{directionLabel}</span>
+        {/* Trade title + setup + direction ─────────────────────────────── */}
+        <Section label={pt ? "Operação" : "Trade"} onEdit={openTradeInfo} pt={pt}>
+          <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
+            {/* Setup */}
+            <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+              <span className="text-xs text-slate-500">Setup</span>
+              <span className="text-sm text-slate-200">
+                {setupName || <span className="italic text-slate-600">{pt ? "Sem setup" : "No setup"}</span>}
+              </span>
+            </div>
+            {/* Direction */}
+            {entry.direction && (
+              <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+                <span className="text-xs text-slate-500">{pt ? "Direção" : "Direction"}</span>
+                <span className={`text-sm font-semibold ${directionColor}`}>{directionLabel}</span>
+              </div>
             )}
+            {/* Instrument */}
             {entry.instrument && (
-              <span className="text-base font-semibold text-slate-300">{entry.instrument}</span>
+              <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+                <span className="text-xs text-slate-500">{pt ? "Ativo" : "Instrument"}</span>
+                <span className="text-sm text-slate-200">{entry.instrument}</span>
+              </div>
             )}
-            {(directionLabel || entry.instrument) && (
-              <span className="text-slate-700">·</span>
-            )}
-            <span className={`text-base font-semibold ${outcomeColor}`}>{outcomeLabel}</span>
+            {/* Date */}
+            <div className="flex items-baseline justify-between py-2">
+              <span className="text-xs text-slate-500">{pt ? "Data" : "Date"}</span>
+              <span className="text-sm text-slate-300">{tradeDate}</span>
+            </div>
           </div>
-        </div>
+        </Section>
 
-        {/* Prices */}
+        {/* Outcome + P&L ──────────────────────────────────────────────────── */}
+        <Section label={pt ? "Resultado" : "Outcome"} onEdit={openOutcomePnl} pt={pt}>
+          <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
+            <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+              <span className="text-xs text-slate-500">{pt ? "Resultado" : "Outcome"}</span>
+              <span className={`text-sm font-semibold ${outcomeColor}`}>{outcomeLabel}</span>
+            </div>
+            {entry.pnl !== null && entry.pnl !== undefined && (
+              <div className="flex items-baseline justify-between py-2">
+                <span className="text-xs text-slate-500">P&amp;L ($)</span>
+                <span className={`text-sm font-semibold ${entry.pnl > 0 ? "text-green-400" : entry.pnl < 0 ? "text-red-400" : "text-slate-400"}`}>
+                  {entry.pnl > 0 ? "+" : ""}{Number(entry.pnl).toFixed(2)}
+                </span>
+              </div>
+            )}
+          </div>
+        </Section>
+
+        {/* Prices ──────────────────────────────────────────────────────────── */}
         {(entry.entry_price || entry.stop_price || entry.exit_price) && (
-          <Section label={pt ? "Preços" : "Prices"}>
+          <Section label={pt ? "Preços" : "Prices"} pt={pt}>
             <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
               <Field label={pt ? "Entrada" : "Entry"} value={entry.entry_price} />
               <Field label="Stop" value={entry.stop_price} />
@@ -479,9 +650,9 @@ function TradeDetailContent() {
           </Section>
         )}
 
-        {/* Setup execution */}
+        {/* Setup execution (conditions) ────────────────────────────────────── */}
         {entry.conditions_met?.length > 0 && (
-          <Section label={pt ? "Execução do setup" : "Setup execution"}>
+          <Section label={pt ? "Execução do setup" : "Setup execution"} pt={pt}>
             <div className="flex flex-col gap-2">
               {entry.conditions_met.map((c, i) => (
                 <div key={i} className="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-800 bg-slate-900">
@@ -499,27 +670,22 @@ function TradeDetailContent() {
           </Section>
         )}
 
-        {/* ── V2 behavioral section (new 7-step wizard) ── */}
+        {/* ── V2 Behavior section ───────────────────────────────────────────── */}
         {isV2 && (() => {
           const at = entry.after_trade;
           const entryTypeMeta = ENTRY_TYPE_LABELS[at.entry_type];
           const stopMeta      = STOP_OUTCOME_LABELS[at.stop_outcome];
           const targetMeta    = TARGET_OUTCOME_LABELS[at.target_outcome];
           const otherIssues   = Array.isArray(at.other_issues) ? at.other_issues : [];
-
           return (
-            <Section label={pt ? "Comportamento" : "Behavior"}>
+            <Section label={pt ? "Comportamento" : "Behavior"} onEdit={openBehavior} pt={pt}>
               <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
-
-                {/* Entry type */}
                 {entryTypeMeta && (
                   <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
                     <span className="text-xs text-slate-500">{pt ? "Tipo de entrada" : "Entry type"}</span>
                     <span className="text-sm text-slate-200">{pt ? entryTypeMeta.pt : entryTypeMeta.en}</span>
                   </div>
                 )}
-
-                {/* Level met after (only for early entry) */}
                 {at.entry_type === "early" && at.level_met_after !== undefined && (
                   <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
                     <span className="text-xs text-slate-500">{pt ? "Nível também atingido?" : "Level also hit?"}</span>
@@ -530,36 +696,28 @@ function TradeDetailContent() {
                     </span>
                   </div>
                 )}
-
-                {/* Stop outcome */}
                 {stopMeta && (
                   <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
                     <span className="text-xs text-slate-500">Stop</span>
                     <span className="text-sm text-slate-200">{pt ? stopMeta.pt : stopMeta.en}</span>
                   </div>
                 )}
-
-                {/* Target outcome */}
                 {targetMeta && (
                   <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
                     <span className="text-xs text-slate-500">{pt ? "Alvo" : "Target"}</span>
                     <span className="text-sm text-slate-200">{pt ? targetMeta.pt : targetMeta.en}</span>
                   </div>
                 )}
-
-                {/* Other issues */}
                 {otherIssues.length > 0 && (
                   <div className="py-2">
                     <p className="text-xs text-slate-500 mb-2">{pt ? "Outros problemas" : "Other issues"}</p>
                     <div className="space-y-1.5">
                       {otherIssues.map((item, i) => {
-                        // Support both old string format and new object format
                         const id = typeof item === "string" ? item : item.id;
                         const setupType = typeof item === "object" ? item.setup_type : null;
                         const customText = typeof item === "object" && item.id === "other" ? item.text : null;
                         const m = OTHER_ISSUE_LABELS[id];
                         const label = m ? (pt ? m.pt : m.en) : id;
-
                         return (
                           <div key={i} className="flex items-baseline justify-between">
                             <span className="text-sm text-slate-300">{customText || label}</span>
@@ -581,13 +739,13 @@ function TradeDetailContent() {
           );
         })()}
 
-        {/* ── Mid-format behavioral data (pain_types array, pre-v2) ── */}
+        {/* ── Mid-format behavior (pain_types array, pre-v2) ───────────────── */}
         {isNewFormat && !isClean && (
-          <Section label={pt ? "Ocorrências" : "Pains"}>
+          <Section label={pt ? "Ocorrências" : "Pains"} pt={pt}>
             <div className="flex flex-col gap-2">
               {entry.pain_types.map((painId, i) => {
                 const info = PAINS.find((p) => p.id === painId);
-                const beh = entry.behaviors?.[painId] || {};
+                const beh  = entry.behaviors?.[painId] || {};
                 const lines = behaviorLinesNew(painId, beh, pt);
                 return (
                   <div key={i} className="p-3 rounded-xl border border-slate-800 bg-slate-900">
@@ -604,9 +762,9 @@ function TradeDetailContent() {
           </Section>
         )}
 
-        {/* ── Legacy behavioral data (single pain_type) ── */}
+        {/* ── Legacy behavior (single pain_type) ───────────────────────────── */}
         {!isV2 && !isNewFormat && entry.pain_type && (
-          <Section label={pt ? "Comportamento" : "Behavior"}>
+          <Section label={pt ? "Comportamento" : "Behavior"} pt={pt}>
             <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
               <p className="text-sm font-medium text-slate-200 mb-2">
                 {PAINS.find((p) => p.id === entry.pain_type)?.[pt ? "pt" : "en"] || entry.pain_type}
@@ -618,16 +776,16 @@ function TradeDetailContent() {
           </Section>
         )}
 
-        {/* Clean trade (mid-format only — v2 has no explicit clean label) */}
+        {/* Clean trade */}
         {!isV2 && isClean && (
-          <Section label={pt ? "Comportamento" : "Behavior"}>
+          <Section label={pt ? "Comportamento" : "Behavior"} pt={pt}>
             <p className="text-sm text-green-500">{pt ? "✓ Operação limpa" : "✓ Clean trade"}</p>
           </Section>
         )}
 
-        {/* Legacy after-trade data (old keys, pre-v2) */}
+        {/* Legacy after-trade data */}
         {!isV2 && entry.after_trade && Object.keys(entry.after_trade).length > 0 && (
-          <Section label={pt ? "Pós-operação" : "After trade"}>
+          <Section label={pt ? "Pós-operação" : "After trade"} pt={pt}>
             <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
               {Object.entries(LEGACY_AFTER_TRADE_LABELS).map(([key, meta]) => {
                 const val = entry.after_trade[key];
@@ -644,30 +802,21 @@ function TradeDetailContent() {
           </Section>
         )}
 
-        {/* P&L */}
-        {entry.pnl !== null && entry.pnl !== undefined && (
-          <Section label="P&L">
-            <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
-              <div className="flex items-baseline justify-between">
-                <span className="text-xs text-slate-500">{pt ? "Resultado ($)" : "Result ($)"}</span>
-                <span className={`text-sm font-semibold ${entry.pnl > 0 ? "text-green-400" : entry.pnl < 0 ? "text-red-400" : "text-slate-400"}`}>
-                  {entry.pnl > 0 ? "+" : ""}{entry.pnl.toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </Section>
-        )}
-
-        {/* Notes */}
-        {entry.notes && (
-          <Section label={pt ? "Notas" : "Notes"}>
+        {/* Notes ───────────────────────────────────────────────────────────── */}
+        <Section label={pt ? "Notas" : "Notes"} onEdit={openNotes} pt={pt}>
+          {entry.notes ? (
             <p className="text-sm text-slate-300 leading-relaxed p-3 rounded-xl border border-slate-800 bg-slate-900">
               {entry.notes}
             </p>
-          </Section>
-        )}
+          ) : (
+            <button onClick={openNotes}
+              className="w-full py-2.5 rounded-xl border border-dashed border-slate-800 text-slate-600 hover:border-slate-600 hover:text-slate-400 text-xs transition-colors">
+              + {pt ? "Adicionar nota" : "Add a note"}
+            </button>
+          )}
+        </Section>
 
-        {/* Meta + delete */}
+        {/* Meta + delete ───────────────────────────────────────────────────── */}
         <div className="mt-8 pt-4 border-t border-slate-800 flex items-center justify-between">
           <p className="text-xs text-slate-700">
             {pt ? "Registrado em" : "Logged"}{" "}
@@ -676,76 +825,274 @@ function TradeDetailContent() {
               hour: "2-digit", minute: "2-digit",
             })}
           </p>
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="text-xs text-slate-700 hover:text-red-400 transition-colors"
-          >
+          <button onClick={() => setShowDeleteConfirm(true)}
+            className="text-xs text-slate-700 hover:text-red-400 transition-colors">
             {pt ? "Excluir" : "Delete"}
           </button>
         </div>
 
       </main>
 
-      {/* ── Edit modal ── */}
-      {editing && (
-        <div className="fixed inset-0 bg-black/70 flex items-end justify-center p-0 z-50">
-          <div className="bg-slate-900 border border-slate-700 rounded-t-2xl w-full max-w-xl p-6 pb-8">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-white font-semibold">{pt ? "Editar operação" : "Edit trade"}</h3>
-              <button onClick={() => setEditing(false)} className="text-slate-500 hover:text-white text-sm">✕</button>
-            </div>
+      {/* ══════════════════════════════════════════════════════════════════════
+          EDIT MODALS
+      ══════════════════════════════════════════════════════════════════════ */}
 
-            {/* Outcome */}
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Resultado" : "Outcome"}</p>
-            <div className="grid grid-cols-3 gap-2 mb-5">
-              {[
-                { val: "win",       label: pt ? "Ganhou" : "Win",  active: "border-green-400 bg-green-950/30 text-green-300", inactive: "border-green-500/30 text-green-700" },
-                { val: "loss",      label: pt ? "Perdeu" : "Loss", active: "border-red-400 bg-red-950/30 text-red-300",       inactive: "border-red-500/30 text-red-800"     },
-                { val: "breakeven", label: "BE",                    active: "border-slate-400 bg-slate-800 text-slate-300",    inactive: "border-slate-700 text-slate-600"    },
-              ].map((o) => (
-                <button
-                  key={o.val}
-                  onClick={() => setEditOutcome(o.val)}
-                  className={`py-3 rounded-xl border text-sm font-medium transition-all ${editOutcome === o.val ? o.active : o.inactive}`}
-                >
-                  {o.label}
+      {/* ── Trade info modal ─────────────────────────────────────────────── */}
+      <BottomSheet
+        open={activeModal === "trade_info"}
+        onClose={() => setActiveModal(null)}
+        title={pt ? "Editar operação" : "Edit trade info"}
+      >
+        {/* Setup selector */}
+        <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Setup</p>
+        <div className="space-y-1.5 mb-4 max-h-40 overflow-y-auto">
+          <button
+            onClick={() => setEditSetupId(null)}
+            className={`w-full text-left px-3 py-2 rounded-xl border text-sm transition-all ${
+              editSetupId === null
+                ? "border-blue-500 bg-blue-950/30 text-blue-200"
+                : "border-slate-700 text-slate-400 hover:border-slate-500"
+            }`}
+          >
+            {pt ? "Sem setup" : "No setup"}
+          </button>
+          {allSetups.map(s => (
+            <button key={s.id}
+              onClick={() => setEditSetupId(s.id)}
+              className={`w-full text-left px-3 py-2 rounded-xl border text-sm transition-all ${
+                editSetupId === s.id
+                  ? "border-blue-500 bg-blue-950/30 text-blue-200"
+                  : "border-slate-700 text-slate-400 hover:border-slate-500"
+              }`}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+
+        {/* Direction */}
+        <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Direção" : "Direction"}</p>
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          {[
+            { val: "long",  label: "↑ Long",  active: "border-green-400 bg-green-950/30 text-green-300", inactive: "border-green-500/30 text-green-700" },
+            { val: "short", label: "↓ Short", active: "border-red-400 bg-red-950/30 text-red-300",       inactive: "border-red-500/30 text-red-800"     },
+          ].map(d => (
+            <button key={d.val} onClick={() => setEditDirection(d.val)}
+              className={`py-2.5 rounded-xl border text-sm font-medium transition-all ${editDirection === d.val ? d.active : d.inactive}`}>
+              {d.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Date */}
+        <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Data" : "Date"}</p>
+        <input type="date" value={editTradeDate} onChange={e => setEditTradeDate(e.target.value)}
+          className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white focus:border-blue-500 focus:outline-none text-sm mb-4" />
+
+        {/* Instrument */}
+        <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Ativo (opcional)" : "Instrument (optional)"}</p>
+        <input type="text" value={editInstrument} onChange={e => setEditInstrument(e.target.value)}
+          placeholder={pt ? "ex: NQ, ES, PETR4" : "e.g. NQ, ES, AAPL"}
+          className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none text-sm" />
+
+        <SaveBtn onSave={saveTradeInfo} saving={saving} disabled={!editDirection} pt={pt} />
+      </BottomSheet>
+
+      {/* ── Outcome + P&L modal ────────────────────────────────────────────── */}
+      <BottomSheet
+        open={activeModal === "outcome_pnl"}
+        onClose={() => setActiveModal(null)}
+        title={pt ? "Editar resultado" : "Edit outcome"}
+      >
+        <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Resultado" : "Outcome"}</p>
+        <div className="grid grid-cols-3 gap-2 mb-5">
+          {[
+            { val: "win",       label: pt ? "Ganhou" : "Win",  active: "border-green-400 bg-green-950/30 text-green-300", inactive: "border-green-500/30 text-green-700" },
+            { val: "loss",      label: pt ? "Perdeu" : "Loss", active: "border-red-400 bg-red-950/30 text-red-300",       inactive: "border-red-500/30 text-red-800"     },
+            { val: "breakeven", label: "BE",                    active: "border-slate-400 bg-slate-800 text-slate-300",    inactive: "border-slate-700 text-slate-600"    },
+          ].map(o => (
+            <button key={o.val} onClick={() => setEditOutcome(o.val)}
+              className={`py-3 rounded-xl border text-sm font-medium transition-all ${editOutcome === o.val ? o.active : o.inactive}`}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+
+        <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">P&amp;L ($) — {pt ? "opcional" : "optional"}</p>
+        <input type="number" step="any" value={editPnl} onChange={e => setEditPnl(e.target.value)}
+          placeholder={pt ? "ex: 250 ou -120" : "e.g. 250 or -120"}
+          className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none text-sm" />
+
+        <SaveBtn onSave={saveOutcomePnl} saving={saving} disabled={!editOutcome} pt={pt} />
+      </BottomSheet>
+
+      {/* ── Behavior modal (v2 only) ──────────────────────────────────────── */}
+      <BottomSheet
+        open={activeModal === "behavior"}
+        onClose={() => setActiveModal(null)}
+        title={pt ? "Editar comportamento" : "Edit behavior"}
+      >
+        <div className="overflow-y-auto max-h-[70vh] space-y-5 pb-2">
+
+          {/* Entry type — 4 categories */}
+          <div>
+            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Tipo de entrada" : "Entry type"}</p>
+            <div className="space-y-2">
+
+              {/* A — Full setup (only if trade has a setup) */}
+              {(entry.setup_id || editSetupId) && (
+                <button onClick={() => selectEditCategory("full_setup")}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${
+                    editEntryCategory === "full_setup"
+                      ? "border-blue-500 bg-blue-950/30 text-blue-200"
+                      : "border-slate-700 text-slate-400 hover:border-slate-500"
+                  }`}>
+                  <span className="font-medium">A · </span>
+                  {pt ? "Respeitou o setup completo" : "Respected the full setup"}
+                </button>
+              )}
+
+              {/* B — Early entry */}
+              <div>
+                <button onClick={() => selectEditCategory("early")}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${
+                    editEntryCategory === "early"
+                      ? "border-amber-500 bg-amber-950/20 text-amber-200"
+                      : "border-slate-700 text-slate-400 hover:border-slate-500"
+                  }`}>
+                  <span className="font-medium">B · </span>
+                  {pt ? "Entrada antecipada (FOMO)" : "Early entry (FOMO)"}
+                </button>
+                {editEntryCategory === "early" && (
+                  <div className="mt-1.5 ml-3 space-y-1.5">
+                    {[
+                      { val: true,  l: pt ? "Sim — nível foi atingido depois" : "Yes — level was also hit" },
+                      { val: false, l: pt ? "Não — só entrou cedo" : "No — only way to catch it" },
+                    ].map(opt => (
+                      <button key={String(opt.val)} onClick={() => { setEditEntryType("early"); setEditLevelMetAfter(opt.val); }}
+                        className={`w-full text-left px-3 py-2 rounded-xl border text-xs transition-all ${
+                          editLevelMetAfter === opt.val
+                            ? "border-amber-400 bg-amber-950/20 text-amber-300"
+                            : "border-slate-700 text-slate-500 hover:border-slate-600"
+                        }`}>
+                        {opt.l}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* C — Late entry */}
+              <div>
+                <button onClick={() => selectEditCategory("late")}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${
+                    editEntryCategory === "late"
+                      ? "border-purple-500 bg-purple-950/20 text-purple-200"
+                      : "border-slate-700 text-slate-400 hover:border-slate-500"
+                  }`}>
+                  <span className="font-medium">C · </span>
+                  {pt ? "Hesitação / entrada tardia" : "Hesitation / late entry"}
+                </button>
+                {editEntryCategory === "late" && (
+                  <div className="mt-1.5 ml-3 grid grid-cols-2 gap-1.5">
+                    {[
+                      { val: "hesitation_better", l: pt ? "Hesitou — preço melhor"  : "Hesitated — better price"  },
+                      { val: "hesitation_worse",  l: pt ? "Hesitou — preço pior"    : "Hesitated — worse price"   },
+                      { val: "chase_profit",      l: pt ? "Perseguiu — lucro"       : "Chased — profit"           },
+                      { val: "chase_loss",        l: pt ? "Perseguiu — perda"       : "Chased — loss"             },
+                    ].map(opt => (
+                      <button key={opt.val} onClick={() => setEditEntryType(opt.val)}
+                        className={`text-left px-2.5 py-2 rounded-xl border text-xs transition-all ${
+                          editEntryType === opt.val
+                            ? "border-purple-400 bg-purple-950/20 text-purple-200"
+                            : "border-slate-700 text-slate-500 hover:border-slate-600"
+                        }`}>
+                        {opt.l}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* D — Random */}
+              <button onClick={() => selectEditCategory("random")}
+                className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${
+                  editEntryCategory === "random"
+                    ? "border-red-500 bg-red-950/20 text-red-300"
+                    : "border-slate-700 text-slate-400 hover:border-slate-500"
+                }`}>
+                <span className="font-medium">D · </span>
+                {pt ? "Operação aleatória" : "Random trade"}
+              </button>
+            </div>
+          </div>
+
+          {/* Stop outcome */}
+          <div>
+            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Stop</p>
+            <div className="space-y-1.5">
+              {Object.entries(STOP_OUTCOME_LABELS).map(([k, v]) => (
+                <button key={k} onClick={() => setEditStopOutcome(k)}
+                  className={`w-full text-left px-3 py-2 rounded-xl border text-sm transition-all ${
+                    editStopOutcome === k
+                      ? "border-blue-500 bg-blue-950/30 text-blue-200"
+                      : "border-slate-700 text-slate-400 hover:border-slate-500"
+                  }`}>
+                  {pt ? v.pt : v.en}
                 </button>
               ))}
             </div>
+          </div>
 
-            {/* Exit price */}
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Preço de saída" : "Exit price"}</p>
-            <input
-              type="number"
-              step="any"
-              value={editExitPrice}
-              onChange={(e) => setEditExitPrice(e.target.value)}
-              placeholder={pt ? "Opcional" : "Optional"}
-              className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none text-sm mb-5"
-            />
-
-            {/* Notes */}
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Notas" : "Notes"}</p>
-            <textarea
-              value={editNotes}
-              onChange={(e) => setEditNotes(e.target.value)}
-              rows={3}
-              placeholder={pt ? "Observações..." : "Observations..."}
-              className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none text-sm resize-none mb-5"
-            />
-
-            <button
-              onClick={handleSaveEdit}
-              disabled={saving || !editOutcome}
-              className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-40 text-white text-sm font-medium transition-colors"
-            >
-              {saving ? "..." : pt ? "Salvar →" : "Save →"}
-            </button>
+          {/* Target outcome */}
+          <div>
+            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Alvo" : "Target"}</p>
+            <div className="space-y-1.5">
+              {Object.entries(TARGET_OUTCOME_LABELS).map(([k, v]) => (
+                <button key={k} onClick={() => setEditTargetOutcome(k)}
+                  className={`w-full text-left px-3 py-2 rounded-xl border text-sm transition-all ${
+                    editTargetOutcome === k
+                      ? "border-blue-500 bg-blue-950/30 text-blue-200"
+                      : "border-slate-700 text-slate-400 hover:border-slate-500"
+                  }`}>
+                  {pt ? v.pt : v.en}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      )}
 
-      {/* ── Delete confirm ── */}
+        <SaveBtn
+          onSave={saveBehavior}
+          saving={saving}
+          disabled={
+            !editEntryCategory ||
+            (editEntryCategory === "early" && editLevelMetAfter === null) ||
+            (editEntryCategory === "late"  && !editEntryType) ||
+            !editStopOutcome ||
+            !editTargetOutcome
+          }
+          pt={pt}
+        />
+      </BottomSheet>
+
+      {/* ── Notes modal ───────────────────────────────────────────────────── */}
+      <BottomSheet
+        open={activeModal === "notes"}
+        onClose={() => setActiveModal(null)}
+        title={pt ? "Notas" : "Notes"}
+      >
+        <textarea
+          value={editNotes}
+          onChange={e => setEditNotes(e.target.value)}
+          rows={5}
+          placeholder={pt ? "Observações sobre esta operação..." : "Observations about this trade..."}
+          className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none text-sm resize-none"
+        />
+        <SaveBtn onSave={saveNotes} saving={saving} pt={pt} />
+      </BottomSheet>
+
+      {/* ── Delete confirm ────────────────────────────────────────────────── */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-6 z-50">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full">
@@ -754,23 +1101,19 @@ function TradeDetailContent() {
               {pt ? "Essa ação não pode ser desfeita." : "This action cannot be undone."}
             </p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-400 hover:text-white text-sm transition-colors"
-              >
+              <button onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-400 hover:text-white text-sm transition-colors">
                 {pt ? "Cancelar" : "Cancel"}
               </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
-              >
+              <button onClick={handleDelete} disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium transition-colors">
                 {deleting ? "..." : pt ? "Excluir" : "Delete"}
               </button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }

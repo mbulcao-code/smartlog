@@ -38,7 +38,7 @@ export async function GET(request, context) {
   }
 }
 
-// ── PATCH — edit notes, outcome, exit_price ───────────────────────────────────
+// ── PATCH — edit any trade field ─────────────────────────────────────────────
 
 export async function PATCH(request, context) {
   try {
@@ -47,12 +47,21 @@ export async function PATCH(request, context) {
     if (authError) return Response.json({ error: authError }, { status: 401 });
 
     const body = await request.json();
-    const { notes, outcome, exit_price } = body;
+    const {
+      notes, outcome, pnl,
+      setup_id, direction, trade_date, instrument,
+      after_trade,
+    } = body;
 
     const updates = {};
-    if (notes      !== undefined) updates.notes      = notes?.trim() || null;
-    if (outcome    !== undefined) updates.outcome    = outcome;
-    if (exit_price !== undefined) updates.exit_price = exit_price ? parseFloat(exit_price) : null;
+    if (notes       !== undefined) updates.notes       = notes?.trim() || null;
+    if (outcome     !== undefined) updates.outcome     = outcome;
+    if (pnl         !== undefined) updates.pnl         = (pnl !== null && pnl !== "") ? parseFloat(pnl) : null;
+    if (setup_id    !== undefined) updates.setup_id    = setup_id || null;
+    if (direction   !== undefined) updates.direction   = direction || null;
+    if (trade_date  !== undefined) updates.trade_date  = trade_date || null;
+    if (instrument  !== undefined) updates.instrument  = instrument?.trim() || null;
+    if (after_trade !== undefined) updates.after_trade = after_trade;
 
     if (Object.keys(updates).length === 0) {
       return Response.json({ error: "No valid fields to update" }, { status: 400 });

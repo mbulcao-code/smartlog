@@ -53,7 +53,7 @@ export default function NewTradePage() {
   const [saving, setSaving] = useState(false);
   const pt = lang === "pt";
 
-  // Steps: 1=setup, 2=details (incl. outcome+P&L), 3=entry-type, "3b"=conditions, "3c"=level-met, 4=stop, 5=target, 6=other+notes+save
+  // Steps: 1=setup, 2=details (incl. outcome+P&L), 3=entry-type (with inline sub-options), "3b"=conditions, 4=stop, 5=target, 6=other+notes+save
   const [step, setStep] = useState(1);
 
   // Step 1
@@ -67,15 +67,15 @@ export default function NewTradePage() {
   const [exitPrice, setExitPrice] = useState("");
   const [pnl, setPnl] = useState("");
 
-  // Step 3
+  // Step 3 — top-level category + granular type
+  // entryCategory: "full_setup" | "early" | "late" | "random"
+  // entryType (saved to DB): "full_setup" | "early" | "hesitation_better" | "hesitation_worse" | "chase_profit" | "chase_loss" | "random"
+  const [entryCategory, setEntryCategory] = useState(null);
   const [entryType, setEntryType] = useState(null);
-  // "full_setup" | "early" | "hesitation_better" | "hesitation_worse" | "chase_profit" | "chase_loss" | "random"
+  const [levelMetAfter, setLevelMetAfter] = useState(null); // true | false — inline for "early"
 
   // Step 3b
   const [conditionsMet, setConditionsMet] = useState({});
-
-  // Step 3c
-  const [levelMetAfter, setLevelMetAfter] = useState(null); // true | false
 
   // Step 4
   const [stopOutcome, setStopOutcome] = useState(null);
@@ -120,9 +120,7 @@ export default function NewTradePage() {
     if (s === 2)    return goTo(1);
     if (s === 3)    return goTo(2);
     if (s === "3b") return goTo(3);
-    if (s === "3c") return goTo("3b");
     if (s === 4) {
-      if (entryType === "early") return goTo("3c");
       if ((entryType === "full_setup" || entryType === "early") && selectedSetup?.conditions?.length > 0) return goTo("3b");
       return goTo(3);
     }
@@ -133,13 +131,25 @@ export default function NewTradePage() {
   function nextFromEntry() {
     const hasConditions = selectedSetup?.conditions?.length > 0;
     if ((entryType === "full_setup" || entryType === "early") && hasConditions) return goTo("3b");
-    if (entryType === "early" && !hasConditions) return goTo("3c");
     return goTo(4);
   }
 
   function nextFromConditions() {
-    if (entryType === "early") return goTo("3c");
     return goTo(4);
+  }
+
+  function canAdvanceFromEntry() {
+    if (entryCategory === "early")  return levelMetAfter !== null;
+    if (entryCategory === "late")   return entryType !== null;
+    return entryCategory !== null; // full_setup or random
+  }
+
+  function selectCategory(cat) {
+    setEntryCategory(cat);
+    setLevelMetAfter(null);
+    if (cat === "full_setup") setEntryType("full_setup");
+    else if (cat === "random") setEntryType("random");
+    else setEntryType(null); // early and late need sub-selection
   }
 
   // ── Conditions helpers ────────────────────────────────────────────────────
@@ -284,19 +294,17 @@ export default function NewTradePage() {
               />
             </div>
 
-            {setups.length === 0 && (
-              <p className="text-xs text-slate-600 text-center">
-                {pt ? "Nenhum setup ainda." : "No setups yet."}{" "}
-                <button onClick={() => router.push("/journal/setups/new")} className="text-blue-400 hover:text-blue-300">
-                  {pt ? "Criar →" : "Create →"}
-                </button>
-              </p>
-            )}
+            <button
+              onClick={() => router.push("/journal/setups/new")}
+              className="w-full py-2.5 rounded-xl border border-dashed border-slate-700 text-slate-500 hover:border-blue-500 hover:text-blue-400 text-sm transition-colors"
+            >
+              + {pt ? "Criar novo setup" : "Create new setup"}
+            </button>
 
             <button
               onClick={() => goTo(2)}
               disabled={selectedSetup === undefined}
-              className="w-full py-3.5 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-30 text-white text-sm font-medium transition-colors mt-2"
+              className="w-full py-3.5 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-30 text-white text-sm font-medium transition-colors"
             >
               {pt ? "Continuar" : "Continue"} →
             </button>
@@ -388,32 +396,111 @@ export default function NewTradePage() {
 
         {/* ── STEP 3: Entry type ── */}
         {step === 3 && (
-          <div className="space-y-5">
+          <div className="space-y-4">
             <p className="text-base font-semibold text-white">{pt ? "Como foi sua entrada?" : "How was your entry?"}</p>
-            <div className="space-y-2">
-              {selectedSetup && [
-                { v: "full_setup",        l: pt ? "Setup completo — aguardei todas as condições" : "Full setup — waited for all conditions", s: pt ? "Você selecionará as variantes usadas." : "You'll select the variant used for each condition." },
-                { v: "early",             l: pt ? "Entrada antecipada — FOMO / setup incompleto" : "Early entry — FOMO / incomplete setup" },
-                { v: "hesitation_better", l: pt ? "Hesitação — entrei com preço melhor" : "Hesitation — got a better price" },
-                { v: "hesitation_worse",  l: pt ? "Hesitação — entrei com preço pior (persegui)" : "Hesitation — got a worse price (chased)" },
-                { v: "chase_profit",      l: pt ? "Persegui a entrada — lucro" : "Chased entry — profit" },
-                { v: "chase_loss",        l: pt ? "Persegui a entrada — perda" : "Chased entry — loss" },
-              ].map(o => (
-                <OptionBtn key={o.v} label={o.l} sublabel={o.s} selected={entryType === o.v} onClick={() => setEntryType(o.v)} />
-              ))}
-              {!selectedSetup && [
-                { v: "random",            l: pt ? "Operação aleatória (sem setup predefinido)" : "Random trade (no predefined setup)", s: pt ? "Você não pode aprender com operações aleatórias." : "You can't learn from random trades." },
-                { v: "hesitation_better", l: pt ? "Hesitação — preço melhor" : "Hesitation — better price" },
-                { v: "hesitation_worse",  l: pt ? "Hesitação — preço pior" : "Hesitation — worse price" },
-                { v: "chase_profit",      l: pt ? "Persegui — lucro" : "Chased — profit" },
-                { v: "chase_loss",        l: pt ? "Persegui — perda" : "Chased — loss" },
-              ].map(o => (
-                <OptionBtn key={o.v} label={o.l} sublabel={o.s} selected={entryType === o.v} onClick={() => setEntryType(o.v)} />
-              ))}
+
+            <div className="space-y-3">
+
+              {/* A — Full setup (only when a setup is selected) */}
+              {selectedSetup && (
+                <div>
+                  <button onClick={() => selectCategory("full_setup")}
+                    className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
+                      entryCategory === "full_setup"
+                        ? "border-blue-500 bg-blue-950/30 text-white"
+                        : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500 hover:text-white"
+                    }`}>
+                    <p className="font-medium">{pt ? "A. Setup respeitado — aguardei todas as condições" : "A. Respected full setup — waited for all conditions"}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{pt ? "Você selecionará as variantes usadas a seguir." : "You'll select the variant used for each condition."}</p>
+                  </button>
+                </div>
+              )}
+
+              {/* B — Early entry */}
+              <div>
+                <button onClick={() => selectCategory("early")}
+                  className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
+                    entryCategory === "early"
+                      ? "border-amber-500/70 bg-amber-950/20 text-white"
+                      : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500 hover:text-white"
+                  }`}>
+                  {pt ? "B. Entrada antecipada — FOMO / setup incompleto" : "B. Early entry — FOMO / incomplete setup"}
+                </button>
+                {entryCategory === "early" && (
+                  <div className="mt-2 ml-3 flex flex-col gap-2">
+                    <button onClick={() => setLevelMetAfter(false)}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg border text-xs font-medium transition-colors ${
+                        levelMetAfter === false
+                          ? "border-green-500/60 bg-green-950/20 text-green-300"
+                          : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+                      }`}>
+                      {pt ? "Nível / condições NÃO foram atingidos depois" : "Level / conditions NOT met after — only way to catch it"}
+                    </button>
+                    <button onClick={() => setLevelMetAfter(true)}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg border text-xs font-medium transition-colors ${
+                        levelMetAfter === true
+                          ? "border-amber-500/60 bg-amber-950/20 text-amber-300"
+                          : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+                      }`}>
+                      {pt ? "Nível / condições foram atingidos depois — entrada cedo foi pior" : "Level / conditions met after — early entry was worse"}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* C — Late / Hesitation / Chasing */}
+              <div>
+                <button onClick={() => selectCategory("late")}
+                  className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
+                    entryCategory === "late"
+                      ? "border-purple-500/70 bg-purple-950/20 text-white"
+                      : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500 hover:text-white"
+                  }`}>
+                  {pt ? "C. Entrada tardia — Hesitação / Perseguição" : "C. Late entry — Hesitation / Chasing"}
+                </button>
+                {entryCategory === "late" && (
+                  <div className="mt-2 ml-3 grid grid-cols-2 gap-2">
+                    {[
+                      { v: "hesitation_better", l: pt ? "Hesitação — preço melhor" : "Hesitation — better price" },
+                      { v: "hesitation_worse",  l: pt ? "Hesitação — preço pior"  : "Hesitation — worse price"  },
+                      { v: "chase_profit",      l: pt ? "Perseguiu — lucro"       : "Chased — profit"           },
+                      { v: "chase_loss",        l: pt ? "Perseguiu — perda"       : "Chased — loss"             },
+                    ].map(o => (
+                      <button key={o.v} onClick={() => setEntryType(o.v)}
+                        className={`text-left px-3 py-2.5 rounded-lg border text-xs font-medium transition-colors ${
+                          entryType === o.v
+                            ? "border-purple-500/60 bg-purple-950/20 text-purple-300"
+                            : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+                        }`}>
+                        {o.l}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* D — Random trade */}
+              <div>
+                <button onClick={() => selectCategory("random")}
+                  className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
+                    entryCategory === "random"
+                      ? "border-red-500/50 bg-red-950/20 text-white"
+                      : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500 hover:text-white"
+                  }`}>
+                  {pt ? "D. Operação aleatória — sem setup predefinido" : "D. Random trade — no predefined setup"}
+                </button>
+                {entryCategory === "random" && (
+                  <p className="mt-2 ml-3 text-xs text-amber-600">
+                    {pt ? "Você não pode aprender com operações aleatórias." : "You can't learn from random trades."}
+                  </p>
+                )}
+              </div>
+
             </div>
-            <div className="flex gap-3">
+
+            <div className="flex gap-3 pt-2">
               <button onClick={() => backFrom(3)} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-sm transition-colors">←</button>
-              <button onClick={nextFromEntry} disabled={!entryType}
+              <button onClick={nextFromEntry} disabled={!canAdvanceFromEntry()}
                 className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-30 text-white text-sm font-medium transition-colors">
                 {pt ? "Continuar" : "Continue"} →
               </button>
@@ -537,6 +624,7 @@ export default function NewTradePage() {
             <p className="text-base font-semibold text-white">{pt ? "Como foi o seu alvo?" : "How was your target?"}</p>
             <div className="space-y-2">
               {[
+                { v: "not_hit",         l: pt ? "Alvo não atingido — preço nunca chegou lá" : "Target not hit — price never reached it" },
                 { v: "early_not_hit",   l: pt ? "Saída prematura — alvo não foi atingido depois" : "Early exit — target not hit after" },
                 { v: "early_hit",       l: pt ? "Saída prematura — alvo foi atingido depois" : "Early exit — target was hit after" },
                 { v: "last_optimal",    l: pt ? "Último alvo atingido — saída ótima" : "Last target hit — optimal exit" },

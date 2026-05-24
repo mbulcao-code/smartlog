@@ -270,46 +270,84 @@ ALTER TABLE journal_setups
 
 ---
 
+## Completed (May 23, 2026)
+
+### Journal v3 — logging wizard + reports + trade detail ✅
+
+#### Trade logging wizard (`app/journal/log/new/page.js`) — full rewrite
+- **6-step wizard** (was 7): Setup → Trade details → Entry type → Conditions/Level → Stop → Target → Other issues + save
+- **Step 2 (Trade details)** now captures everything factual in one place:
+  - Direction (Long/Short, required) + Date (required) + Instrument (optional)
+  - Entry price / Exit price (optional, two-column row)
+  - Result: Win / Loss / BE (required — moved here from old step 7)
+  - P&L in $ (optional — full-width input below result)
+  - Continue button gated on direction + date + outcome
+- **Step 6 (Other issues)** — expanded from flat multi-select to two-level selector:
+  - Issues: Revenge, Overtrading, Oversizing, Other
+  - Each selected issue reveals inline sub-options: "Used a trusted setup" (blue) or "Random trade — you can't learn from random trades" (amber)
+  - "Other" shows a free-text input instead
+  - Save button disabled until every selected issue has its sub-answer filled
+  - Notes textarea also lives in step 6 (was step 7)
+- `other_issues` data shape changed from `["revenge"]` → `[{ id: "revenge", setup_type: "trusted"|"random" }]` or `{ id: "other", text: "..." }`
+- `buildOtherIssues()` helper serializes the keyed state object to the array
+
+#### Trade detail view (`app/journal/log/[id]/page.js`) — v2 display
+- **Detects v2 trades** via `entry.after_trade?.entry_type` (new wizard format)
+- **v2 Behavior section** shows: Entry type, Level also hit? (early entries only, color-coded), Stop outcome, Target outcome, Other issues (each with trusted/random badge)
+- **P&L section** renders below Behavior when `entry.pnl` is set (green/red)
+- **Backward compat**: mid-format (pain_types array) and legacy (single pain_type) trades still render correctly
+- Old `AFTER_TRADE_LABELS` renamed to `LEGACY_AFTER_TRADE_LABELS`; v2 uses imported constants from `lib/journal-helpers.js`
+
+#### Reports page (`app/journal/reports/page.js`) — other issues redesign
+- Added `hasIssue(trade, issueId)` and `getIssueSetupType(trade, issueId)` helpers — handle both old string[] and new object[] format
+- `computeReportData` now computes per-issue trusted/random splits: `revengeSplit`, `overtradingSplit`, `oversizingSplit`
+- Other issues section shows each issue with count + indented trusted (W·L·%) / random (count + "no learning") breakdown
+
+#### lib/journal-helpers.js — new label constants
+- Added `ENTRY_TYPE_LABELS`, `STOP_OUTCOME_LABELS`, `TARGET_OUTCOME_LABELS`, `OTHER_ISSUE_LABELS`
+- Legacy `PAINS` array and `getNextQuestion` kept for backward-compat display
+
+#### API (`app/api/journal/route.js`)
+- POST accepts `pnl` field; stores as `NUMERIC` with `parseFloat`
+
+#### Sidebar + setup limit
+- TRADE JOURNAL section added to `app/components/Sidebar.js`: Log a trade / All trades / Reports / flat setups list with n/10 counter
+- 10-setup hard limit enforced in API (422 `setup_limit_reached`) and UI (limit-reached screen)
+
+#### AI report endpoint (`app/api/journal/reports/ai/route.js`)
+- GET endpoint, fetches all trades, builds structured data packet
+- Calls `claude-haiku-4-5-20251001` with SmartLog principles as system prompt
+- Returns 2-paragraph synthesis; minimum 10 trades required
+
+---
+
 ## Pending
 
-### Supabase migration (still needed)
+### Supabase migrations (still needed — run before testing journal v3)
 ```sql
-ALTER TABLE journal_setups
-  ADD COLUMN IF NOT EXISTS stop_config JSONB DEFAULT '{}'::jsonb,
-  ADD COLUMN IF NOT EXISTS profit_config JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE trade_journal ADD COLUMN IF NOT EXISTS pnl NUMERIC;
+ALTER TABLE journal_setups ADD COLUMN IF NOT EXISTS stop_config JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE journal_setups ADD COLUMN IF NOT EXISTS profit_config JSONB DEFAULT '{}'::jsonb;
 ```
 
-### Git push (journal v2)
-```
-git add -A && git commit -m "Journal v2: 5 variants, multi-targets, structured stop/profit, execution fix, trade detail view" && git push
-```
-
-### Recreate test setup
-- Delete old "Reversal 1" setup in the app (uses old `variantA`/`variantB` format)
-- Recreate it with the new wizard to get proper `variants` array structure
-
-### Git push (FOMO changes — from May 14)
-- `git add -A && git commit -m "FOMO experiment: level-hit framing, report prompts, remove beta test buttons" && git push`
-- (May already be done — verify with `git log`)
-
-### Contact form fix (now unblocked)
-- Resend SPF confirmed present → update `app/api/contact/route.js`:
+### Contact form fix (unblocked since DNS/SPF resolved)
+- Update `app/api/contact/route.js`:
   - `from: "SmartLog <noreply@smartlogtrading.com>"`
   - `to: "marcos@smartlogtrading.com"`
 
-### Report fine-tuning
-- FOMO-specific report prompts live — test with real trades
-- Potential adjustments to tone/wording after first real reports
-
-### Deferred features (noted during v2 session)
-- **Stop question on clean trades**: even clean trades can get stopped out; consider adding stop outcome question
-- **FOMO/hesitation/revenge "other" option**: only 2 behavioral options currently — revisit with more nuance ("vamos revisar isso com mais cuidado depois")
-- **Insights/Pro paywall**: behavioral patterns section, teaser mechanic for free users
-- **Bridge from experiment to journal**: prompt after experiment completion
+### Recreate test setup
+- Delete old "Reversal 1" setup (uses old `variantA`/`variantB` format)
+- Recreate with the new wizard to get proper `variants` array structure
 
 ### Pre-launch
 - Send to 2 close friends for testing
 - All 3 user flows confirmed working (free, paid, lifetime)
+
+### Deferred features
+- **Stop question on clean trades**: even clean trades can get stopped out — consider adding stop outcome question for clean trades too
+- **Insights/Pro paywall**: behavioral patterns section, teaser mechanic for free users
+- **Setup Refinement report**: variant heatmap in setup detail page (`/journal/setups/[id]`)
+- **Bridge from experiment to journal**: prompt after experiment completion
 
 ---
 
