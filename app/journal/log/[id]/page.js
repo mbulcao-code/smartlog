@@ -8,6 +8,7 @@ import {
   ENTRY_TYPE_LABELS,
   STOP_OUTCOME_LABELS,
   TARGET_OUTCOME_LABELS,
+  TRADE_OUTCOME_LABELS,
   OTHER_ISSUE_LABELS,
 } from "@/lib/journal-helpers";
 
@@ -250,10 +251,14 @@ function TradeDetailContent() {
   const [editOutcome, setEditOutcome] = useState(null);
   const [editPnl,     setEditPnl]     = useState("");
 
-  // ── Behavior edit state (v2 only) ─────────────────────────────────────────
-  const [editEntryCategory,  setEditEntryCategory]  = useState(null);
-  const [editEntryType,      setEditEntryType]      = useState(null);
-  const [editLevelMetAfter,  setEditLevelMetAfter]  = useState(null);
+  // ── Behavior edit state ───────────────────────────────────────────────────
+  const [editEntryCategory,     setEditEntryCategory]     = useState(null);
+  const [editEntryType,         setEditEntryType]         = useState(null);
+  const [editLevelMetAfter,     setEditLevelMetAfter]     = useState(null);
+  // v3 combined outcome
+  const [editTradeOutcomeType,   setEditTradeOutcomeType]   = useState(null);
+  const [editTradeOutcomeDetail, setEditTradeOutcomeDetail] = useState(null);
+  // v2 legacy (kept for backward compat edit of old trades)
   const [editStopOutcome,    setEditStopOutcome]    = useState(null);
   const [editTargetOutcome,  setEditTargetOutcome]  = useState(null);
 
@@ -296,7 +301,8 @@ function TradeDetailContent() {
 
         if (setupsRes.ok) {
           const setupsData = await setupsRes.json();
-          const list = setupsData.setups || [];
+          // GET /api/journal/setups returns a plain array
+          const list = Array.isArray(setupsData) ? setupsData : (setupsData.setups || []);
           setAllSetups(list);
           if (data.setup_id) {
             const found = list.find(s => s.id === data.setup_id);
@@ -375,9 +381,18 @@ function TradeDetailContent() {
     setEditEntryCategory(cat);
     setEditEntryType(at.entry_type || null);
     setEditLevelMetAfter(at.level_met_after ?? null);
+    // v3 fields
+    setEditTradeOutcomeType(at.trade_outcome_type || null);
+    setEditTradeOutcomeDetail(at.trade_outcome_detail || null);
+    // v2 legacy fields
     setEditStopOutcome(at.stop_outcome || null);
     setEditTargetOutcome(at.target_outcome || null);
     setActiveModal("behavior");
+  }
+
+  function selectEditOutcomeType(type) {
+    setEditTradeOutcomeType(type);
+    setEditTradeOutcomeDetail(null);
   }
 
   function openNotes() {
@@ -406,14 +421,25 @@ function TradeDetailContent() {
   function saveBehavior() {
     const newAfterTrade = {
       ...(entry.after_trade || {}),
-      entry_type:      editEntryType,
-      level_met_after: editEntryCategory === "early" ? editLevelMetAfter : undefined,
-      stop_outcome:    editStopOutcome,
-      target_outcome:  editTargetOutcome,
+      entry_type:           editEntryType,
+      level_met_after:      editEntryCategory === "early" ? editLevelMetAfter : undefined,
+      trade_outcome_type:   editTradeOutcomeType,
+      trade_outcome_detail: editTradeOutcomeDetail,
+      // Clear v2 stop/target fields when upgrading to v3 format
+      stop_outcome:   undefined,
+      target_outcome: undefined,
     };
-    // Remove undefined keys
     Object.keys(newAfterTrade).forEach(k => newAfterTrade[k] === undefined && delete newAfterTrade[k]);
     saveField({ after_trade: newAfterTrade });
+  }
+
+  function canSaveBehavior() {
+    if (!editEntryCategory) return false;
+    if (editEntryCategory === "early" && editLevelMetAfter === null) return false;
+    if (editEntryCategory === "late" && !editEntryType) return false;
+    if (!editTradeOutcomeType) return false;
+    if (!["panic_exit", "no_stop"].includes(editTradeOutcomeType) && !editTradeOutcomeDetail) return false;
+    return true;
   }
 
   function saveNotes() {
@@ -528,8 +554,9 @@ function TradeDetailContent() {
         { day: "numeric", month: "long", year: "numeric" }
       );
 
-  const isV2        = !!(entry.after_trade?.entry_type);
-  const isNewFormat = !isV2 && Array.isArray(entry.pain_types) && entry.pain_types.length > 0;
+  const isV3        = !!(entry.after_trade?.trade_outcome_type);
+  const isV2        = !isV3 && !!(entry.after_trade?.entry_type);
+  const isNewFormat = !isV3 && !isV2 && Array.isArray(entry.pain_types) && entry.pain_types.length > 0;
   const isClean     = isNewFormat
     ? entry.pain_types.includes("clean")
     : !entry.pain_type;
@@ -670,7 +697,74 @@ function TradeDetailContent() {
           </Section>
         )}
 
-        {/* ── V2 Behavior section ───────────────────────────────────────────── */}
+        {/* ── V3 Behavior section (combined stop+target) ───────────────────── */}
+        {isV3 && (() => {
+          const at = entry.after_trade;
+          const entryTypeMeta  = ENTRY_TYPE_LABELS[at.entry_type];
+          const outcomeMeta    = TRADE_OUTCOME_LABELS[at.trade_outcome_type];
+          const detailMeta     = outcomeMeta?.details?.[at.trade_outcome_detail];
+          const otherIssues    = Array.isArray(at.other_issues) ? at.other_issues : [];
+          return (
+            <Section label={pt ? "Comportamento" : "Behavior"} onEdit={openBehavior} pt={pt}>
+              <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
+                {entryTypeMeta && (
+                  <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+                    <span className="text-xs text-slate-500">{pt ? "Tipo de entrada" : "Entry type"}</span>
+                    <span className="text-sm text-slate-200">{pt ? entryTypeMeta.pt : entryTypeMeta.en}</span>
+                  </div>
+                )}
+                {at.entry_type === "early" && at.level_met_after !== undefined && (
+                  <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+                    <span className="text-xs text-slate-500">{pt ? "Nível também atingido?" : "Level also hit?"}</span>
+                    <span className={`text-sm font-medium ${at.level_met_after ? "text-amber-400" : "text-green-400"}`}>
+                      {at.level_met_after
+                        ? (pt ? "Sim — entrada cedo foi pior" : "Yes — early entry was worse")
+                        : (pt ? "Não — única forma de entrar" : "No — only way to catch it")}
+                    </span>
+                  </div>
+                )}
+                {outcomeMeta && (
+                  <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+                    <span className="text-xs text-slate-500">{pt ? "Operação" : "Trade"}</span>
+                    <span className="text-sm text-slate-200">{pt ? outcomeMeta.pt : outcomeMeta.en}</span>
+                  </div>
+                )}
+                {detailMeta && (
+                  <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+                    <span className="text-xs text-slate-500">{pt ? "Detalhe" : "Detail"}</span>
+                    <span className="text-sm text-slate-300">{pt ? detailMeta.pt : detailMeta.en}</span>
+                  </div>
+                )}
+                {otherIssues.length > 0 && (
+                  <div className="py-2">
+                    <p className="text-xs text-slate-500 mb-2">{pt ? "Outros problemas" : "Other issues"}</p>
+                    <div className="space-y-1.5">
+                      {otherIssues.map((item, i) => {
+                        const id = typeof item === "string" ? item : item.id;
+                        const setupType = typeof item === "object" ? item.setup_type : null;
+                        const customText = typeof item === "object" && item.id === "other" ? item.text : null;
+                        const m = OTHER_ISSUE_LABELS[id];
+                        const label = m ? (pt ? m.pt : m.en) : id;
+                        return (
+                          <div key={i} className="flex items-baseline justify-between">
+                            <span className="text-sm text-slate-300">{customText || label}</span>
+                            {setupType && (
+                              <span className={`text-xs font-medium ${setupType === "trusted" ? "text-blue-400" : "text-amber-500"}`}>
+                                {setupType === "trusted" ? (pt ? "Setup testado" : "Trusted setup") : (pt ? "Aleatória" : "Random")}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Section>
+          );
+        })()}
+
+        {/* ── V2 Behavior section (stop_outcome + target_outcome) ──────────── */}
         {isV2 && (() => {
           const at = entry.after_trade;
           const entryTypeMeta = ENTRY_TYPE_LABELS[at.entry_type];
@@ -816,8 +910,16 @@ function TradeDetailContent() {
           )}
         </Section>
 
+        {/* Reports link */}
+        <div className="mt-6 pt-4 border-t border-slate-800">
+          <button onClick={() => router.push("/journal/reports")}
+            className="w-full py-2.5 rounded-xl border border-slate-800 hover:border-slate-600 text-slate-500 hover:text-slate-300 text-xs transition-colors">
+            {pt ? "Ver relatório comportamental →" : "View behavioral report →"}
+          </button>
+        </div>
+
         {/* Meta + delete ───────────────────────────────────────────────────── */}
-        <div className="mt-8 pt-4 border-t border-slate-800 flex items-center justify-between">
+        <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
           <p className="text-xs text-slate-700">
             {pt ? "Registrado em" : "Logged"}{" "}
             {new Date(entry.logged_at).toLocaleString(pt ? "pt-BR" : "en-GB", {
@@ -1027,53 +1129,46 @@ function TradeDetailContent() {
             </div>
           </div>
 
-          {/* Stop outcome */}
+          {/* Combined trade outcome */}
           <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Stop</p>
+            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">
+              {pt ? "O que melhor descreve a operação?" : "What best describes the trade?"}
+            </p>
             <div className="space-y-1.5">
-              {Object.entries(STOP_OUTCOME_LABELS).map(([k, v]) => (
-                <button key={k} onClick={() => setEditStopOutcome(k)}
-                  className={`w-full text-left px-3 py-2 rounded-xl border text-sm transition-all ${
-                    editStopOutcome === k
-                      ? "border-blue-500 bg-blue-950/30 text-blue-200"
-                      : "border-slate-700 text-slate-400 hover:border-slate-500"
-                  }`}>
-                  {pt ? v.pt : v.en}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Target outcome */}
-          <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Alvo" : "Target"}</p>
-            <div className="space-y-1.5">
-              {Object.entries(TARGET_OUTCOME_LABELS).map(([k, v]) => (
-                <button key={k} onClick={() => setEditTargetOutcome(k)}
-                  className={`w-full text-left px-3 py-2 rounded-xl border text-sm transition-all ${
-                    editTargetOutcome === k
-                      ? "border-blue-500 bg-blue-950/30 text-blue-200"
-                      : "border-slate-700 text-slate-400 hover:border-slate-500"
-                  }`}>
-                  {pt ? v.pt : v.en}
-                </button>
-              ))}
+              {Object.entries(TRADE_OUTCOME_LABELS).map(([k, meta]) => {
+                const hasDetails = Object.keys(meta.details || {}).length > 0;
+                return (
+                  <div key={k}>
+                    <button onClick={() => selectEditOutcomeType(k)}
+                      className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${
+                        editTradeOutcomeType === k
+                          ? "border-blue-500 bg-blue-950/30 text-blue-200"
+                          : "border-slate-700 text-slate-400 hover:border-slate-500"
+                      }`}>
+                      {pt ? meta.pt : meta.en}
+                    </button>
+                    {editTradeOutcomeType === k && hasDetails && (
+                      <div className="mt-1.5 ml-3 space-y-1.5">
+                        {Object.entries(meta.details).map(([dk, dv]) => (
+                          <button key={dk} onClick={() => setEditTradeOutcomeDetail(dk)}
+                            className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${
+                              editTradeOutcomeDetail === dk
+                                ? "border-blue-400 bg-blue-950/20 text-blue-200"
+                                : "border-slate-700 text-slate-500 hover:border-slate-600"
+                            }`}>
+                            {pt ? dv.pt : dv.en}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        <SaveBtn
-          onSave={saveBehavior}
-          saving={saving}
-          disabled={
-            !editEntryCategory ||
-            (editEntryCategory === "early" && editLevelMetAfter === null) ||
-            (editEntryCategory === "late"  && !editEntryType) ||
-            !editStopOutcome ||
-            !editTargetOutcome
-          }
-          pt={pt}
-        />
+        <SaveBtn onSave={saveBehavior} saving={saving} disabled={!canSaveBehavior()} pt={pt} />
       </BottomSheet>
 
       {/* ── Notes modal ───────────────────────────────────────────────────── */}

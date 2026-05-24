@@ -42,6 +42,19 @@ function OptionBtn({ label, sublabel, selected, onClick, selectedClass }) {
   );
 }
 
+function SubBtn({ label, selected, onClick, selectedClass }) {
+  return (
+    <button onClick={onClick}
+      className={`w-full text-left px-3 py-2.5 rounded-lg border text-xs font-medium transition-colors ${
+        selected
+          ? (selectedClass || "border-blue-500/60 bg-blue-950/20 text-blue-200")
+          : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+      }`}>
+      {label}
+    </button>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function NewTradePage() {
@@ -53,44 +66,45 @@ export default function NewTradePage() {
   const [saving, setSaving] = useState(false);
   const pt = lang === "pt";
 
-  // Steps: 1=setup, 2=details (incl. outcome+P&L), 3=entry-type (with inline sub-options), "3b"=conditions, 4=stop, 5=target, 6=other+notes+save
+  // Steps:
+  //   1      = Setup selection
+  //   "cond" = Conditions/variants (if setup has conditions, before trade details)
+  //   2      = Trade details (direction, date, instrument, outcome, P&L)
+  //   3      = Entry type
+  //   4      = What best describes the trade? (stop + target merged)
+  //   5      = Other issues + notes + save
   const [step, setStep] = useState(1);
 
   // Step 1
-  const [selectedSetup, setSelectedSetup] = useState(undefined); // undefined = not chosen yet
+  const [selectedSetup, setSelectedSetup] = useState(undefined);
 
-  // Step 2
-  const [instrument, setInstrument] = useState("");
-  const [direction, setDirection] = useState(null);
-  const [tradeDate, setTradeDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [entryPrice, setEntryPrice] = useState("");
-  const [exitPrice, setExitPrice] = useState("");
-  const [pnl, setPnl] = useState("");
-
-  // Step 3 — top-level category + granular type
-  // entryCategory: "full_setup" | "early" | "late" | "random"
-  // entryType (saved to DB): "full_setup" | "early" | "hesitation_better" | "hesitation_worse" | "chase_profit" | "chase_loss" | "random"
-  const [entryCategory, setEntryCategory] = useState(null);
-  const [entryType, setEntryType] = useState(null);
-  const [levelMetAfter, setLevelMetAfter] = useState(null); // true | false — inline for "early"
-
-  // Step 3b
+  // Step "cond"
   const [conditionsMet, setConditionsMet] = useState({});
 
-  // Step 4
-  const [stopOutcome, setStopOutcome] = useState(null);
+  // Step 2
+  const [instrument, setInstrument]   = useState("");
+  const [direction, setDirection]     = useState(null);
+  const [tradeDate, setTradeDate]     = useState(() => new Date().toISOString().split("T")[0]);
+  const [entryPrice, setEntryPrice]   = useState("");
+  const [exitPrice, setExitPrice]     = useState("");
+  const [pnl, setPnl]                 = useState("");
+  const [outcome, setOutcome]         = useState(null);
+
+  // Step 3 — entry type
+  const [entryCategory, setEntryCategory] = useState(null);
+  const [entryType, setEntryType]         = useState(null);
+  const [levelMetAfter, setLevelMetAfter] = useState(null);
+
+  // Step 4 — combined outcome (stop + target merged)
+  // tradeOutcomeType: "respected_stop"|"changed_stop"|"panic_exit"|"no_stop"|
+  //                   "target_not_hit"|"early_exit"|"last_target_hit"
+  // tradeOutcomeDetail: sub-option string, or null for panic_exit/no_stop
+  const [tradeOutcomeType,   setTradeOutcomeType]   = useState(null);
+  const [tradeOutcomeDetail, setTradeOutcomeDetail] = useState(null);
 
   // Step 5
-  const [targetOutcome, setTargetOutcome] = useState(null);
-
-  // Step 6
-  // otherIssues: { [id]: "trusted" | "random" | null }  for revenge/overtrading/oversizing
-  //              { other: "text..." }                    for free-text
   const [otherIssues, setOtherIssues] = useState({});
-  const [notes, setNotes] = useState("");
-
-  // Step 2 (outcome captured early alongside trade facts)
-  const [outcome, setOutcome] = useState(null);
+  const [notes, setNotes]             = useState("");
 
   // ── Auth + setups ─────────────────────────────────────────────────────────
 
@@ -111,37 +125,23 @@ export default function NewTradePage() {
     load();
   }, []);
 
-  // ── Navigation helpers ────────────────────────────────────────────────────
+  // ── Navigation ────────────────────────────────────────────────────────────
 
   function goTo(s) { setStep(s); window.scrollTo(0, 0); }
 
+  function hasConditions() { return (selectedSetup?.conditions?.length || 0) > 0; }
+
   function backFrom(s) {
-    if (s === 1)    return router.push("/journal");
-    if (s === 2)    return goTo(1);
-    if (s === 3)    return goTo(2);
-    if (s === "3b") return goTo(3);
-    if (s === 4) {
-      if ((entryType === "full_setup" || entryType === "early") && selectedSetup?.conditions?.length > 0) return goTo("3b");
-      return goTo(3);
-    }
-    if (s === 5)   return goTo(4);
-    if (s === 6)   return goTo(5);
+    if (s === 1)      return router.push("/journal");
+    if (s === "cond") return goTo(1);
+    if (s === 2)      return hasConditions() ? goTo("cond") : goTo(1);
+    if (s === 3)      return goTo(2);
+    if (s === 4)      return goTo(3);
+    if (s === 5)      return goTo(4);
   }
 
-  function nextFromEntry() {
-    const hasConditions = selectedSetup?.conditions?.length > 0;
-    if ((entryType === "full_setup" || entryType === "early") && hasConditions) return goTo("3b");
-    return goTo(4);
-  }
-
-  function nextFromConditions() {
-    return goTo(4);
-  }
-
-  function canAdvanceFromEntry() {
-    if (entryCategory === "early")  return levelMetAfter !== null;
-    if (entryCategory === "late")   return entryType !== null;
-    return entryCategory !== null; // full_setup or random
+  function nextFromSetup() {
+    return hasConditions() ? goTo("cond") : goTo(2);
   }
 
   function selectCategory(cat) {
@@ -149,7 +149,24 @@ export default function NewTradePage() {
     setLevelMetAfter(null);
     if (cat === "full_setup") setEntryType("full_setup");
     else if (cat === "random") setEntryType("random");
-    else setEntryType(null); // early and late need sub-selection
+    else setEntryType(null);
+  }
+
+  function canAdvanceFromEntry() {
+    if (entryCategory === "early") return levelMetAfter !== null;
+    if (entryCategory === "late")  return entryType !== null;
+    return entryCategory !== null;
+  }
+
+  function selectOutcomeType(type) {
+    setTradeOutcomeType(type);
+    setTradeOutcomeDetail(null);
+  }
+
+  function canAdvanceFromOutcome() {
+    if (!tradeOutcomeType) return false;
+    if (["panic_exit", "no_stop"].includes(tradeOutcomeType)) return true;
+    return tradeOutcomeDetail !== null;
   }
 
   // ── Conditions helpers ────────────────────────────────────────────────────
@@ -174,6 +191,8 @@ export default function NewTradePage() {
         : null,
     }));
   }
+
+  // ── Other issues helpers ──────────────────────────────────────────────────
 
   function toggleIssue(id) {
     setOtherIssues(prev => {
@@ -213,14 +232,14 @@ export default function NewTradePage() {
           trade_date:  tradeDate,
           entry_price: entryPrice ? parseFloat(entryPrice) : null,
           exit_price:  exitPrice  ? parseFloat(exitPrice)  : null,
-          pnl:         pnl        ? pnl                    : null,
+          pnl:         pnl        ? pnl : null,
           conditions_met: buildConditionsMetArray(),
           after_trade: {
-            entry_type:      entryType,
-            level_met_after: levelMetAfter,
-            stop_outcome:    stopOutcome,
-            target_outcome:  targetOutcome,
-            other_issues:    buildOtherIssues(),
+            entry_type:           entryType,
+            level_met_after:      levelMetAfter,
+            trade_outcome_type:   tradeOutcomeType,
+            trade_outcome_detail: tradeOutcomeDetail,
+            other_issues:         buildOtherIssues(),
           },
           outcome,
           notes: notes.trim() || null,
@@ -241,7 +260,7 @@ export default function NewTradePage() {
 
   if (!authReady) return <LoadingSpinner />;
 
-  const stepNum = typeof step === "number" ? step : 3;
+  const stepNum = step === "cond" ? 1 : (typeof step === "number" ? step : 1);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -251,19 +270,19 @@ export default function NewTradePage() {
         <div className="max-w-xl mx-auto flex items-center justify-between">
           <button onClick={() => backFrom(step)} className="text-slate-400 hover:text-white text-sm transition-colors">←</button>
           <div className="flex items-center gap-1">
-            {[1,2,3,4,5,6].map(s => (
+            {[1,2,3,4,5].map(s => (
               <div key={s} className={`h-1 rounded-full transition-all ${
                 s < stepNum ? "w-4 bg-blue-500" : s === stepNum ? "w-5 bg-blue-400" : "w-4 bg-slate-700"
               }`} />
             ))}
           </div>
-          <span className="text-xs text-slate-500">{stepNum}/6</span>
+          <span className="text-xs text-slate-500">{stepNum}/5</span>
         </div>
       </header>
 
       <main className="max-w-xl mx-auto px-6 py-8">
 
-        {/* ── STEP 1: Setup ── */}
+        {/* ── STEP 1: Setup selection ───────────────────────────────────── */}
         {step === 1 && (
           <div className="space-y-5">
             <div>
@@ -277,48 +296,95 @@ export default function NewTradePage() {
 
             <div className="space-y-2">
               {setups.map(s => (
-                <OptionBtn
-                  key={s.id}
+                <OptionBtn key={s.id}
                   label={s.name}
                   sublabel={s.conditions?.length > 0 ? `${s.conditions.length} ${pt ? "condições" : "conditions"}` : undefined}
                   selected={selectedSetup?.id === s.id}
-                  onClick={() => setSelectedSetup(s)}
+                  onClick={() => { setSelectedSetup(s); setEntryType(null); setEntryCategory(null); setConditionsMet({}); }}
                 />
               ))}
               <OptionBtn
                 label={pt ? "Sem setup — operação aleatória" : "No setup — random trade"}
                 sublabel={pt ? "Você não pode aprender com operações aleatórias." : "You can't learn from random trades."}
                 selected={selectedSetup === null}
-                onClick={() => { setSelectedSetup(null); setEntryType("random"); }}
+                onClick={() => { setSelectedSetup(null); setEntryType("random"); setEntryCategory("random"); setConditionsMet({}); }}
                 selectedClass="border-amber-500/50 bg-amber-950/20 text-amber-200"
               />
             </div>
 
-            <button
-              onClick={() => router.push("/journal/setups/new")}
-              className="w-full py-2.5 rounded-xl border border-dashed border-slate-700 text-slate-500 hover:border-blue-500 hover:text-blue-400 text-sm transition-colors"
-            >
+            <button onClick={() => router.push("/journal/setups/new")}
+              className="w-full py-2.5 rounded-xl border border-dashed border-slate-700 text-slate-500 hover:border-blue-500 hover:text-blue-400 text-sm transition-colors">
               + {pt ? "Criar novo setup" : "Create new setup"}
             </button>
 
-            <button
-              onClick={() => goTo(2)}
-              disabled={selectedSetup === undefined}
-              className="w-full py-3.5 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-30 text-white text-sm font-medium transition-colors"
-            >
+            <button onClick={nextFromSetup} disabled={selectedSetup === undefined}
+              className="w-full py-3.5 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-30 text-white text-sm font-medium transition-colors">
               {pt ? "Continuar" : "Continue"} →
             </button>
           </div>
         )}
 
-        {/* ── STEP 2: Trade details ── */}
+        {/* ── STEP "cond": Conditions (before trade details) ───────────── */}
+        {step === "cond" && selectedSetup?.conditions?.length > 0 && (
+          <div className="space-y-5">
+            <div>
+              <p className="text-base font-semibold text-white mb-1">
+                {pt ? "Como foram as condições do setup?" : "How did your setup conditions play out?"}
+              </p>
+              <p className="text-sm text-slate-500">
+                {pt
+                  ? "Selecione a variante para cada condição, ou N/A se não foi atingida."
+                  : "Select the variant for each condition, or N/A if it wasn't met."}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {selectedSetup.conditions.map(cond => (
+                <div key={cond.id} className="p-4 rounded-xl border border-slate-800 bg-slate-900">
+                  <p className="text-sm text-slate-300 mb-3">{cond.text}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(cond.variants || []).map(v => {
+                      const c = VARIANT_COLORS[v.label] || {};
+                      const sel = conditionsMet[cond.id] === v.label;
+                      return (
+                        <button key={v.id} onClick={() => setConditionVariant(cond.id, v.label)}
+                          className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                            sel ? `${c.border} ${c.bg} ${c.text}` : "border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300"
+                          }`}>
+                          {v.label}{v.description ? ` · ${v.description}` : ""}
+                        </button>
+                      );
+                    })}
+                    <button onClick={() => setConditionVariant(cond.id, "na")}
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                        conditionsMet[cond.id] === "na"
+                          ? "border-slate-500 bg-slate-800 text-slate-400"
+                          : "border-slate-700 text-slate-600 hover:border-slate-600 hover:text-slate-400"
+                      }`}>
+                      N/A
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => backFrom("cond")} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-sm transition-colors">←</button>
+              <button onClick={() => goTo(2)} disabled={!allConditionsFilled()}
+                className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-30 text-white text-sm font-medium transition-colors">
+                {pt ? "Continuar" : "Continue"} →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 2: Trade details ─────────────────────────────────────── */}
         {step === 2 && (
           <div className="space-y-5">
             <p className="text-base font-semibold text-white">
               {pt ? "Detalhes da operação" : "Trade details"}
             </p>
 
-            {/* Direction */}
             <div>
               <p className="text-xs text-slate-500 mb-2">{pt ? "Direção *" : "Direction *"}</p>
               <div className="flex gap-2">
@@ -333,14 +399,12 @@ export default function NewTradePage() {
               </div>
             </div>
 
-            {/* Date */}
             <div>
               <p className="text-xs text-slate-500 mb-2">{pt ? "Data *" : "Date *"}</p>
               <input type="date" value={tradeDate} onChange={e => setTradeDate(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-200 text-sm focus:outline-none focus:border-slate-500" />
             </div>
 
-            {/* Instrument */}
             <div>
               <p className="text-xs text-slate-500 mb-2">{pt ? "Instrumento (opcional)" : "Instrument (optional)"}</p>
               <input type="text" placeholder={pt ? "ex: EURUSD, NQ, AAPL…" : "e.g. EURUSD, NQ, AAPL…"}
@@ -348,7 +412,6 @@ export default function NewTradePage() {
                 className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-200 text-sm placeholder-slate-600 focus:outline-none focus:border-slate-500" />
             </div>
 
-            {/* Prices */}
             <div>
               <p className="text-xs text-slate-500 mb-2">{pt ? "Preços (opcional)" : "Prices (optional)"}</p>
               <div className="flex gap-2">
@@ -359,14 +422,13 @@ export default function NewTradePage() {
               </div>
             </div>
 
-            {/* Result */}
             <div>
               <p className="text-xs text-slate-500 mb-2">{pt ? "Resultado *" : "Result *"}</p>
               <div className="flex gap-2">
                 {[
-                  { v: "win",       l: pt ? "Ganhou" : "Win",       c: "border-green-500 bg-green-950/30 text-green-300" },
-                  { v: "loss",      l: pt ? "Perdeu" : "Loss",      c: "border-red-500 bg-red-950/30 text-red-300" },
-                  { v: "breakeven", l: pt ? "Empate" : "BE",        c: "border-slate-500 bg-slate-800 text-slate-300" },
+                  { v: "win",       l: pt ? "Ganhou" : "Win",  c: "border-green-500 bg-green-950/30 text-green-300" },
+                  { v: "loss",      l: pt ? "Perdeu" : "Loss", c: "border-red-500 bg-red-950/30 text-red-300" },
+                  { v: "breakeven", l: "BE",                    c: "border-slate-500 bg-slate-800 text-slate-300" },
                 ].map(o => (
                   <button key={o.v} onClick={() => setOutcome(o.v)}
                     className={`flex-1 py-3 rounded-xl border text-sm font-medium transition-colors ${
@@ -376,7 +438,6 @@ export default function NewTradePage() {
               </div>
             </div>
 
-            {/* P&L */}
             <div>
               <p className="text-xs text-slate-500 mb-2">{pt ? "Resultado em $ (opcional)" : "Result in $ (optional)"}</p>
               <input type="number" step="any" placeholder={pt ? "ex: 250 ou -120" : "e.g. 250 or -120"}
@@ -394,29 +455,23 @@ export default function NewTradePage() {
           </div>
         )}
 
-        {/* ── STEP 3: Entry type ── */}
+        {/* ── STEP 3: Entry type ────────────────────────────────────────── */}
         {step === 3 && (
           <div className="space-y-4">
             <p className="text-base font-semibold text-white">{pt ? "Como foi sua entrada?" : "How was your entry?"}</p>
 
             <div className="space-y-3">
-
-              {/* A — Full setup (only when a setup is selected) */}
               {selectedSetup && (
-                <div>
-                  <button onClick={() => selectCategory("full_setup")}
-                    className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
-                      entryCategory === "full_setup"
-                        ? "border-blue-500 bg-blue-950/30 text-white"
-                        : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500 hover:text-white"
-                    }`}>
-                    <p className="font-medium">{pt ? "A. Setup respeitado — aguardei todas as condições" : "A. Respected full setup — waited for all conditions"}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{pt ? "Você selecionará as variantes usadas a seguir." : "You'll select the variant used for each condition."}</p>
-                  </button>
-                </div>
+                <button onClick={() => selectCategory("full_setup")}
+                  className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
+                    entryCategory === "full_setup"
+                      ? "border-blue-500 bg-blue-950/30 text-white"
+                      : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500 hover:text-white"
+                  }`}>
+                  {pt ? "A. Setup completo — aguardei todas as condições" : "A. Full setup — waited for all conditions"}
+                </button>
               )}
 
-              {/* B — Early entry */}
               <div>
                 <button onClick={() => selectCategory("early")}
                   className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
@@ -428,27 +483,22 @@ export default function NewTradePage() {
                 </button>
                 {entryCategory === "early" && (
                   <div className="mt-2 ml-3 flex flex-col gap-2">
-                    <button onClick={() => setLevelMetAfter(false)}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg border text-xs font-medium transition-colors ${
-                        levelMetAfter === false
-                          ? "border-green-500/60 bg-green-950/20 text-green-300"
-                          : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-slate-300"
-                      }`}>
-                      {pt ? "Nível / condições NÃO foram atingidos depois" : "Level / conditions NOT met after — only way to catch it"}
-                    </button>
-                    <button onClick={() => setLevelMetAfter(true)}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg border text-xs font-medium transition-colors ${
-                        levelMetAfter === true
-                          ? "border-amber-500/60 bg-amber-950/20 text-amber-300"
-                          : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-slate-300"
-                      }`}>
-                      {pt ? "Nível / condições foram atingidos depois — entrada cedo foi pior" : "Level / conditions met after — early entry was worse"}
-                    </button>
+                    <SubBtn
+                      label={pt ? "Nível / condições NÃO foram atingidos depois — única forma de entrar" : "Level / conditions NOT met after — only way to catch it"}
+                      selected={levelMetAfter === false}
+                      onClick={() => setLevelMetAfter(false)}
+                      selectedClass="border-green-500/60 bg-green-950/20 text-green-300"
+                    />
+                    <SubBtn
+                      label={pt ? "Nível / condições foram atingidos depois — entrada cedo foi pior" : "Level / conditions met after — early entry was worse"}
+                      selected={levelMetAfter === true}
+                      onClick={() => setLevelMetAfter(true)}
+                      selectedClass="border-amber-500/60 bg-amber-950/20 text-amber-300"
+                    />
                   </div>
                 )}
               </div>
 
-              {/* C — Late / Hesitation / Chasing */}
               <div>
                 <button onClick={() => selectCategory("late")}
                   className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
@@ -479,7 +529,6 @@ export default function NewTradePage() {
                 )}
               </div>
 
-              {/* D — Random trade */}
               <div>
                 <button onClick={() => selectCategory("random")}
                   className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
@@ -495,12 +544,11 @@ export default function NewTradePage() {
                   </p>
                 )}
               </div>
-
             </div>
 
             <div className="flex gap-3 pt-2">
               <button onClick={() => backFrom(3)} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-sm transition-colors">←</button>
-              <button onClick={nextFromEntry} disabled={!canAdvanceFromEntry()}
+              <button onClick={() => goTo(4)} disabled={!canAdvanceFromEntry()}
                 className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-30 text-white text-sm font-medium transition-colors">
                 {pt ? "Continuar" : "Continue"} →
               </button>
@@ -508,109 +556,123 @@ export default function NewTradePage() {
           </div>
         )}
 
-        {/* ── STEP 3b: Conditions + variants ── */}
-        {step === "3b" && selectedSetup?.conditions?.length > 0 && (
-          <div className="space-y-5">
-            <div>
-              <p className="text-base font-semibold text-white mb-1">
-                {entryType === "full_setup"
-                  ? (pt ? "Quais variantes você operou?" : "Which variants did you trade?")
-                  : (pt ? "Quais condições foram atingidas?" : "Which conditions were met?")}
-              </p>
-              <p className="text-sm text-slate-500">
-                {entryType === "full_setup"
-                  ? (pt ? "Selecione a variante para cada condição." : "Select the variant for each condition.")
-                  : (pt ? "Selecione a variante ou marque N/A se a condição não foi atingida." : "Select the variant or mark N/A if not met.")}
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {selectedSetup.conditions.map(cond => (
-                <div key={cond.id} className="p-4 rounded-xl border border-slate-800 bg-slate-900">
-                  <p className="text-sm text-slate-300 mb-3">{cond.text}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(cond.variants || []).map(v => {
-                      const c = VARIANT_COLORS[v.label] || {};
-                      const sel = conditionsMet[cond.id] === v.label;
-                      return (
-                        <button key={v.id} onClick={() => setConditionVariant(cond.id, v.label)}
-                          className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                            sel ? `${c.border} ${c.bg} ${c.text}` : "border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300"
-                          }`}>
-                          {v.label}{v.description ? ` · ${v.description}` : ""}
-                        </button>
-                      );
-                    })}
-                    {entryType === "early" && (
-                      <button onClick={() => setConditionVariant(cond.id, "na")}
-                        className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                          conditionsMet[cond.id] === "na"
-                            ? "border-slate-500 bg-slate-800 text-slate-400"
-                            : "border-slate-700 text-slate-600 hover:border-slate-600 hover:text-slate-400"
-                        }`}>
-                        N/A
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-3">
-              <button onClick={() => backFrom("3b")} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-sm transition-colors">←</button>
-              <button onClick={nextFromConditions} disabled={!allConditionsFilled()}
-                className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-30 text-white text-sm font-medium transition-colors">
-                {pt ? "Continuar" : "Continue"} →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── STEP 3c: Level met after ── */}
-        {step === "3c" && (
-          <div className="space-y-5">
-            <div>
-              <p className="text-base font-semibold text-white mb-1">
-                {pt ? "O nível / condições completas foram atingidos depois da sua entrada?" : "Did the level / full conditions get met after your entry?"}
-              </p>
-              <p className="text-sm text-slate-500">
-                {pt ? "Isso define se foi uma oportunidade realmente perdida ao não esperar." : "This defines whether waiting would have truly missed the move."}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <OptionBtn label={pt ? "Sim — o nível foi atingido" : "Yes — level was reached"} selected={levelMetAfter === true} onClick={() => setLevelMetAfter(true)} />
-              <OptionBtn label={pt ? "Não — o preço não chegou lá" : "No — price didn't get there"} selected={levelMetAfter === false} onClick={() => setLevelMetAfter(false)} />
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => backFrom("3c")} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-sm transition-colors">←</button>
-              <button onClick={() => goTo(4)} disabled={levelMetAfter === null}
-                className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-30 text-white text-sm font-medium transition-colors">
-                {pt ? "Continuar" : "Continue"} →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── STEP 4: Stop outcome ── */}
+        {/* ── STEP 4: What best describes the trade? ────────────────────── */}
         {step === 4 && (
-          <div className="space-y-5">
-            <p className="text-base font-semibold text-white">{pt ? "Como foi o seu stop?" : "How was your stop?"}</p>
+          <div className="space-y-4">
+            <p className="text-base font-semibold text-white">
+              {pt ? "O que melhor descreve a operação?" : "What best describes the trade?"}
+            </p>
+
             <div className="space-y-2">
-              {[
-                { v: "not_hit",             l: pt ? "Não ativado" : "Not hit" },
-                { v: "changed_worse",        l: pt ? "Alterado → perda maior" : "Changed → worse loss" },
-                { v: "changed_smaller",      l: pt ? "Alterado → perda menor" : "Changed → smaller loss" },
-                { v: "changed_profit",       l: pt ? "Alterado → virou lucro" : "Changed → turned to profit" },
-                { v: "respected_protected",  l: pt ? "Respeitado — protegeu de perda pior" : "Respected — protected from worse loss" },
-                { v: "respected_reversal",   l: pt ? "Respeitado — preço reverteu (doloroso)" : "Respected — price reversed (painful)" },
-                { v: "panic",                l: pt ? "Saída por pânico — fechei manualmente" : "Panic exit — closed manually" },
-              ].map(o => (
-                <OptionBtn key={o.v} label={o.l} selected={stopOutcome === o.v} onClick={() => setStopOutcome(o.v)} />
-              ))}
+
+              {/* 1. Respected stop */}
+              <div>
+                <OptionBtn label={pt ? "Stop respeitado" : "Respected stop"}
+                  selected={tradeOutcomeType === "respected_stop"}
+                  onClick={() => selectOutcomeType("respected_stop")} />
+                {tradeOutcomeType === "respected_stop" && (
+                  <div className="mt-2 ml-3 flex flex-col gap-2">
+                    <SubBtn label={pt ? "Protegeu de perda pior" : "Protected from worse loss"}
+                      selected={tradeOutcomeDetail === "protected"} onClick={() => setTradeOutcomeDetail("protected")} />
+                    <SubBtn label={pt ? "Preço reverteu (doloroso)" : "Price reversed (painful)"}
+                      selected={tradeOutcomeDetail === "reversed"} onClick={() => setTradeOutcomeDetail("reversed")} />
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Changed stop */}
+              <div>
+                <OptionBtn label={pt ? "Stop alterado" : "Changed stop"}
+                  selected={tradeOutcomeType === "changed_stop"}
+                  onClick={() => selectOutcomeType("changed_stop")} />
+                {tradeOutcomeType === "changed_stop" && (
+                  <div className="mt-2 ml-3 flex flex-col gap-2">
+                    <SubBtn label={pt ? "Resultado melhor" : "Better result"}
+                      selected={tradeOutcomeDetail === "better"} onClick={() => setTradeOutcomeDetail("better")} />
+                    <SubBtn label={pt ? "Resultado pior" : "Worse result"}
+                      selected={tradeOutcomeDetail === "worse"} onClick={() => setTradeOutcomeDetail("worse")} />
+                  </div>
+                )}
+              </div>
+
+              {/* 3a. Panic exit */}
+              <div>
+                <OptionBtn label={pt ? "Fechei manualmente — saída por pânico" : "Closed manually — panic exit"}
+                  selected={tradeOutcomeType === "panic_exit"}
+                  onClick={() => selectOutcomeType("panic_exit")}
+                  selectedClass="border-amber-500/50 bg-amber-950/20 text-amber-200" />
+                {tradeOutcomeType === "panic_exit" && (
+                  <p className="mt-1.5 ml-3 text-xs text-amber-600">
+                    {pt ? "Acontece. Registre e aprenda com isso." : "It happens. Log it and learn from it."}
+                  </p>
+                )}
+              </div>
+
+              {/* 3b. No stop placed */}
+              <div>
+                <OptionBtn label={pt ? "Sem stop colocado" : "No stop placed"}
+                  selected={tradeOutcomeType === "no_stop"}
+                  onClick={() => selectOutcomeType("no_stop")}
+                  selectedClass="border-red-500/50 bg-red-950/20 text-red-200" />
+                {tradeOutcomeType === "no_stop" && (
+                  <p className="mt-1.5 ml-3 text-xs text-red-500">
+                    {pt ? "Sem stop. O que aconteceu aqui?" : "No stop. What happened here?"}
+                  </p>
+                )}
+              </div>
+
+              {/* 4. Target not hit */}
+              <div>
+                <OptionBtn label={pt ? "Alvo não atingido" : "Target not hit"}
+                  selected={tradeOutcomeType === "target_not_hit"}
+                  onClick={() => selectOutcomeType("target_not_hit")} />
+                {tradeOutcomeType === "target_not_hit" && (
+                  <div className="mt-2 ml-3 flex flex-col gap-2">
+                    <SubBtn label={pt ? "Nunca favorável — preço foi direto contra" : "Never onside — price went straight against"}
+                      selected={tradeOutcomeDetail === "never_onside"} onClick={() => setTradeOutcomeDetail("never_onside")} />
+                    <SubBtn label={pt ? "Foi favorável → reverteu ao ponto de entrada" : "Onside → reversed back to breakeven"}
+                      selected={tradeOutcomeDetail === "onside_be"} onClick={() => setTradeOutcomeDetail("onside_be")} />
+                    <SubBtn label={pt ? "Foi favorável → reverteu e virou perda" : "Onside → reversed and turned to loss"}
+                      selected={tradeOutcomeDetail === "onside_loss"} onClick={() => setTradeOutcomeDetail("onside_loss")} />
+                  </div>
+                )}
+              </div>
+
+              {/* 5. Early exit */}
+              <div>
+                <OptionBtn label={pt ? "Saída prematura" : "Early exit"}
+                  selected={tradeOutcomeType === "early_exit"}
+                  onClick={() => selectOutcomeType("early_exit")} />
+                {tradeOutcomeType === "early_exit" && (
+                  <div className="mt-2 ml-3 flex flex-col gap-2">
+                    <SubBtn label={pt ? "Alvo foi atingido depois da minha saída" : "Target was hit after my exit"}
+                      selected={tradeOutcomeDetail === "hit_after"} onClick={() => setTradeOutcomeDetail("hit_after")} />
+                    <SubBtn label={pt ? "Alvo NÃO foi atingido depois" : "Target NOT hit after"}
+                      selected={tradeOutcomeDetail === "not_hit_after"} onClick={() => setTradeOutcomeDetail("not_hit_after")} />
+                  </div>
+                )}
+              </div>
+
+              {/* 6. Last target hit */}
+              <div>
+                <OptionBtn label={pt ? "Último alvo atingido" : "Last target hit"}
+                  selected={tradeOutcomeType === "last_target_hit"}
+                  onClick={() => selectOutcomeType("last_target_hit")} />
+                {tradeOutcomeType === "last_target_hit" && (
+                  <div className="mt-2 ml-3 flex flex-col gap-2">
+                    <SubBtn label={pt ? "Saída ótima — gestão perfeita" : "Optimal exit — perfect management"}
+                      selected={tradeOutcomeDetail === "optimal"} onClick={() => setTradeOutcomeDetail("optimal")} />
+                    <SubBtn label={pt ? "Preço continuou depois — deixei dinheiro na mesa" : "Price kept going — left money on the table"}
+                      selected={tradeOutcomeDetail === "kept_going"} onClick={() => setTradeOutcomeDetail("kept_going")} />
+                  </div>
+                )}
+              </div>
+
             </div>
-            <div className="flex gap-3">
+
+            <div className="flex gap-3 pt-2">
               <button onClick={() => backFrom(4)} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-sm transition-colors">←</button>
-              <button onClick={() => goTo(5)} disabled={!stopOutcome}
+              <button onClick={() => goTo(5)} disabled={!canAdvanceFromOutcome()}
                 className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-30 text-white text-sm font-medium transition-colors">
                 {pt ? "Continuar" : "Continue"} →
               </button>
@@ -618,33 +680,8 @@ export default function NewTradePage() {
           </div>
         )}
 
-        {/* ── STEP 5: Target outcome ── */}
+        {/* ── STEP 5: Other issues + notes + save ───────────────────────── */}
         {step === 5 && (
-          <div className="space-y-5">
-            <p className="text-base font-semibold text-white">{pt ? "Como foi o seu alvo?" : "How was your target?"}</p>
-            <div className="space-y-2">
-              {[
-                { v: "not_hit",         l: pt ? "Alvo não atingido — preço nunca chegou lá" : "Target not hit — price never reached it" },
-                { v: "early_not_hit",   l: pt ? "Saída prematura — alvo não foi atingido depois" : "Early exit — target not hit after" },
-                { v: "early_hit",       l: pt ? "Saída prematura — alvo foi atingido depois" : "Early exit — target was hit after" },
-                { v: "last_optimal",    l: pt ? "Último alvo atingido — saída ótima" : "Last target hit — optimal exit" },
-                { v: "last_kept_going", l: pt ? "Último alvo atingido — preço continuou depois" : "Last target hit — price kept going after" },
-              ].map(o => (
-                <OptionBtn key={o.v} label={o.l} selected={targetOutcome === o.v} onClick={() => setTargetOutcome(o.v)} />
-              ))}
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => backFrom(5)} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-sm transition-colors">←</button>
-              <button onClick={() => goTo(6)} disabled={!targetOutcome}
-                className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-30 text-white text-sm font-medium transition-colors">
-                {pt ? "Continuar" : "Continue"} →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── STEP 6: Other issues + notes + save ── */}
-        {step === 6 && (
           <div className="space-y-5">
             <div>
               <p className="text-base font-semibold text-white mb-1">{pt ? "Algum outro problema?" : "Any other issue?"}</p>
@@ -653,10 +690,10 @@ export default function NewTradePage() {
 
             <div className="space-y-3">
               {[
-                { id: "revenge",     en: "Revenge trade",                      pt: "Vingança" },
-                { id: "overtrading", en: "Overtrading",                         pt: "Excesso de operações" },
-                { id: "oversizing",  en: "Oversizing — position too big",       pt: "Tamanho excessivo de posição" },
-                { id: "other",       en: "Other — help improve the app",        pt: "Outro — ajude a melhorar o app" },
+                { id: "revenge",     en: "Revenge trade",                pt: "Vingança" },
+                { id: "overtrading", en: "Overtrading",                   pt: "Excesso de operações" },
+                { id: "oversizing",  en: "Oversizing — position too big", pt: "Tamanho excessivo de posição" },
+                { id: "other",       en: "Other — help improve the app",  pt: "Outro — ajude a melhorar o app" },
               ].map(issue => {
                 const selected = issue.id in otherIssues;
                 const val = otherIssues[issue.id];
@@ -670,45 +707,27 @@ export default function NewTradePage() {
                       }`}>
                       {pt ? issue.pt : issue.en}
                     </button>
-
-                    {/* Sub-question: trusted vs random (Revenge / Overtrading / Oversizing) */}
                     {selected && issue.id !== "other" && (
                       <div className="mt-2 ml-3 flex flex-col gap-2">
-                        <button onClick={() => setIssueAnswer(issue.id, "trusted")}
-                          className={`w-full text-left px-3 py-2.5 rounded-lg border text-xs font-medium transition-colors ${
-                            val === "trusted"
-                              ? "border-blue-500/50 bg-blue-950/20 text-blue-200"
-                              : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-slate-300"
-                          }`}>
-                          {pt ? "Usei um setup testado" : "Used a trusted setup"}
-                        </button>
-                        <button onClick={() => setIssueAnswer(issue.id, "random")}
-                          className={`w-full text-left px-3 py-2.5 rounded-lg border text-xs font-medium transition-colors ${
-                            val === "random"
-                              ? "border-amber-600/50 bg-amber-950/20 text-amber-300"
-                              : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-slate-300"
-                          }`}>
-                          {pt ? "Operação aleatória — não se aprende com isso" : "Random trade — you can't learn from random trades"}
-                        </button>
+                        <SubBtn label={pt ? "Usei um setup testado" : "Used a trusted setup"}
+                          selected={val === "trusted"} onClick={() => setIssueAnswer(issue.id, "trusted")}
+                          selectedClass="border-blue-500/50 bg-blue-950/20 text-blue-200" />
+                        <SubBtn label={pt ? "Operação aleatória — não se aprende com isso" : "Random trade — you can't learn from random trades"}
+                          selected={val === "random"} onClick={() => setIssueAnswer(issue.id, "random")}
+                          selectedClass="border-amber-600/50 bg-amber-950/20 text-amber-300" />
                       </div>
                     )}
-
-                    {/* Sub-question: free text (Other) */}
                     {selected && issue.id === "other" && (
-                      <input
-                        type="text"
-                        value={val}
+                      <input type="text" value={val}
                         onChange={e => setIssueAnswer("other", e.target.value)}
                         placeholder={pt ? "Descreva o problema…" : "Describe the issue…"}
-                        className="mt-2 ml-3 w-[calc(100%-0.75rem)] px-3 py-2.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-200 text-xs placeholder-slate-600 focus:outline-none focus:border-slate-500"
-                      />
+                        className="mt-2 ml-3 w-[calc(100%-0.75rem)] px-3 py-2.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-200 text-xs placeholder-slate-600 focus:outline-none focus:border-slate-500" />
                     )}
                   </div>
                 );
               })}
             </div>
 
-            {/* Notes */}
             <div>
               <p className="text-xs text-slate-500 mb-2">{pt ? "Notas (opcional)" : "Notes (optional)"}</p>
               <textarea value={notes} onChange={e => setNotes(e.target.value)}
@@ -718,7 +737,7 @@ export default function NewTradePage() {
             </div>
 
             <div className="flex gap-3">
-              <button onClick={() => backFrom(6)} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-sm transition-colors">←</button>
+              <button onClick={() => backFrom(5)} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-sm transition-colors">←</button>
               <button onClick={handleSave} disabled={saving || !allIssuesFilled()}
                 className="flex-1 py-3.5 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-30 text-white text-sm font-medium transition-colors">
                 {saving ? "…" : (pt ? "Salvar operação" : "Save trade")}
