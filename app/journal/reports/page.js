@@ -265,10 +265,11 @@ function BehavioralReport({ trades, setups, lang }) {
                 </div>
               );
             })}
-            {fullTrades.length >= 3 && d.wins(fullTrades) / fullTrades.length > 0.5 && (
+            {fullTrades.length >= 5 && d.wr(fullTrades) !== null && (
               <Moral pt={pt} highlight text={
-                pt ? `Seu melhor setup (${fullTrades.length} operações) tem ${d.wr(fullTrades)}% de acerto. Esse é o caminho mais rápido para recuperar e crescer.`
-                   : `Your best setup (${fullTrades.length} trades) has a ${d.wr(fullTrades)}% win rate. That's your fastest way to recover and grow.`
+                pt
+                  ? `Seu melhor setup tem ${d.wr(fullTrades)}% de acerto em ${fullTrades.length} operações. Esse é o caminho mais rápido para recuperar — não tentar "salvar" trades ruins.`
+                  : `Your best tested setup has a ${d.wr(fullTrades)}% win rate over ${fullTrades.length} trades. That's your fastest way to recover — not trying to "save" bad trades.`
               } />
             )}
           </Card>
@@ -309,26 +310,43 @@ function BehavioralReport({ trades, setups, lang }) {
               </span>
             </div>
 
-            {d.earlyTrades.length >= 3 && (
-              <>
-                <Moral pt={pt} text={
-                  pt ? `As verdadeiras oportunidades perdidas representam ${d.trueMissedOpps.length} de ${d.earlyTrades.length} entradas antecipadas.`
-                     : `The truly missed opportunities represent ${d.trueMissedOpps.length} of ${d.earlyTrades.length} early entries.`
-                } />
-                {d.earlyWR !== null && d.earlyWR >= 50 && (
-                  <Moral pt={pt} highlight text={
-                    pt ? `Taxa de acerto de ${d.earlyWR}% nas entradas antecipadas. Considere transformar a entrada antecipada em uma variante oficial do seu setup.`
-                       : `${d.earlyWR}% win rate on early entries. Consider making early entry an official variant of your setup.`
+            {d.earlyTrades.length >= 3 && (() => {
+              const n = d.earlyTrades.length;
+              const missedPct = Math.round((d.trueMissedOpps.length / n) * 100);
+              const payingOff = d.earlyWR !== null && d.earlyWR >= 50;
+              const sampleNote = n < 10
+                ? (pt ? ` — amostra pequena, continue registrando` : ` — small sample, keep logging`)
+                : n < 20
+                ? (pt ? ` — algo está se consolidando` : ` — something is consolidating`)
+                : (pt ? ` — dado confiável` : ` — reliable data`);
+              return (
+                <>
+                  <Moral pt={pt} highlight={d.trueMissedOpps.length === 0} text={
+                    d.trueMissedOpps.length === 0
+                      ? (pt
+                          ? `Seu FOMO está valendo a pena? Até agora: zero oportunidades verdadeiramente perdidas em ${n} entradas antecipadas${sampleNote}. Você não estava perdendo nada.`
+                          : `Is your FOMO really paying off? So far: zero truly missed opportunities out of ${n} early entries${sampleNote}. You weren't missing anything.`)
+                      : (pt
+                          ? `Seu FOMO está valendo a pena? ${d.trueMissedOpps.length} oportunidade${d.trueMissedOpps.length !== 1 ? "s" : ""} verdadeiramente perdida${d.trueMissedOpps.length !== 1 ? "s" : ""} em ${n} entradas antecipadas (${missedPct}%)${sampleNote}. Faça as contas.`
+                          : `Is your FOMO really paying off? ${d.trueMissedOpps.length} truly missed opportunit${d.trueMissedOpps.length !== 1 ? "ies" : "y"} out of ${n} early entries (${missedPct}%)${sampleNote}. Do the math.`)
                   } />
-                )}
-                {d.earlyWR !== null && d.earlyWR < 50 && (
-                  <Moral pt={pt} text={
-                    pt ? `Taxa de acerto de ${d.earlyWR}% nas entradas antecipadas — abaixo do ponto de equilíbrio. Considere (a) abandonar esse comportamento ou (b) reduzir o tamanho (a "taxa do FOMO").`
-                       : `${d.earlyWR}% win rate on early entries — below breakeven. Consider (a) abandoning this or (b) reducing size (the "FOMO fee").`
-                  } />
-                )}
-              </>
-            )}
+                  {!payingOff && n >= 5 && (
+                    <Moral pt={pt} text={
+                      pt
+                        ? `Se o FOMO é inevitável, considere a "taxa pirata do FOMO": entre com tamanho reduzido. Você participa do trade, pega um pedaço quando funciona, e não destrói seu R:R quando não funciona.`
+                        : `If FOMO is unavoidable, consider the "FOMO pirate fee": enter with reduced size. You're on the trade, get a piece when it works, and it doesn't hurt your R:R when it doesn't.`
+                    } />
+                  )}
+                  {payingOff && (
+                    <Moral pt={pt} highlight text={
+                      pt
+                        ? `${d.earlyWR}% de acerto nas entradas antecipadas. Considere transformar isso em uma variante oficial do seu setup — assim você aprende com ela de forma estruturada.`
+                        : `${d.earlyWR}% win rate on early entries. Consider making this an official setup variant — so you can learn from it in a structured way.`
+                    } />
+                  )}
+                </>
+              );
+            })()}
           </Card>
         </Section>
       )}
@@ -386,12 +404,22 @@ function BehavioralReport({ trades, setups, lang }) {
                     <span className="text-sm text-green-400 font-medium">{d.stopChangedProfit.length}×</span>
                   </div>
                 )}
-                {d.stopChanged.length >= 3 && (
-                  <Moral pt={pt} text={
-                    pt ? "Você não pode aprender com comportamento aleatório de stop. Mantenha-se fiel ao seu ponto de invalidação."
-                       : "You can't learn from random stop behavior. Stick to your invalidation point."
-                  } />
-                )}
+                {d.stopChanged.length >= 3 && (() => {
+                  const worse  = d.stopChangedWorse.length;
+                  const better = d.stopChangedSmaller.length + d.stopChangedProfit.length;
+                  const costingMore = worse > better;
+                  return (
+                    <Moral pt={pt} highlight={!costingMore} text={
+                      costingMore
+                        ? (pt
+                            ? `Mexer no stop está valendo a pena? Em ${d.stopChanged.length} alterações, ${worse} pioraram o resultado vs ${better} que melhoraram. O dado é claro: respeite seu ponto de invalidação.`
+                            : `Is moving your stop paying off? Out of ${d.stopChanged.length} changes, ${worse} made things worse vs ${better} that improved. The data is clear: respect your invalidation point.`)
+                        : (pt
+                            ? `Em ${d.stopChanged.length} alterações de stop, ${better} melhoraram o resultado. Atenção: isso pode criar um viés perigoso — certifique-se de que é julgamento, não esperança.`
+                            : `Out of ${d.stopChanged.length} stop changes, ${better} improved the result. Watch out: this can build dangerous confirmation bias — make sure it's judgment, not hope.`)
+                    } />
+                  );
+                })()}
               </>
             )}
 
@@ -410,16 +438,26 @@ function BehavioralReport({ trades, setups, lang }) {
                     <span className="text-sm text-amber-400 font-medium">{d.stopReversal.length}×</span>
                   </div>
                 )}
-                {d.stopRespected.length >= 3 && (
-                  <Moral pt={pt}
-                    highlight={d.stopProtected.length > d.stopReversal.length}
-                    text={
-                      d.stopProtected.length > d.stopReversal.length
-                        ? (pt ? "Seu stop protegeu mais vezes do que causou dor. Isso é bom gerenciamento de risco." : "Your stop protected you more often than it caused pain. That's good risk management.")
-                        : (pt ? "O preço reverteu depois do seu stop mais vezes do que o stop protegeu. Considere revisar seu ponto de invalidação." : "Price reversed after your stop more often than your stop protected you. Consider reviewing your invalidation point.")
-                    }
-                  />
-                )}
+                {d.stopRespected.length >= 3 && (() => {
+                  const total       = d.stopRespected.length;
+                  const pctProtected = Math.round((d.stopProtected.length / total) * 100);
+                  const pctReversal  = Math.round((d.stopReversal.length  / total) * 100);
+                  const moreProtected = d.stopProtected.length >= d.stopReversal.length;
+                  return (
+                    <Moral pt={pt}
+                      highlight={moreProtected}
+                      text={
+                        moreProtected
+                          ? (pt
+                              ? `Seu stop protegeu de perda pior em ${d.stopProtected.length} de ${total} vezes (${pctProtected}%). Ver o preço reverter dói — mas isso aconteceu em apenas ${pctReversal}% das vezes. Isso é bom gerenciamento de risco.`
+                              : `Your stop protected you from a worse loss ${d.stopProtected.length} out of ${total} times (${pctProtected}%). Watching price reverse hurts — but that only happened ${pctReversal}% of the time. That's good risk management.`)
+                          : (pt
+                              ? `O preço reverteu depois do seu stop em ${d.stopReversal.length} de ${total} vezes (${pctReversal}%). É doloroso — mas mover o stop ajudou mais do que custou? Compare com seus dados acima.`
+                              : `Price reversed after your stop ${d.stopReversal.length} out of ${total} times (${pctReversal}%). Painful — but did moving the stop help more than it hurt? Compare with your data above.`)
+                      }
+                    />
+                  );
+                })()}
               </>
             )}
 
@@ -466,26 +504,42 @@ function BehavioralReport({ trades, setups, lang }) {
               </div>
             )}
 
-            {d.earlyExits.length >= 3 && (
-              <Moral pt={pt}
-                highlight={d.earlyExitHit.length > d.earlyExits.length / 2}
-                text={
-                  pt
-                    ? `Em suas saídas prematuras, o alvo foi atingido depois em ${d.earlyExitHit.length} de ${d.earlyExits.length} vezes (${Math.round(d.earlyExitHit.length/d.earlyExits.length*100)}%). ${d.earlyExitHit.length > d.earlyExits.length / 2 ? "Suas saídas prematuras claramente custam dinheiro." : "Seus alvos raramente são atingidos depois — suas saídas podem estar corretas."}`
-                    : `In your early exits, the target was hit after in ${d.earlyExitHit.length} of ${d.earlyExits.length} cases (${Math.round(d.earlyExitHit.length/d.earlyExits.length*100)}%). ${d.earlyExitHit.length > d.earlyExits.length / 2 ? "Your early exits are clearly costing you money." : "Your targets are rarely hit after — your exits may be correct."}`
-                }
-              />
-            )}
-            {d.lastKeptGoing.length >= 3 && d.targetTrades.length >= 5 && (
-              <Moral pt={pt}
-                highlight={d.lastKeptGoing.length > d.targetTrades.length * 0.4}
-                text={
-                  d.lastKeptGoing.length > d.targetTrades.length * 0.4
-                    ? (pt ? `O preço continuou depois do seu último alvo em ${d.lastKeptGoing.length} vezes. Considere adicionar um runner (posição residual) ao seu plano.` : `Price kept going after your last target ${d.lastKeptGoing.length} times. Consider adding a runner (residual position) to your plan.`)
-                    : (pt ? `O preço raramente continua depois do último alvo. Seu sizing atual pode estar bem calibrado.` : `Price rarely keeps going after the last target. Your current sizing may be well calibrated.`)
-                }
-              />
-            )}
+            {d.earlyExits.length >= 3 && (() => {
+              const hitPct     = Math.round((d.earlyExitHit.length / d.earlyExits.length) * 100);
+              const costingMoney = d.earlyExitHit.length > d.earlyExits.length / 2;
+              return (
+                <Moral pt={pt}
+                  highlight={costingMoney}
+                  text={
+                    costingMoney
+                      ? (pt
+                          ? `Você saiu antes do alvo ${d.earlyExits.length} vezes — e o alvo foi atingido depois em ${hitPct}% delas. Isso está custando dinheiro. Seu alvo original pode estar mais certo do que você imagina.`
+                          : `You exited early ${d.earlyExits.length} times — and the target was hit after in ${hitPct}% of those. That's costing you money. Your original target may be more right than you think.`)
+                      : (pt
+                          ? `Seu alvo foi atingido depois da sua saída em apenas ${hitPct}% das vezes. Suas saídas antecipadas podem estar corretas — considere tornar esse ponto o seu alvo real.`
+                          : `Your target was hit after your exit in only ${hitPct}% of cases. Your early exits may be right — consider making that level your actual target.`)
+                  }
+                />
+              );
+            })()}
+            {d.lastKeptGoing.length >= 3 && d.targetTrades.length >= 5 && (() => {
+              const keptPct  = Math.round((d.lastKeptGoing.length / d.targetTrades.length) * 100);
+              const frequent = d.lastKeptGoing.length > d.targetTrades.length * 0.4;
+              return (
+                <Moral pt={pt}
+                  highlight={frequent}
+                  text={
+                    frequent
+                      ? (pt
+                          ? `O preço continuou depois do seu último alvo em ${keptPct}% das operações. Considere adicionar um runner ao seu plano para capturar mais do movimento total.`
+                          : `Price kept going after your last target in ${keptPct}% of trades. Consider adding a runner to capture more of the total move.`)
+                      : (pt
+                          ? `O preço raramente continua depois do seu último alvo (${keptPct}%). Boas notícias — seu sizing está provavelmente bem calibrado. A "taxa pirata da ganância" não está custando muito.`
+                          : `Price rarely keeps going after your last target (${keptPct}%). Good news — your sizing is probably well calibrated. The "greedy pirate fee" isn't costing you much.`)
+                  }
+                />
+              );
+            })()}
           </Card>
         </Section>
       )}
