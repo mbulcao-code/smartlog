@@ -255,9 +255,8 @@ function TradeDetailContent() {
   const [editEntryCategory,     setEditEntryCategory]     = useState(null);
   const [editEntryType,         setEditEntryType]         = useState(null);
   const [editLevelMetAfter,     setEditLevelMetAfter]     = useState(null);
-  // v3 combined outcome
-  const [editTradeOutcomeType,   setEditTradeOutcomeType]   = useState(null);
-  const [editTradeOutcomeDetail, setEditTradeOutcomeDetail] = useState(null);
+  // v3 combined outcome (multi-select): { type → detail | null }
+  const [editOutcomeSelections, setEditOutcomeSelections] = useState({});
   // v2 legacy (kept for backward compat edit of old trades)
   const [editStopOutcome,    setEditStopOutcome]    = useState(null);
   const [editTargetOutcome,  setEditTargetOutcome]  = useState(null);
@@ -381,18 +380,33 @@ function TradeDetailContent() {
     setEditEntryCategory(cat);
     setEditEntryType(at.entry_type || null);
     setEditLevelMetAfter(at.level_met_after ?? null);
-    // v3 fields
-    setEditTradeOutcomeType(at.trade_outcome_type || null);
-    setEditTradeOutcomeDetail(at.trade_outcome_detail || null);
+    // load multi-outcome selections (handle both new array and old single formats)
+    if (at.trade_outcomes?.length > 0) {
+      const sel = {};
+      at.trade_outcomes.forEach(o => { sel[o.type] = o.detail || null; });
+      setEditOutcomeSelections(sel);
+    } else if (at.trade_outcome_type) {
+      setEditOutcomeSelections({ [at.trade_outcome_type]: at.trade_outcome_detail || null });
+    } else {
+      setEditOutcomeSelections({});
+    }
     // v2 legacy fields
     setEditStopOutcome(at.stop_outcome || null);
     setEditTargetOutcome(at.target_outcome || null);
     setActiveModal("behavior");
   }
 
-  function selectEditOutcomeType(type) {
-    setEditTradeOutcomeType(type);
-    setEditTradeOutcomeDetail(null);
+  function toggleEditOutcomeType(type) {
+    setEditOutcomeSelections(prev => {
+      const next = { ...prev };
+      if (type in next) delete next[type];
+      else next[type] = null;
+      return next;
+    });
+  }
+
+  function setEditOutcomeDetail(type, detail) {
+    setEditOutcomeSelections(prev => ({ ...prev, [type]: detail }));
   }
 
   function openNotes() {
@@ -421,11 +435,13 @@ function TradeDetailContent() {
   function saveBehavior() {
     const newAfterTrade = {
       ...(entry.after_trade || {}),
-      entry_type:           editEntryType,
-      level_met_after:      editEntryCategory === "early" ? editLevelMetAfter : undefined,
-      trade_outcome_type:   editTradeOutcomeType,
-      trade_outcome_detail: editTradeOutcomeDetail,
-      // Clear v2 stop/target fields when upgrading to v3 format
+      entry_type:      editEntryType,
+      level_met_after: editEntryCategory === "early" ? editLevelMetAfter : undefined,
+      // multi-select outcomes
+      trade_outcomes:       Object.entries(editOutcomeSelections).map(([type, detail]) => ({ type, detail: detail || null })),
+      trade_outcome_type:   Object.keys(editOutcomeSelections)[0] || null,
+      trade_outcome_detail: Object.values(editOutcomeSelections)[0] || null,
+      // Clear v2 stop/target fields
       stop_outcome:   undefined,
       target_outcome: undefined,
     };
@@ -437,9 +453,10 @@ function TradeDetailContent() {
     if (!editEntryCategory) return false;
     if (editEntryCategory === "early" && editLevelMetAfter === null) return false;
     if (editEntryCategory === "late" && !editEntryType) return false;
-    if (!editTradeOutcomeType) return false;
-    if (!["panic_exit", "no_stop"].includes(editTradeOutcomeType) && !editTradeOutcomeDetail) return false;
-    return true;
+    if (Object.keys(editOutcomeSelections).length === 0) return false;
+    return Object.entries(editOutcomeSelections).every(([type, detail]) =>
+      type === "panic_exit" || type === "no_stop" || detail !== null
+    );
   }
 
   function saveNotes() {
@@ -700,10 +717,12 @@ function TradeDetailContent() {
         {/* ── V3 Behavior section (combined stop+target) ───────────────────── */}
         {isV3 && (() => {
           const at = entry.after_trade;
-          const entryTypeMeta  = ENTRY_TYPE_LABELS[at.entry_type];
-          const outcomeMeta    = TRADE_OUTCOME_LABELS[at.trade_outcome_type];
-          const detailMeta     = outcomeMeta?.details?.[at.trade_outcome_detail];
-          const otherIssues    = Array.isArray(at.other_issues) ? at.other_issues : [];
+          const entryTypeMeta = ENTRY_TYPE_LABELS[at.entry_type];
+          // handle both new multi-array and old single-value formats
+          const outcomes = at.trade_outcomes?.length > 0
+            ? at.trade_outcomes
+            : (at.trade_outcome_type ? [{ type: at.trade_outcome_type, detail: at.trade_outcome_detail }] : []);
+          const otherIssues = Array.isArray(at.other_issues) ? at.other_issues : [];
           return (
             <Section label={pt ? "Comportamento" : "Behavior"} onEdit={openBehavior} pt={pt}>
               <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
@@ -723,18 +742,25 @@ function TradeDetailContent() {
                     </span>
                   </div>
                 )}
-                {outcomeMeta && (
-                  <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
-                    <span className="text-xs text-slate-500">{pt ? "Operação" : "Trade"}</span>
-                    <span className="text-sm text-slate-200">{pt ? outcomeMeta.pt : outcomeMeta.en}</span>
-                  </div>
-                )}
-                {detailMeta && (
-                  <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
-                    <span className="text-xs text-slate-500">{pt ? "Detalhe" : "Detail"}</span>
-                    <span className="text-sm text-slate-300">{pt ? detailMeta.pt : detailMeta.en}</span>
-                  </div>
-                )}
+                {outcomes.map((o, i) => {
+                  const oMeta = TRADE_OUTCOME_LABELS[o.type];
+                  const dMeta = oMeta?.details?.[o.detail];
+                  if (!oMeta) return null;
+                  return (
+                    <div key={i}>
+                      <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+                        <span className="text-xs text-slate-500">{i === 0 ? (pt ? "Operação" : "Trade") : ""}</span>
+                        <span className="text-sm text-slate-200">{pt ? oMeta.pt : oMeta.en}</span>
+                      </div>
+                      {dMeta && (
+                        <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+                          <span className="text-xs text-slate-500">{pt ? "Detalhe" : "Detail"}</span>
+                          <span className="text-sm text-slate-300">{pt ? dMeta.pt : dMeta.en}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                 {otherIssues.length > 0 && (
                   <div className="py-2">
                     <p className="text-xs text-slate-500 mb-2">{pt ? "Outros problemas" : "Other issues"}</p>
@@ -913,7 +939,7 @@ function TradeDetailContent() {
         {/* Reports link */}
         <div className="mt-6 pt-4 border-t border-slate-800">
           <button onClick={() => router.push("/journal/reports")}
-            className="w-full py-2.5 rounded-xl border border-slate-800 hover:border-slate-600 text-slate-500 hover:text-slate-300 text-xs transition-colors">
+            className="w-full py-2.5 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors">
             {pt ? "Ver relatório comportamental →" : "View behavioral report →"}
           </button>
         </div>
@@ -1129,30 +1155,32 @@ function TradeDetailContent() {
             </div>
           </div>
 
-          {/* Combined trade outcome */}
+          {/* Combined trade outcome — multi-select */}
           <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">
+            <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">
               {pt ? "O que melhor descreve a operação?" : "What best describes the trade?"}
             </p>
+            <p className="text-[10px] text-slate-600 mb-2">{pt ? "Selecione tudo que se aplica." : "Select all that apply."}</p>
             <div className="space-y-1.5">
               {Object.entries(TRADE_OUTCOME_LABELS).map(([k, meta]) => {
                 const hasDetails = Object.keys(meta.details || {}).length > 0;
+                const isSelected = k in editOutcomeSelections;
                 return (
                   <div key={k}>
-                    <button onClick={() => selectEditOutcomeType(k)}
+                    <button onClick={() => toggleEditOutcomeType(k)}
                       className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${
-                        editTradeOutcomeType === k
+                        isSelected
                           ? "border-blue-500 bg-blue-950/30 text-blue-200"
                           : "border-slate-700 text-slate-400 hover:border-slate-500"
                       }`}>
                       {pt ? meta.pt : meta.en}
                     </button>
-                    {editTradeOutcomeType === k && hasDetails && (
+                    {isSelected && hasDetails && (
                       <div className="mt-1.5 ml-3 space-y-1.5">
                         {Object.entries(meta.details).map(([dk, dv]) => (
-                          <button key={dk} onClick={() => setEditTradeOutcomeDetail(dk)}
+                          <button key={dk} onClick={() => setEditOutcomeDetail(k, dk)}
                             className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${
-                              editTradeOutcomeDetail === dk
+                              editOutcomeSelections[k] === dk
                                 ? "border-blue-400 bg-blue-950/20 text-blue-200"
                                 : "border-slate-700 text-slate-500 hover:border-slate-600"
                             }`}>

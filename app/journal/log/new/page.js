@@ -95,12 +95,9 @@ export default function NewTradePage() {
   const [entryType, setEntryType]         = useState(null);
   const [levelMetAfter, setLevelMetAfter] = useState(null);
 
-  // Step 4 — combined outcome (stop + target merged)
-  // tradeOutcomeType: "respected_stop"|"changed_stop"|"panic_exit"|"no_stop"|
-  //                   "target_not_hit"|"early_exit"|"last_target_hit"
-  // tradeOutcomeDetail: sub-option string, or null for panic_exit/no_stop
-  const [tradeOutcomeType,   setTradeOutcomeType]   = useState(null);
-  const [tradeOutcomeDetail, setTradeOutcomeDetail] = useState(null);
+  // Step 4 — combined outcome (multi-select)
+  // Object: { type → detail | null }  e.g. { respected_stop: "protected", target_not_hit: "never_onside" }
+  const [tradeOutcomeSelections, setTradeOutcomeSelections] = useState({});
 
   // Step 5
   const [otherIssues, setOtherIssues] = useState({});
@@ -158,15 +155,24 @@ export default function NewTradePage() {
     return entryCategory !== null;
   }
 
-  function selectOutcomeType(type) {
-    setTradeOutcomeType(type);
-    setTradeOutcomeDetail(null);
+  function toggleOutcomeType(type) {
+    setTradeOutcomeSelections(prev => {
+      const next = { ...prev };
+      if (type in next) delete next[type];
+      else next[type] = null;
+      return next;
+    });
+  }
+
+  function setOutcomeDetail(type, detail) {
+    setTradeOutcomeSelections(prev => ({ ...prev, [type]: detail }));
   }
 
   function canAdvanceFromOutcome() {
-    if (!tradeOutcomeType) return false;
-    if (tradeOutcomeType === "panic_exit") return true;
-    return tradeOutcomeDetail !== null;
+    if (Object.keys(tradeOutcomeSelections).length === 0) return false;
+    return Object.entries(tradeOutcomeSelections).every(([type, detail]) =>
+      type === "panic_exit" || detail !== null
+    );
   }
 
   // ── Conditions helpers ────────────────────────────────────────────────────
@@ -237,8 +243,10 @@ export default function NewTradePage() {
           after_trade: {
             entry_type:           entryType,
             level_met_after:      levelMetAfter,
-            trade_outcome_type:   tradeOutcomeType,
-            trade_outcome_detail: tradeOutcomeDetail,
+            trade_outcomes:       Object.entries(tradeOutcomeSelections).map(([type, detail]) => ({ type, detail: detail || null })),
+            // backward-compat single values (used for v3 detection + old display)
+            trade_outcome_type:   Object.keys(tradeOutcomeSelections)[0] || null,
+            trade_outcome_detail: Object.values(tradeOutcomeSelections)[0] || null,
             other_issues:         buildOtherIssues(),
           },
           outcome,
@@ -479,7 +487,7 @@ export default function NewTradePage() {
                       ? "border-amber-500/70 bg-amber-950/20 text-white"
                       : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500 hover:text-white"
                   }`}>
-                  {pt ? "B. Entrada antecipada — FOMO / setup incompleto" : "B. Early entry — FOMO / incomplete setup"}
+                  {pt ? "B. Entrada antecipada (inclui FOMO / setup incompleto)" : "B. Early entry (includes FOMO / incomplete setup)"}
                 </button>
                 {entryCategory === "early" && (
                   <div className="mt-2 ml-3 flex flex-col gap-2">
@@ -559,23 +567,28 @@ export default function NewTradePage() {
         {/* ── STEP 4: What best describes the trade? ────────────────────── */}
         {step === 4 && (
           <div className="space-y-4">
-            <p className="text-base font-semibold text-white">
-              {pt ? "O que melhor descreve a operação?" : "What best describes the trade?"}
-            </p>
+            <div>
+              <p className="text-base font-semibold text-white">
+                {pt ? "O que melhor descreve a operação?" : "What best describes the trade?"}
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {pt ? "Selecione tudo que se aplica." : "Select all that apply."}
+              </p>
+            </div>
 
             <div className="space-y-2">
 
               {/* 1. Respected stop */}
               <div>
                 <OptionBtn label={pt ? "Stop respeitado" : "Respected stop"}
-                  selected={tradeOutcomeType === "respected_stop"}
-                  onClick={() => selectOutcomeType("respected_stop")} />
-                {tradeOutcomeType === "respected_stop" && (
+                  selected={"respected_stop" in tradeOutcomeSelections}
+                  onClick={() => toggleOutcomeType("respected_stop")} />
+                {"respected_stop" in tradeOutcomeSelections && (
                   <div className="mt-2 ml-3 flex flex-col gap-2">
                     <SubBtn label={pt ? "Protegeu de perda pior" : "Protected from worse loss"}
-                      selected={tradeOutcomeDetail === "protected"} onClick={() => setTradeOutcomeDetail("protected")} />
+                      selected={tradeOutcomeSelections["respected_stop"] === "protected"} onClick={() => setOutcomeDetail("respected_stop", "protected")} />
                     <SubBtn label={pt ? "Preço reverteu (doloroso)" : "Price reversed (painful)"}
-                      selected={tradeOutcomeDetail === "reversed"} onClick={() => setTradeOutcomeDetail("reversed")} />
+                      selected={tradeOutcomeSelections["respected_stop"] === "reversed"} onClick={() => setOutcomeDetail("respected_stop", "reversed")} />
                   </div>
                 )}
               </div>
@@ -583,25 +596,25 @@ export default function NewTradePage() {
               {/* 2. Changed stop */}
               <div>
                 <OptionBtn label={pt ? "Stop alterado" : "Changed stop"}
-                  selected={tradeOutcomeType === "changed_stop"}
-                  onClick={() => selectOutcomeType("changed_stop")} />
-                {tradeOutcomeType === "changed_stop" && (
+                  selected={"changed_stop" in tradeOutcomeSelections}
+                  onClick={() => toggleOutcomeType("changed_stop")} />
+                {"changed_stop" in tradeOutcomeSelections && (
                   <div className="mt-2 ml-3 flex flex-col gap-2">
                     <SubBtn label={pt ? "Resultado melhor" : "Better result"}
-                      selected={tradeOutcomeDetail === "better"} onClick={() => setTradeOutcomeDetail("better")} />
+                      selected={tradeOutcomeSelections["changed_stop"] === "better"} onClick={() => setOutcomeDetail("changed_stop", "better")} />
                     <SubBtn label={pt ? "Resultado pior" : "Worse result"}
-                      selected={tradeOutcomeDetail === "worse"} onClick={() => setTradeOutcomeDetail("worse")} />
+                      selected={tradeOutcomeSelections["changed_stop"] === "worse"} onClick={() => setOutcomeDetail("changed_stop", "worse")} />
                   </div>
                 )}
               </div>
 
-              {/* 3a. Panic exit */}
+              {/* 3. Panic exit */}
               <div>
                 <OptionBtn label={pt ? "Fechei manualmente — saída por pânico" : "Closed manually — panic exit"}
-                  selected={tradeOutcomeType === "panic_exit"}
-                  onClick={() => selectOutcomeType("panic_exit")}
+                  selected={"panic_exit" in tradeOutcomeSelections}
+                  onClick={() => toggleOutcomeType("panic_exit")}
                   selectedClass="border-amber-500/50 bg-amber-950/20 text-amber-200" />
-                {tradeOutcomeType === "panic_exit" && (
+                {"panic_exit" in tradeOutcomeSelections && (
                   <p className="mt-1.5 ml-3 text-xs text-amber-600">
                     {pt ? "Acontece. Registre e aprenda com isso." : "It happens. Log it and learn from it."}
                   </p>
@@ -611,16 +624,16 @@ export default function NewTradePage() {
               {/* 4. Target not hit */}
               <div>
                 <OptionBtn label={pt ? "Alvo não atingido" : "Target not hit"}
-                  selected={tradeOutcomeType === "target_not_hit"}
-                  onClick={() => selectOutcomeType("target_not_hit")} />
-                {tradeOutcomeType === "target_not_hit" && (
+                  selected={"target_not_hit" in tradeOutcomeSelections}
+                  onClick={() => toggleOutcomeType("target_not_hit")} />
+                {"target_not_hit" in tradeOutcomeSelections && (
                   <div className="mt-2 ml-3 flex flex-col gap-2">
                     <SubBtn label={pt ? "Nunca favorável — preço foi direto contra" : "Never onside — price went straight against"}
-                      selected={tradeOutcomeDetail === "never_onside"} onClick={() => setTradeOutcomeDetail("never_onside")} />
+                      selected={tradeOutcomeSelections["target_not_hit"] === "never_onside"} onClick={() => setOutcomeDetail("target_not_hit", "never_onside")} />
                     <SubBtn label={pt ? "Foi favorável → reverteu ao ponto de entrada" : "Onside → reversed back to breakeven"}
-                      selected={tradeOutcomeDetail === "onside_be"} onClick={() => setTradeOutcomeDetail("onside_be")} />
+                      selected={tradeOutcomeSelections["target_not_hit"] === "onside_be"} onClick={() => setOutcomeDetail("target_not_hit", "onside_be")} />
                     <SubBtn label={pt ? "Foi favorável → reverteu e virou perda" : "Onside → reversed and turned to loss"}
-                      selected={tradeOutcomeDetail === "onside_loss"} onClick={() => setTradeOutcomeDetail("onside_loss")} />
+                      selected={tradeOutcomeSelections["target_not_hit"] === "onside_loss"} onClick={() => setOutcomeDetail("target_not_hit", "onside_loss")} />
                   </div>
                 )}
               </div>
@@ -628,14 +641,14 @@ export default function NewTradePage() {
               {/* 5. Early exit */}
               <div>
                 <OptionBtn label={pt ? "Saída prematura" : "Early exit"}
-                  selected={tradeOutcomeType === "early_exit"}
-                  onClick={() => selectOutcomeType("early_exit")} />
-                {tradeOutcomeType === "early_exit" && (
+                  selected={"early_exit" in tradeOutcomeSelections}
+                  onClick={() => toggleOutcomeType("early_exit")} />
+                {"early_exit" in tradeOutcomeSelections && (
                   <div className="mt-2 ml-3 flex flex-col gap-2">
                     <SubBtn label={pt ? "Alvo foi atingido depois da minha saída" : "Target was hit after my exit"}
-                      selected={tradeOutcomeDetail === "hit_after"} onClick={() => setTradeOutcomeDetail("hit_after")} />
+                      selected={tradeOutcomeSelections["early_exit"] === "hit_after"} onClick={() => setOutcomeDetail("early_exit", "hit_after")} />
                     <SubBtn label={pt ? "Alvo NÃO foi atingido depois" : "Target NOT hit after"}
-                      selected={tradeOutcomeDetail === "not_hit_after"} onClick={() => setTradeOutcomeDetail("not_hit_after")} />
+                      selected={tradeOutcomeSelections["early_exit"] === "not_hit_after"} onClick={() => setOutcomeDetail("early_exit", "not_hit_after")} />
                   </div>
                 )}
               </div>
@@ -643,14 +656,14 @@ export default function NewTradePage() {
               {/* 6. Last target hit */}
               <div>
                 <OptionBtn label={pt ? "Último alvo atingido" : "Last target hit"}
-                  selected={tradeOutcomeType === "last_target_hit"}
-                  onClick={() => selectOutcomeType("last_target_hit")} />
-                {tradeOutcomeType === "last_target_hit" && (
+                  selected={"last_target_hit" in tradeOutcomeSelections}
+                  onClick={() => toggleOutcomeType("last_target_hit")} />
+                {"last_target_hit" in tradeOutcomeSelections && (
                   <div className="mt-2 ml-3 flex flex-col gap-2">
                     <SubBtn label={pt ? "Saída ótima" : "Optimal exit"}
-                      selected={tradeOutcomeDetail === "optimal"} onClick={() => setTradeOutcomeDetail("optimal")} />
+                      selected={tradeOutcomeSelections["last_target_hit"] === "optimal"} onClick={() => setOutcomeDetail("last_target_hit", "optimal")} />
                     <SubBtn label={pt ? "Preço continuou depois — deixei dinheiro na mesa" : "Price kept going — left money on the table"}
-                      selected={tradeOutcomeDetail === "kept_going"} onClick={() => setTradeOutcomeDetail("kept_going")} />
+                      selected={tradeOutcomeSelections["last_target_hit"] === "kept_going"} onClick={() => setOutcomeDetail("last_target_hit", "kept_going")} />
                   </div>
                 )}
               </div>
