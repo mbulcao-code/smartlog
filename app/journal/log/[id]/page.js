@@ -871,14 +871,14 @@ function TradeDetailContent() {
         )}
 
         {/* Clean trade */}
-        {!isV2 && isClean && (
+        {!isV3 && !isV2 && isClean && (
           <Section label={pt ? "Comportamento" : "Behavior"} pt={pt}>
             <p className="text-sm text-green-500">{pt ? "✓ Operação limpa" : "✓ Clean trade"}</p>
           </Section>
         )}
 
         {/* Legacy after-trade data */}
-        {!isV2 && entry.after_trade && Object.keys(entry.after_trade).length > 0 && (
+        {!isV3 && !isV2 && entry.after_trade && Object.keys(entry.after_trade).length > 0 && (
           <Section label={pt ? "Pós-operação" : "After trade"} pt={pt}>
             <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
               {Object.entries(LEGACY_AFTER_TRADE_LABELS).map(([key, meta]) => {

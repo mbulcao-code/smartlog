@@ -165,7 +165,7 @@ export default function NewTradePage() {
 
   function canAdvanceFromOutcome() {
     if (!tradeOutcomeType) return false;
-    if (["panic_exit", "no_stop"].includes(tradeOutcomeType)) return true;
+    if (tradeOutcomeType === "panic_exit") return true;
     return tradeOutcomeDetail !== null;
   }
 
@@ -468,7 +468,7 @@ export default function NewTradePage() {
                       ? "border-blue-500 bg-blue-950/30 text-white"
                       : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500 hover:text-white"
                   }`}>
-                  {pt ? "A. Setup completo — aguardei todas as condições" : "A. Full setup — waited for all conditions"}
+                  {pt ? "A. Setup completo — todas as condições atingidas" : "A. Full setup — all conditions met"}
                 </button>
               )}
 
@@ -484,16 +484,16 @@ export default function NewTradePage() {
                 {entryCategory === "early" && (
                   <div className="mt-2 ml-3 flex flex-col gap-2">
                     <SubBtn
-                      label={pt ? "Nível / condições NÃO foram atingidos depois — única forma de entrar" : "Level / conditions NOT met after — only way to catch it"}
-                      selected={levelMetAfter === false}
-                      onClick={() => setLevelMetAfter(false)}
-                      selectedClass="border-green-500/60 bg-green-950/20 text-green-300"
-                    />
-                    <SubBtn
-                      label={pt ? "Nível / condições foram atingidos depois — entrada cedo foi pior" : "Level / conditions met after — early entry was worse"}
+                      label={pt ? "Nível / condições foram atingidos depois" : "Level / conditions met after"}
                       selected={levelMetAfter === true}
                       onClick={() => setLevelMetAfter(true)}
                       selectedClass="border-amber-500/60 bg-amber-950/20 text-amber-300"
+                    />
+                    <SubBtn
+                      label={pt ? "Nível / condições NÃO foram atingidos depois" : "Level / conditions NOT met after"}
+                      selected={levelMetAfter === false}
+                      onClick={() => setLevelMetAfter(false)}
+                      selectedClass="border-green-500/60 bg-green-950/20 text-green-300"
                     />
                   </div>
                 )}
@@ -608,19 +608,6 @@ export default function NewTradePage() {
                 )}
               </div>
 
-              {/* 3b. No stop placed */}
-              <div>
-                <OptionBtn label={pt ? "Sem stop colocado" : "No stop placed"}
-                  selected={tradeOutcomeType === "no_stop"}
-                  onClick={() => selectOutcomeType("no_stop")}
-                  selectedClass="border-red-500/50 bg-red-950/20 text-red-200" />
-                {tradeOutcomeType === "no_stop" && (
-                  <p className="mt-1.5 ml-3 text-xs text-red-500">
-                    {pt ? "Sem stop. O que aconteceu aqui?" : "No stop. What happened here?"}
-                  </p>
-                )}
-              </div>
-
               {/* 4. Target not hit */}
               <div>
                 <OptionBtn label={pt ? "Alvo não atingido" : "Target not hit"}
@@ -660,7 +647,7 @@ export default function NewTradePage() {
                   onClick={() => selectOutcomeType("last_target_hit")} />
                 {tradeOutcomeType === "last_target_hit" && (
                   <div className="mt-2 ml-3 flex flex-col gap-2">
-                    <SubBtn label={pt ? "Saída ótima — gestão perfeita" : "Optimal exit — perfect management"}
+                    <SubBtn label={pt ? "Saída ótima" : "Optimal exit"}
                       selected={tradeOutcomeDetail === "optimal"} onClick={() => setTradeOutcomeDetail("optimal")} />
                     <SubBtn label={pt ? "Preço continuou depois — deixei dinheiro na mesa" : "Price kept going — left money on the table"}
                       selected={tradeOutcomeDetail === "kept_going"} onClick={() => setTradeOutcomeDetail("kept_going")} />

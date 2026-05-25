@@ -228,7 +228,7 @@ function BehavioralReport({ trades, setups, lang }) {
             <StatRow label={pt ? "Setup completo" : "Full setup"} wins={d.wins(fullTrades)} losses={d.losses(fullTrades)} total={fullTrades.length} pt={pt} />
           )}
           {incTrades.length > 0 && (
-            <StatRow label={pt ? "Incompleto / hesitação / perseguiu" : "Incomplete / hesitation / chased"} wins={d.wins(incTrades)} losses={d.losses(incTrades)} total={incTrades.length} pt={pt} />
+            <StatRow label={pt ? "Setup incompleto" : "Incomplete setup"} wins={d.wins(incTrades)} losses={d.losses(incTrades)} total={incTrades.length} pt={pt} />
           )}
           {randTrades.length > 0 && (
             <StatRow
