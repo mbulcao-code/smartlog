@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { createServerSupabaseClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { BOOK_SYSTEM_PROMPT } from "@/lib/system-prompt";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
