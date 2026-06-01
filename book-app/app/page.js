@@ -243,17 +243,11 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Auth */}
-          {!loading && (
-            user ? (
-              <a href="/chat" style={styles.continueBtn}>
-                {pt ? "Continuar" : "Continue"} →
-              </a>
-            ) : (
-              <a href="/auth" style={styles.signInBtn}>
-                {pt ? "Entrar" : "Sign in"}
-              </a>
-            )
+          {/* Auth — only show sign in for logged-out users */}
+          {!loading && !user && (
+            <a href="/auth" style={styles.signInBtn}>
+              {pt ? "Entrar" : "Sign in"}
+            </a>
           )}
         </div>
       </header>
@@ -332,70 +326,86 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pricing */}
-      <section style={styles.pricingSection}>
-        <h2 style={styles.pricingTitle}>
-          {pt ? "Planos" : "Plans"}
-        </h2>
-        <p style={styles.pricingSubtitle}>
-          {pt
-            ? "Uma conversa gratuita para ver como funciona. Assine para ir mais fundo."
-            : "One free conversation to see how it works. Upgrade to go as deep as you need."
-          }
-        </p>
+      {/* Pricing — shown to logged-out users or free/locked users only */}
+      {(!user || access === "free" || access === "locked") && (
+        <section style={styles.pricingSection}>
+          {/* Upgrade nudge for free/locked logged-in users */}
+          {user && access === "locked" && (
+            <div style={styles.upgradeNudge}>
+              <p style={styles.upgradeText}>
+                {pt
+                  ? "Você usou sua conversa gratuita. Para continuar explorando, escolha um plano."
+                  : "You've used your free conversation. To keep going, choose a plan."
+                }
+              </p>
+            </div>
+          )}
 
-        <div style={styles.pricingGrid}>
-          {PLANS.map((plan) => (
-            <div
-              key={plan.id}
-              style={{
-                ...styles.pricingCard,
-                ...(plan.featured ? styles.pricingCardFeatured : {}),
-              }}
-            >
-              <div style={styles.pricingCardTop}>
-                <div style={styles.planName}>{pt ? plan.labelPt : plan.label}</div>
-                {plan.badge && (
-                  <div
-                    style={{
-                      ...styles.badge,
-                      background: plan.badgeColor || "var(--surface)",
-                      color: plan.badgeColor ? "#000" : "var(--accent)",
-                      border: plan.badgeColor ? "none" : "1px solid var(--accent)",
-                    }}
-                  >
-                    {pt ? plan.badgePt : plan.badge}
-                  </div>
-                )}
-              </div>
-              <div style={styles.priceRow}>
-                <span style={styles.price}>{plan.price}</span>
-                {plan.period && (
-                  <span style={styles.period}>{pt && plan.periodPt ? plan.periodPt : plan.period}</span>
-                )}
-              </div>
-              <p style={styles.planDesc}>{pt ? plan.descriptionPt : plan.description}</p>
-              <button
-                onClick={() => handlePlan(plan)}
-                disabled={planLoading === plan.id}
+          {!user && (
+            <>
+              <h2 style={styles.pricingTitle}>{pt ? "Planos" : "Plans"}</h2>
+              <p style={styles.pricingSubtitle}>
+                {pt
+                  ? "Uma conversa gratuita para ver como funciona. Assine para ir mais fundo."
+                  : "One free conversation to see how it works. Upgrade to go as deep as you need."
+                }
+              </p>
+            </>
+          )}
+
+          <div style={styles.pricingGrid}>
+            {(user ? PLANS.filter(p => p.id !== "free") : PLANS).map((plan) => (
+              <div
+                key={plan.id}
                 style={{
-                  ...styles.planCta,
-                  ...(plan.featured ? styles.planCtaFeatured : {}),
+                  ...styles.pricingCard,
+                  ...(plan.featured ? styles.pricingCardFeatured : {}),
                 }}
               >
-                {planLoading === plan.id ? "..." : (pt ? plan.ctaPt : plan.cta)}
-              </button>
-            </div>
-          ))}
-        </div>
+                <div style={styles.pricingCardTop}>
+                  <div style={styles.planName}>{pt ? plan.labelPt : plan.label}</div>
+                  {plan.badge && (
+                    <div
+                      style={{
+                        ...styles.badge,
+                        background: plan.badgeColor || "var(--surface)",
+                        color: plan.badgeColor ? "#000" : "var(--accent)",
+                        border: plan.badgeColor ? "none" : "1px solid var(--accent)",
+                      }}
+                    >
+                      {pt ? plan.badgePt : plan.badge}
+                    </div>
+                  )}
+                </div>
+                <div style={styles.priceRow}>
+                  <span style={styles.price}>{plan.price}</span>
+                  {plan.period && (
+                    <span style={styles.period}>{pt && plan.periodPt ? plan.periodPt : plan.period}</span>
+                  )}
+                </div>
+                <p style={styles.planDesc}>{pt ? plan.descriptionPt : plan.description}</p>
+                <button
+                  onClick={() => handlePlan(plan)}
+                  disabled={planLoading === plan.id}
+                  style={{
+                    ...styles.planCta,
+                    ...(plan.featured ? styles.planCtaFeatured : {}),
+                  }}
+                >
+                  {planLoading === plan.id ? "..." : (pt ? plan.ctaPt : plan.cta)}
+                </button>
+              </div>
+            ))}
+          </div>
 
-        <p style={styles.pricingNote}>
-          {pt
-            ? "Já assina o SmartLog anual ou vitalício? Você já tem acesso — entre com a mesma conta."
-            : "Already on SmartLog yearly or lifetime? You already have access — sign in with the same account."
-          }
-        </p>
-      </section>
+          <p style={styles.pricingNote}>
+            {pt
+              ? "Já assina o SmartLog anual ou vitalício? Você já tem acesso — entre com a mesma conta."
+              : "Already on SmartLog yearly or lifetime? You already have access — sign in with the same account."
+            }
+          </p>
+        </section>
+      )}
 
       <footer style={styles.footer}>
         <div>
@@ -681,6 +691,19 @@ const styles = {
     color: "var(--muted)",
     fontSize: "12px",
     lineHeight: 1.6,
+  },
+  upgradeNudge: {
+    background: "var(--surface)",
+    border: "1px solid var(--accent)",
+    borderRadius: "10px",
+    padding: "16px 20px",
+    marginBottom: "24px",
+    textAlign: "center",
+  },
+  upgradeText: {
+    fontSize: "14px",
+    color: "var(--text)",
+    margin: 0,
   },
   userBar: {
     display: "flex",
