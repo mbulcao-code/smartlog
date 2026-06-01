@@ -407,17 +407,38 @@ function ChatContent() {
         setLang={setLang}
       />
       <header style={styles.chatHeader}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", width: 80 }}>
-          <button onClick={() => setSidebarOpen(true)} style={styles.menuBtn} title="Menu">
-            ☰
-          </button>
-          <button onClick={() => router.push("/")} style={styles.backBtn}>
-            ←
-          </button>
+        {/* Left: hamburger + back */}
+        <div style={styles.chatHeaderLeft}>
+          <button onClick={() => setSidebarOpen(true)} style={styles.menuBtn} title="Menu">☰</button>
+          <button onClick={() => router.push("/")} style={styles.backBtn}>←</button>
         </div>
-        <span style={styles.topicLabel}>{entryLabel}</span>
-        <div style={{ width: 80 }} />
+
+        {/* Centre: logo — clickable, goes home */}
+        <a href="/" style={styles.chatLogo}>Trading Without Ego</a>
+
+        {/* Right: lang toggle + email */}
+        <div style={styles.chatHeaderRight}>
+          <div style={styles.langRow}>
+            {["en", "pt"].map((l) => (
+              <button
+                key={l}
+                onClick={() => setLang(l)}
+                style={{ ...styles.langBtn, ...(lang === l ? styles.langBtnActive : {}) }}
+              >
+                {l.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          {user && (
+            <span style={styles.chatEmail}>{user.email}</span>
+          )}
+        </div>
       </header>
+
+      {/* Topic subtitle */}
+      <div style={styles.topicBar}>
+        <span style={styles.topicLabel}>{entryLabel}</span>
+      </div>
 
       <div style={styles.messages}>
         {messages.map((msg, i) => (
@@ -538,7 +559,62 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "16px 24px",
+    padding: "12px 24px",
+    borderBottom: "1px solid var(--border)",
+    flexShrink: 0,
+    gap: "12px",
+  },
+  chatHeaderLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    flexShrink: 0,
+  },
+  chatLogo: {
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "var(--text)",
+    textDecoration: "none",
+    letterSpacing: "0.02em",
+    flexShrink: 1,
+    textAlign: "center",
+  },
+  chatHeaderRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    flexShrink: 0,
+  },
+  langRow: {
+    display: "flex",
+    gap: "4px",
+  },
+  langBtn: {
+    background: "transparent",
+    border: "1px solid var(--border)",
+    borderRadius: "6px",
+    padding: "3px 8px",
+    color: "var(--muted)",
+    fontSize: "11px",
+    fontWeight: 700,
+    cursor: "pointer",
+    letterSpacing: "0.04em",
+  },
+  langBtnActive: {
+    background: "var(--accent)",
+    color: "#000",
+    borderColor: "var(--accent)",
+  },
+  chatEmail: {
+    fontSize: "12px",
+    color: "var(--muted)",
+    maxWidth: "160px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  topicBar: {
+    padding: "8px 24px",
     borderBottom: "1px solid var(--border)",
     flexShrink: 0,
   },
@@ -560,9 +636,11 @@ const styles = {
     padding: 0,
   },
   topicLabel: {
-    fontSize: "14px",
-    color: "var(--text)",
+    fontSize: "12px",
+    color: "var(--muted)",
     fontWeight: 500,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
   },
   messages: {
     flex: 1,
