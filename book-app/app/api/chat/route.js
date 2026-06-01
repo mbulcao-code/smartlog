@@ -95,7 +95,15 @@ export async function POST(request) {
 }
 
 async function checkAccess(supabase, userId, conversationId) {
-  // Check lifetime
+  // Check book lifetime
+  const { data: bookLifetime } = await supabase
+    .from("book_lifetime_users")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (bookLifetime) return true;
+
+  // Check SmartLog lifetime (also grants book access)
   const { data: lifetime } = await supabase
     .from("lifetime_users")
     .select("user_id")

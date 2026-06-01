@@ -93,26 +93,19 @@ const ENTRY_LABELS = {
 };
 
 function getOpeningMessage(entryId, type) {
+  // These are shown while the AI response loads — brief, consistent with the arc
   if (type === "browse" || entryId === "browse") {
-    return "The book covers two layers — the psychological foundations (why the mind does what it does) and the specific patterns (FOMO, revenge trading, hesitation, and others). Which feels more relevant to where you are right now?";
+    return "Loading the book map...";
   }
   if (type === "pain") {
     const label = ENTRY_LABELS[entryId] || entryId;
-    return `Tell me more about when ${label.toLowerCase()} hits hardest — is it in a specific type of setup, or does it show up across the board?`;
+    return `${label}. Let's look at what is actually happening — and why the standard diagnosis gets it wrong.`;
   }
   if (type === "concept") {
-    const conceptOpeners = {
-      f1: "Emotions as goal protectors — that's the foundation everything else is built on. The standard take is that emotions are the problem. What's actually happening is different. Ready to start there?",
-      f2: "Every habit — including the ones destroying your P&L — is successful. It's solving a problem. Just not the right one. Want to see how that works?",
-      f3: "The Mental Congress model changes how you relate to your own mind. Instead of one voice you can't control, you have a parliament — and the Strategist can learn to chair it. Want to start there?",
-      f4: "The Pirates' Dilemma: you can't eliminate the Speculator or the Protector. But you can negotiate with them in advance. That's the whole game. Ready?",
-      f5: "Discipline isn't willpower. It's the outcome of reduced inner conflict. When your rules account for your emotional voices, you stop fighting yourself. Want to see how that works?",
-      f6: "The mind doesn't need certainty. It needs a complete problem to solve. When your plan is vague — even slightly — the mind treats it as an unsolved equation and runs. Want to go there?",
-      f7: "Confidence is a statistic, not a feeling. That's the whole reframe. And it changes what you actually need to build it. Want to start there?",
-    };
-    return conceptOpeners[entryId] || "Where do you want to start?";
+    const label = ENTRY_LABELS[entryId] || entryId;
+    return `${label} — starting now.`;
   }
-  return "The whole method sits on one idea: your emotions aren't the problem — your uncertainty is. Want to start with a specific pattern you're dealing with, or with how the foundations work?";
+  return "Loading...";
 }
 
 function generateConversationId() {
