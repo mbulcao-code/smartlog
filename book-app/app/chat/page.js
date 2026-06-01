@@ -501,27 +501,53 @@ function ChatContent() {
         <div ref={bottomRef} />
       </div>
 
-      <form onSubmit={sendMessage} style={styles.inputArea}>
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Your response..."
-          style={styles.input}
-          disabled={loading}
-          autoFocus
-        />
-        <button
-          type="submit"
-          disabled={loading || !input.trim()}
-          style={{
-            ...styles.sendBtn,
-            ...(loading || !input.trim() ? styles.sendBtnDisabled : {}),
-          }}
-        >
-          Send
-        </button>
-      </form>
+      {/* Free conversation end gate */}
+      {(() => {
+        const userMsgCount = messages.filter(m => m.role === "user").length;
+        const lastIsAI = messages[messages.length - 1]?.role === "assistant";
+        const freeConversationDone = access === "free" && userMsgCount >= 3 && lastIsAI && !loading;
+        if (freeConversationDone) {
+          return (
+            <div style={styles.freeGate}>
+              <p style={styles.freeGateTitle}>
+                {lang === "pt" ? "Chegamos ao fim da sua conversa gratuita." : "That's where the free conversation ends."}
+              </p>
+              <p style={styles.freeGateText}>
+                {lang === "pt"
+                  ? "Para seguir qualquer uma das direções — aprofundar o conceito ou montar o experimento — escolha um plano."
+                  : "To follow either direction — go deeper into the concept or set up the experiment — choose a plan."
+                }
+              </p>
+              <button onClick={() => router.push("/subscribe")} style={styles.freeGateBtn}>
+                {lang === "pt" ? "Ver planos →" : "See plans →"}
+              </button>
+            </div>
+          );
+        }
+        return (
+          <form onSubmit={sendMessage} style={styles.inputArea}>
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Your response..."
+              style={styles.input}
+              disabled={loading}
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              style={{
+                ...styles.sendBtn,
+                ...(loading || !input.trim() ? styles.sendBtnDisabled : {}),
+              }}
+            >
+              Send
+            </button>
+          </form>
+        );
+      })()}
     </div>
   );
 }
@@ -680,6 +706,36 @@ const styles = {
     display: "inline-flex",
     gap: "4px",
     alignItems: "center",
+  },
+  freeGate: {
+    padding: "24px",
+    borderTop: "1px solid var(--border)",
+    textAlign: "center",
+    background: "var(--surface)",
+  },
+  freeGateTitle: {
+    fontSize: "16px",
+    fontWeight: 600,
+    color: "var(--text)",
+    marginBottom: "8px",
+  },
+  freeGateText: {
+    fontSize: "14px",
+    color: "var(--muted)",
+    lineHeight: 1.6,
+    marginBottom: "20px",
+    maxWidth: "480px",
+    margin: "0 auto 20px",
+  },
+  freeGateBtn: {
+    background: "var(--accent)",
+    color: "#000",
+    border: "none",
+    borderRadius: "8px",
+    padding: "12px 28px",
+    fontWeight: 700,
+    fontSize: "14px",
+    cursor: "pointer",
   },
   inputArea: {
     display: "flex",
