@@ -1,0 +1,53 @@
+export const EN = {
+  title: "Trading Without Ego",
+  interactiveBook: "Interactive Book",
+  signIn: "Sign in",
+  continueReading: "Continue",
+  aboutUs: "About us",
+  contactUs: "Contact us",
+  settings: "Settings",
+  currentPlan: "Current plan",
+  validUntil: "Valid until",
+  changePlan: "Change plan →",
+  cancelSubscription: "Cancel subscription →",
+  bookChapters: "Book chapters",
+  chatHistory: "Chat history",
+  free: "Free",
+  pro: "Pro",
+  lifetime: "Lifetime",
+  noHistory: "No conversations yet.",
+  foundations: "Foundations",
+  patterns: "Patterns",
+  startConversation: "Start a conversation",
+  back: "← Back",
+  signOut: "Sign out",
+};
+
+export const PT = {
+  title: "Trading Without Ego",
+  interactiveBook: "Livro Interativo",
+  signIn: "Entrar",
+  continueReading: "Continuar",
+  aboutUs: "Sobre nós",
+  contactUs: "Fale conosco",
+  settings: "Configurações",
+  currentPlan: "Plano atual",
+  validUntil: "Válido até",
+  changePlan: "Mudar plano →",
+  cancelSubscription: "Cancelar assinatura →",
+  bookChapters: "Capítulos do livro",
+  chatHistory: "Histórico de conversas",
+  free: "Gratuito",
+  pro: "Pro",
+  lifetime: "Vitalício",
+  noHistory: "Nenhuma conversa ainda.",
+  foundations: "Fundamentos",
+  patterns: "Padrões",
+  startConversation: "Iniciar uma conversa",
+  back: "← Voltar",
+  signOut: "Sair",
+};
+
+export function useT(lang) {
+  return lang === "pt" ? PT : EN;
+}

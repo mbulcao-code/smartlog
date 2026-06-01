@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import BookSidebar from "@/app/components/BookSidebar";
+import { useLang } from "@/lib/use-lang";
 
 const ENTRY_POINTS = [
   {
@@ -74,6 +76,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState("all"); // "all" | "pain" | "concept"
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [lang, setLang] = useLang();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -97,7 +101,16 @@ export default function Home() {
 
   return (
     <main style={styles.main}>
+      <BookSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        lang={lang}
+        setLang={setLang}
+      />
       <header style={styles.header}>
+        <button onClick={() => setSidebarOpen(true)} style={styles.menuBtn} title="Menu">
+          ☰
+        </button>
         <div style={styles.logo}>Trading Without Ego</div>
         <div style={styles.headerRight}>
           {loading ? null : user ? (
@@ -211,6 +224,15 @@ const styles = {
     justifyContent: "space-between",
     padding: "20px 0",
     borderBottom: "1px solid var(--border)",
+  },
+  menuBtn: {
+    background: "none",
+    border: "none",
+    color: "var(--muted)",
+    fontSize: "18px",
+    cursor: "pointer",
+    padding: "0 4px",
+    lineHeight: 1,
   },
   logo: {
     fontSize: "15px",

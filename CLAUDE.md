@@ -321,30 +321,89 @@ ALTER TABLE journal_setups
 
 ---
 
-## Pending
+## Completed (May 25, 2026)
 
-### Supabase migrations (still needed — run before testing journal v3)
-```sql
-ALTER TABLE trade_journal ADD COLUMN IF NOT EXISTS pnl NUMERIC;
-ALTER TABLE journal_setups ADD COLUMN IF NOT EXISTS stop_config JSONB DEFAULT '{}'::jsonb;
-ALTER TABLE journal_setups ADD COLUMN IF NOT EXISTS profit_config JSONB DEFAULT '{}'::jsonb;
-```
+### Wizard polish + label cleanup ✅
+- `app/journal/log/new/page.js`: cleaned up wizard labels, hid legacy blocks that were cluttering the UI
+- `app/journal/log/[id]/page.js`: renamed "Incomplete" label to something less judgmental
+- `app/journal/reports/page.js`: minor label fix
 
-### Contact form fix (unblocked since DNS/SPF resolved)
-- Update `app/api/contact/route.js`:
+### Sidebar: remove dead "New Session" button ✅
+- `app/components/Sidebar.js`: removed the dead "New Session" button (experiment flow no longer primary)
+- "Log a trade" promoted to primary CTA throughout sidebar
+
+### Reports: data-driven insights redesign ✅ (`app/journal/reports/page.js`)
+- FOMO section reframed: "Is your FOMO really paying off?" — leads with the question, then shows data
+- Zero missed-opps case highlighted in green: "zero truly missed opportunities out of N early entries"
+- "FOMO pirate fee" concept added: if FOMO is unavoidable, enter with reduced size — you're in the trade but it doesn't hurt your R:R
+- Stop section reframed: counts worse vs better outcomes and gives a data verdict ("X made things worse vs Y that improved — the data is clear" or inverse warning about confirmation bias)
+- Sample size notes added to insights: "small sample, keep logging" / "something is consolidating" / "reliable data" based on N
+- Win rate threshold raised from 3 to 5 trades minimum; now always shows the stat (not just when >50%)
+
+### Step 4: multi-select outcomes (wizard overhaul) ✅
+- `app/journal/log/new/page.js`: Step 4 completely redesigned as **multi-select** — user can select all outcomes that apply
+- New outcome types (each with sub-detail options):
+  - `respected_stop` → `protected` / `reversed`
+  - `changed_stop` → `better` / `worse`
+  - `panic_exit` (no sub-detail required)
+  - `target_not_hit` → `never_onside` / `onside_be` / `onside_loss`
+  - `early_exit` → `hit_after` / `not_hit_after`
+  - `last_target_hit` (runner outcome)
+- Data shape: `trade_outcomes: [{ type, detail }]` array
+- Backward-compat: also stores `trade_outcome_type` + `trade_outcome_detail` (first item) for legacy display
+- Step 3: early entry label softened ("B. Early entry (includes FOMO / incomplete setup)")
+- Report button styled blue
+
+### Admin dashboard overhaul ✅
+- `app/admin/page.js`: complete rewrite with auth gate — only whitelisted emails can access
+- `lib/admin-config.js`: new file, admin whitelist array — currently `[bulcaoacademy@gmail.com, mbulcao@gmail.com]`
+- **Sessions tab**: shows all user conversations with download button per session
+- **Journal tab**: per-user view of all trade journal entries
+- `app/api/admin/conversations/route.js`: updated to support admin queries
+- `app/api/admin/journal/route.js`: **new file** — fetches all trades across all users, admin-gated
+
+---
+
+---
+
+## Completed (May 26, 2026)
+
+### Contact form fix ✅
+- `app/api/contact/route.js`: updated to real addresses now that SPF/DNS is verified
   - `from: "SmartLog <noreply@smartlogtrading.com>"`
   - `to: "marcos@smartlogtrading.com"`
+- **Needs git push from local machine**
 
-### Recreate test setup
-- Delete old "Reversal 1" setup (uses old `variantA`/`variantB` format)
-- Recreate with the new wizard to get proper `variants` array structure
+### Interactive AI Book — full scaffold ✅
+- App created at `/Users/marcosbulcao/Documents/smartlog/book-app/`
+- Full Next.js app: landing, chat UI, auth, subscribe, API routes
+- Shared Supabase auth (same project `jxftwnwvdkmolnufvmcj`)
+- Claude Sonnet streaming with full system prompt
+- Access check: lifetime_users → subscriptions → book_subscriptions → free tier (1 conv)
+- New Supabase tables needed: `book_conversations`, `book_subscriptions`, `book_lifetime_users`
+- Deploy instructions: `book-app/DEPLOY.md`
+- All pending SQL in `PENDING_MIGRATIONS.md`
 
-### Pre-launch
-- Send to 2 close friends for testing
-- All 3 user flows confirmed working (free, paid, lifetime)
+---
 
-### Deferred features
-- **Stop question on clean trades**: even clean trades can get stopped out — consider adding stop outcome question for clean trades too
+## Pending — User actions required
+
+### SmartLog
+- [ ] **Git push** contact form fix
+- [ ] **Run Supabase migrations** — "SmartLog App" block in `PENDING_MIGRATIONS.md`
+- [ ] Recreate test setup (delete "Reversal 1" with old `variantA`/`variantB` format)
+- [ ] Send to 2 friends for beta testing
+
+### Interactive AI Book (deploy checklist in `book-app/DEPLOY.md`)
+- [ ] Run "Interactive AI Book" SQL block in `PENDING_MIGRATIONS.md`
+- [ ] Create 3 Stripe price IDs for the book ($29/mo, $79/yr, $199 lifetime)
+- [ ] Add `book.smartlogtrading.com/**` to Supabase redirect allowlist
+- [ ] Deploy `book-app/` to Vercel (new project, fill `.env.example` vars)
+- [ ] Add CNAME `book` → `cname.vercel-dns.com` in Namecheap
+- [ ] Add domain in Vercel project settings
+
+### Deferred features (SmartLog)
+- **Stop question on clean trades**: even clean trades can get stopped out
 - **Insights/Pro paywall**: behavioral patterns section, teaser mechanic for free users
 - **Setup Refinement report**: variant heatmap in setup detail page (`/journal/setups/[id]`)
 - **Bridge from experiment to journal**: prompt after experiment completion

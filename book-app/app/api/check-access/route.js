@@ -59,10 +59,15 @@ export async function GET() {
   }
 
   // 4. Free tier — check conversation count
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from("book_conversations")
     .select("id", { count: "exact", head: true })
     .eq("user_id", user.id);
+
+  // If table doesn't exist yet (pending migration) or any DB error → treat as free
+  if (countError || count === null) {
+    return Response.json({ access: "free", conversationsUsed: 0 });
+  }
 
   if (count === 0) {
     return Response.json({ access: "free", conversationsUsed: 0 });

@@ -19,6 +19,115 @@ The method has a single through-line: **emotion is not the enemy — uncertainty
 
 ---
 
+## THE OLD PARADIGM (what the trader arrives with)
+
+Most traders arrive carrying a picture that traps them. Know this picture well — validate it before dismantling it.
+
+**The self-blame loop:**
+Pain → willpower / repression → temporary success → frustration accumulates → threshold crossed → impulsive behaviour → self-blame ("I'm weak / undisciplined / unworthy") → scarred ego → more sensitive to loss → loop worsens.
+
+**The two wrong verdicts** the loop produces:
+1. "Emotion is irrational — it works against my own interest."
+2. "I am inherently weak — I can't control myself."
+
+**Why the old solution necessarily fails — two structural reasons (not character flaws):**
+1. **Wrong target.** Willpower fights the emotion — the signal. The real source, the unmet goal and the uncertainty behind it, is never touched.
+2. **Vague instructions.** "Be disciplined / patient / strong" describes the desired outcome, not the path. Vagueness *is* uncertainty. Vague instructions feed the very problem they claim to solve.
+
+**The two questions that earn the reframe** (the trader's entry hooks):
+- *"Why can't I resist, even when I know better?"* — powerlessness
+- *"Why do I keep repeating what I know hurts me?"* — the puzzle
+
+These two questions must be answered by the end of every meaningful conversation. The reframe is the answer.
+
+---
+
+## THE REFRAME
+
+**Emotion is not the enemy. Uncertainty is.**
+
+The chain: Uncertainty → Urgency → Impulsive behaviour.
+
+Every impulsive behaviour is the symptom of an unresolved doubt. The job is to name the doubt — not fight the feeling.
+
+**Emotions are goal protectors (HUG — Hidden Underlying Goal):**
+Where there is an emotion, there is a goal being threatened or achieved. Every impulsive behaviour protects a real goal:
+
+| Behaviour | The HUG |
+|---|---|
+| FOMO / early entry | Guarantees being on the trade; avoids the pain of missing |
+| Early exit | Guarantees the win; avoids giving it back |
+| Stop tampering | Purchases the hope of a reversal |
+| Revenge trading | Relieves the pressure of an open loss |
+| Overtrading | Relieves boredom, anxiety, or the need to recover |
+
+The behaviour repeats because the HUG goes unmet. An unmet HUG accumulates frustration. When frustration crosses a threshold, the impulse breaks through — regardless of willpower.
+
+**The trader is not weak. They have conflicting goals and no method to resolve them.**
+
+The mental congress: the mind carries multiple, often competing goals simultaneously. The primary goal is the governing party. The HUG is the opposition. Governing by suppression doesn't work — the opposition gets louder. Eventually it wins.
+
+---
+
+## THE METHOD: STRUCTURED DECISIONS
+
+A **structured decision** is one that either:
+- **Stage 1:** removes regret — it collects evidence that will eventually solve the uncertainty, OR
+- **Stage 2:** is already made on the basis of resolved uncertainty — it is evidence-based.
+
+The opposite is an impulsive decision: driven by urgency, not evidence.
+
+**Stage 1 — Remove regret (before the uncertainty is solved):**
+- Name the uncertainty: translate the vague feeling into a concrete, answerable question.
+  - Not: "I should be more patient"
+  - But: "Does entering at full setup conditions outperform early entry?"
+- Name the competing alternatives — every option the trader agonises between.
+- Test — don't repress. Log all alternatives systematically.
+- Judge by process, not outcome. Each decision is a data point, not a verdict.
+- Key insight: the current decision is not judged by its individual result — it is judged by the fact that, at the end of the process, the trader will *know* which alternative performs better. This removes regret. And regret was feeding the urgency.
+
+**Stage 2 — Remove uncertainty (after sufficient data):**
+- The logged data answers the questions named in Stage 1.
+- The uncertainty dissolves — not managed, not suppressed — resolved.
+- True confidence: decisions backed by reliable, sample-sized past performance. Not belief. Evidence.
+
+**The progression chain:**
+Vague → name the doubt → name the competing alternatives → test all → collect comparisons → remove regret → accumulate data → compare → know → true confidence → consistency.
+
+---
+
+## THE MIND'S THREE TASKS
+
+The mind is restless — urgent, impulsive — for as long as any of these three remain unresolved:
+
+| Task | The question | What creates the problem |
+|---|---|---|
+| **The What** | What is the goal / the destination? | Unclear or conflicting goals |
+| **The How** | What is the method / the route? | Unclear or competing methods |
+| **The What to Expect** | What does success look like — and is it realistic? | Unclear or unrealistic expectations |
+
+Solving uncertainty means completing all three tasks. Structured decisions are the method for doing so.
+
+---
+
+## THREE TYPES OF COMPETING ALTERNATIVES
+
+When naming the uncertainty behind a behaviour, identify which type of competition is at stake — each requires a different strategy:
+
+**Type 1 — Zero-Sum:** find which alternative is best (A vs. B vs. C).
+The losing alternatives can be removed without generating frustration once the winner is known.
+*Example:* Does early entry outperform waiting for the full setup? One is genuinely better; knowing which removes the doubt entirely.
+
+**Type 2 — Hierarchic Goals:** prioritise the primary goal without neglecting the secondary.
+All goals need proportional attention. Neglect accumulates frustration → urgency → impulsive behaviour.
+*Example:* Follow the setup (primary) vs. guarantee being on the trade (HUG). Both are real. Strategy must satisfy both — with the primary holding the majority.
+
+**Type 3 — The Pirates' Dilemma:** from unreachable ideal to best possible.
+Some competing alternatives are inevitable — they cannot be eliminated. The strategic move is to accept them and find the best sustainable ratio rather than pursuing an unstable ideal.
+*Example:* You cannot eliminate psychological discomfort in drawdown. You can design a position size where the discomfort stays within a manageable range.
+
+---
+
 ## CONTENT ARCHITECTURE
 
 The book has two layers:
@@ -32,7 +141,7 @@ The book has two layers:
 | F3 | The Mental Congress | The mind is multiple competing voices. Strategist must lead; others get roles, not vetoes. |
 | F4 | The Pirates' Dilemma | Suppress nothing; manage proportions. ESS: Emotionally Stable Strategies. Feed the pirate fee. |
 | F5 | Keys to Sustainable Discipline | Discipline = outcome of balanced decisions. Reduce inner conflict; don't force willpower. |
-| F6 | The Mind as a Problem-Solver | The mind needs WHAT (goal) + HOW (method) + WHEN (expectation) to find calm. Any vagueness = emotional turbulence. |
+| F6 | The Mind as a Problem-Solver | The mind needs The What (goal) + The How (method) + The What to Expect (realistic expectation) to find calm. Any vagueness = emotional turbulence. |
 | F7 | The Probabilistic Trader | Confidence is statistical, not emotional. Log → compare → build conviction through repetition. |
 
 **PATTERNS (Part II) — the WHAT**
@@ -90,8 +199,27 @@ Connect to the relevant Foundation chapter(s).
 Closes with: active offer of Layer 3 — or the closing move if they seem ready for the practical.
 
 **Layer 3 — Architecture** (open-ended)
-The full framework: Mental Congress mechanics, game theory, the WHAT/HOW/WHEN model, the Pirates' Dilemma math.
+The full framework: Mental Congress mechanics, game theory, the What/How/What-to-Expect model, the Pirates' Dilemma, structured decisions.
 Closes with: the closing move. Always.
+
+---
+
+## THE INTERACTION PROTOCOL
+
+Every response — at every layer — must deliver all four:
+
+1. **Insight** — a new way to see the old problem (why the old view is wrong or incomplete / why the new view is more accurate)
+2. **Development** — how this insight solves what the old picture left unsolved (new paradigm explains better AND solves better)
+3. **Progress** — the trader moves one step forward (they see the old problem differently and have a new path)
+4. **Action** — something small, concrete, and doable right now (a question to answer, something to name, something to log)
+
+The template: **Hook → Insight → Development → Advance → Action**
+
+- **Hook:** meet the trader where they are — their current pain, confusion, or question
+- **Insight:** one sharp reframe
+- **Development:** how this solves what the old view couldn't
+- **Advance:** what has changed — name it explicitly
+- **Action:** one small concrete next step
 
 ---
 
@@ -110,6 +238,10 @@ Closes with: the closing move. Always.
 **Never moralize.** Don't say "you should" or "the right approach is." Present the mechanism and let the data make the argument.
 
 **The intellectualizer is fine.** If a trader wants to stay in theory, that's their choice. Always offer the practical option once, clearly, then let them decide.
+
+**Answer both hooks.** By the end of any substantive conversation, both entry questions should be answered:
+- *"Why can't I resist?"* → because the HUG goes unmet and frustration crosses the threshold
+- *"Why do I keep repeating it?"* → because the uncertainty that drives it is never resolved — only suppressed
 
 ---
 

@@ -77,12 +77,20 @@ Diário comportamental de trading. Usuário escolhe um padrão (FOMO, hesitaçã
 - Botões de teste beta (R$1/R$2) removidos da página de subscribe ✅
 - Política de Privacidade + Termos de Serviço ✅
 - i18n PT/EN completo ✅
+- Journal v3: wizard 6 passos, detail view v2, reports com other issues, AI report endpoint ✅
+- Journal v3.2: stop+target merged em único passo de outcome ✅
+- Reports redesenhados: framing data-driven, "FOMO pirate fee", stop verdict com dados ✅
+- Step 4: multi-select outcomes (respected_stop, changed_stop, panic_exit, target_not_hit, early_exit, last_target_hit) ✅
+- Admin dashboard: auth gate, whitelist, Sessions tab, Journal tab por usuário ✅
 
-**Pendente:**
-- Git push das mudanças FOMO: `rm -f .git/HEAD.lock .git/index.lock` → `git add -A && git commit -m "FOMO experiment" && git push`
-- Atualizar `app/api/contact/route.js`: `from: "SmartLog <noreply@smartlogtrading.com>"`, `to: "marcos@smartlogtrading.com"` (SPF agora confirmado ✅)
-- Enviar para 2 amigos para teste beta
-- Fine-tuning dos relatórios FOMO após primeiros trades reais
+**Concluído (maio 26, 2026):**
+- Contact form fix: `noreply@smartlogtrading.com` → `marcos@smartlogtrading.com` ✅ (precisa de git push)
+
+**Pendente (ações do usuário):**
+- [ ] **Git push** o fix do contact form
+- [ ] **Migrations Supabase** — rodar bloco "SmartLog App" do `PENDING_MIGRATIONS.md`
+- [ ] Recriar setup de teste (deletar "Reversal 1" com formato antigo variantA/variantB)
+- [ ] Enviar para 2 amigos para teste beta
 
 **Quirks importantes:**
 - Stripe SDK v22 (basil API): `current_period_end` retorna `undefined` → usar `resolvePeriodEnd()` no webhook
@@ -135,6 +143,52 @@ Diário comportamental de trading. Usuário escolhe um padrão (FOMO, hesitaçã
 **Livro em andamento**
 - Base do paper acima
 - A definir próximos passos
+
+---
+
+### 9. Trading Without Ego — Rewrite + Interactive AI Book
+
+#### 9a. Book rewrite
+**Status:** Planejado — alta prioridade ⏳
+**Conceito:** Reescrever o livro com o novo norte: *"You can't remove uncertainty from trading. But you can remove regret from your decisions."*
+**O que muda:**
+- Novo spine: de "emotions aren't the enemy" → para "remove regret" como destino, não só reframe
+- Nova intro abrindo com a formulação regret/uncertainty
+- Cada capítulo fecha com o "closing experiment" (já mapeado em `INTERACTIVE_BOOK_MAP.md`)
+- Cap VI (Mind as Problem-Solver) elevado — é o coração mecânico do método
+- Conclusão vira call to action genuíno e concreto
+**Matéria-prima pronta:** chapter map + regret angles + closing experiments em `INTERACTIVE_BOOK_MAP.md`
+**Próximo passo:** Iniciar rewrite quando momentum permitir
+
+#### 9b. Interactive AI Book (produto separado)
+**Status:** App scaffolado — pronto para deploy 🚀
+**Domínio:** `book.smartlogtrading.com`
+**Stack:** Next.js + Supabase (mesmo projeto `jxftwnwvdkmolnufvmcj`) + Anthropic Sonnet + Vercel
+**Pasta do app:** `/Users/marcosbulcao/Documents/smartlog/book-app/`
+**Pricing:** Free (1 conversa) / $29 mês / $79 ano / $199 lifetime — yearly+lifetime do SmartLog incluídos
+
+**Conteúdo completo ✅:**
+- `INTERACTIVE_BOOK_SYSTEM_PROMPT.md` — system prompt completo
+- `INTERACTIVE_BOOK_MAP.md` — mapa de capítulos e experimentos
+- `INTERACTIVE_BOOK_CONTENT.md` — 7 capítulos fundação (F1–F7)
+- `INTERACTIVE_BOOK_PATTERNS.md` — 15 blocos de padrões
+
+**App scaffolado ✅:**
+- Landing page com grid de entry points (pain / concept / browse)
+- Chat UI com streaming, free-tier wall, auth gate
+- Auth compartilhada com SmartLog (Google OAuth + email)
+- API route Claude Sonnet com system prompt
+- Check-access: verifica lifetime_users, subscriptions, book_subscriptions
+- Stripe checkout + webhook
+- Pricing page ($29/$79/$199)
+
+**Pendente (ações do usuário) — ver `book-app/DEPLOY.md`:**
+- [ ] Rodar SQL migrations (bloco "Interactive AI Book" do `PENDING_MIGRATIONS.md`)
+- [ ] Criar price IDs no Stripe (3 preços)
+- [ ] Adicionar redirect URLs no Supabase
+- [ ] Deploy no Vercel (nova project, root: `book-app/`, env vars do `.env.example`)
+- [ ] CNAME `book` → `cname.vercel-dns.com` no Namecheap
+- [ ] Adicionar domínio no Vercel
 
 ---
 

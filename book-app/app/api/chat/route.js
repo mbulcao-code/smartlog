@@ -15,7 +15,7 @@ export async function POST(request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { messages, conversationId } = await request.json();
+    const { messages, conversationId, entryPoint, entryType } = await request.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return Response.json({ error: "No messages provided" }, { status: 400 });
@@ -39,6 +39,8 @@ export async function POST(request) {
           user_id: user.id,
           last_message_at: new Date().toISOString(),
           message_count: messages.length,
+          chapter_id: entryPoint || null,
+          entry_point: entryType || null,
         })
         .eq("id", conversationId);
     }
@@ -131,10 +133,13 @@ async function checkAccess(supabase, userId, conversationId) {
     if (existing) return true; // continuing existing free conversation
   }
 
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from("book_conversations")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId);
+
+  // If table missing (pending migration) → allow as free
+  if (countError || count === null) return true;
 
   return count === 0; // free tier: first conversation allowed
 }

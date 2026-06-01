@@ -3,6 +3,68 @@
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import BookSidebar from "@/app/components/BookSidebar";
+import { useLang } from "@/lib/use-lang";
+
+// Lightweight markdown renderer — handles bold, italic, bullet lists, paragraphs
+function MarkdownText({ content }) {
+  if (!content) return null;
+
+  const paragraphs = content.split(/\n\n+/);
+
+  return (
+    <div>
+      {paragraphs.map((para, pi) => {
+        const lines = para.split("\n");
+        const isList = lines.every((l) => l.trim().startsWith("- ") || l.trim().startsWith("* ") || l.trim() === "");
+
+        if (isList) {
+          return (
+            <ul key={pi} style={{ margin: "8px 0", paddingLeft: "20px" }}>
+              {lines
+                .filter((l) => l.trim().startsWith("- ") || l.trim().startsWith("* "))
+                .map((l, li) => (
+                  <li key={li} style={{ marginBottom: "4px" }}>
+                    <InlineMarkdown text={l.replace(/^[-*]\s+/, "")} />
+                  </li>
+                ))}
+            </ul>
+          );
+        }
+
+        return (
+          <p key={pi} style={{ margin: pi === 0 ? "0 0 10px" : "10px 0", lineHeight: 1.65 }}>
+            {lines.map((line, li) => (
+              <span key={li}>
+                <InlineMarkdown text={line} />
+                {li < lines.length - 1 && <br />}
+              </span>
+            ))}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+function InlineMarkdown({ text }) {
+  // Parse bold (**text**) and italic (*text*)
+  const parts = [];
+  const re = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
+  let last = 0;
+  let match;
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    if (match[0].startsWith("**")) {
+      parts.push(<strong key={match.index}>{match[2]}</strong>);
+    } else {
+      parts.push(<em key={match.index}>{match[3]}</em>);
+    }
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
+}
 
 const ENTRY_LABELS = {
   fomo: "FOMO",
@@ -71,6 +133,8 @@ function ChatContent() {
   const [loading, setLoading] = useState(false);
   const [conversationId] = useState(() => generateConversationId());
   const [conversationStarted, setConversationStarted] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [lang, setLang] = useLang();
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -107,6 +171,9 @@ function ChatContent() {
     setMessages([{ role: "assistant", content: opener }]);
 
     // Register the conversation in DB on first load
+    const langCtx = lang === "pt"
+      ? " Respond in Brazilian Portuguese."
+      : "";
     fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -114,11 +181,12 @@ function ChatContent() {
         messages: [
           {
             role: "user",
-            content: `[Entry point: ${entryId || "general"}, type: ${type || "browse"}]`,
+            content: `[Entry point: ${entryId || "general"}, type: ${type || "browse"}]${langCtx}`,
           },
         ],
         conversationId,
         entryPoint: entryId,
+        entryType: type,
       }),
     })
       .then((r) => r.body.getReader())
@@ -161,12 +229,32 @@ function ChatContent() {
     setInput("");
     setLoading(true);
 
+    // Prepend entry context + language instruction so Claude knows the topic and language
+    const langInstruction = lang === "pt"
+      ? "Respond entirely in Brazilian Portuguese throughout this conversation. Maintain the same tone and method — direct, warm, precise — just in Portuguese."
+      : "";
+    const contextContent = [
+      entryId
+        ? `[Session context: The trader selected "${ENTRY_LABELS[entryId] || entryId}" (type: ${type || "browse"}) as their entry point. Stay within this thread unless they explicitly redirect.]`
+        : null,
+      langInstruction || null,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const contextPrefix = contextContent
+      ? [
+          { role: "user", content: contextContent },
+          { role: "assistant", content: "Understood." },
+        ]
+      : [];
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: updatedMessages,
+          messages: [...contextPrefix, ...updatedMessages],
           conversationId,
         }),
       });
@@ -262,12 +350,23 @@ function ChatContent() {
 
   return (
     <div style={styles.layout}>
+      <BookSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        lang={lang}
+        setLang={setLang}
+      />
       <header style={styles.chatHeader}>
-        <button onClick={() => router.push("/")} style={styles.backBtn}>
-          ← Home
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", width: 80 }}>
+          <button onClick={() => setSidebarOpen(true)} style={styles.menuBtn} title="Menu">
+            ☰
+          </button>
+          <button onClick={() => router.push("/")} style={styles.backBtn}>
+            ←
+          </button>
+        </div>
         <span style={styles.topicLabel}>{entryLabel}</span>
-        <div style={{ width: 60 }} />
+        <div style={{ width: 80 }} />
       </header>
 
       <div style={styles.messages}>
@@ -287,7 +386,13 @@ function ChatContent() {
                   : styles.aiBubble),
               }}
             >
-              {msg.content || (
+              {msg.content ? (
+                msg.role === "assistant" ? (
+                  <MarkdownText content={msg.content} />
+                ) : (
+                  msg.content
+                )
+              ) : (
                 <span style={styles.typing}>
                   <span />
                   <span />
@@ -373,6 +478,15 @@ const styles = {
     borderBottom: "1px solid var(--border)",
     flexShrink: 0,
   },
+  menuBtn: {
+    background: "none",
+    border: "none",
+    color: "var(--muted)",
+    fontSize: "18px",
+    cursor: "pointer",
+    padding: "0 2px",
+    lineHeight: 1,
+  },
   backBtn: {
     background: "none",
     border: "none",
@@ -380,8 +494,6 @@ const styles = {
     fontSize: "14px",
     cursor: "pointer",
     padding: 0,
-    width: 60,
-    textAlign: "left",
   },
   topicLabel: {
     fontSize: "14px",
@@ -411,7 +523,6 @@ const styles = {
     borderRadius: "16px",
     fontSize: "15px",
     lineHeight: 1.6,
-    whiteSpace: "pre-wrap",
   },
   aiBubble: {
     background: "var(--surface)",

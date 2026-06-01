@@ -4,6 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
+const FREE_PLAN = {
+  id: "free",
+  label: "Free",
+  price: "$0",
+  period: "",
+  description: "One free conversation to see how the method works. No card required.",
+};
+
 const PLANS = [
   {
     id: "monthly",
@@ -88,6 +96,23 @@ export default function SubscribePage() {
         </div>
 
         <div style={styles.grid}>
+          {/* Free plan card */}
+          <div style={styles.card}>
+            <div style={styles.cardTop}>
+              <div style={styles.planName}>{FREE_PLAN.label}</div>
+            </div>
+            <div style={styles.priceRow}>
+              <span style={styles.price}>{FREE_PLAN.price}</span>
+            </div>
+            <p style={styles.desc}>{FREE_PLAN.description}</p>
+            <button
+              onClick={() => user ? router.push("/") : router.push("/auth")}
+              style={styles.cta}
+            >
+              {user ? "Back to book" : "Create free account"}
+            </button>
+          </div>
+
           {PLANS.map((plan) => (
             <div
               key={plan.id}
