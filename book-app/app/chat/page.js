@@ -6,14 +6,65 @@ import { createClient } from "@/lib/supabase";
 import BookSidebar from "@/app/components/BookSidebar";
 import { useLang } from "@/lib/use-lang";
 
+// Parse RELATED: block from AI response
+// Returns { body: string, links: [{id, label}] }
+function parseRelated(content) {
+  if (!content) return { body: content, links: [] };
+  const match = content.match(/RELATED:\s*([^\n]+)/);
+  if (!match) return { body: content, links: [] };
+  const raw = match[1];
+  const links = raw.split(",").map((s) => {
+    const [id, ...rest] = s.trim().split("|");
+    return { id: id.trim(), label: rest.join("|").trim() || id.trim() };
+  }).filter((l) => l.id);
+  const body = content.replace(/\n*RELATED:\s*[^\n]+\n?/, "").trim();
+  return { body, links };
+}
+
+// Related content chips — clickable, navigate to topic
+function RelatedChips({ links, onNavigate }) {
+  if (!links || links.length === 0) return null;
+  return (
+    <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid var(--border)" }}>
+      <div style={{ fontSize: "11px", color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "8px" }}>
+        Explore further
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+        {links.map((link) => (
+          <button
+            key={link.id}
+            onClick={() => onNavigate(link.id)}
+            style={{
+              background: "transparent",
+              border: "1px solid var(--border)",
+              borderRadius: "20px",
+              padding: "5px 12px",
+              color: "var(--accent)",
+              fontSize: "12px",
+              cursor: "pointer",
+              transition: "border-color 0.15s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+          >
+            {link.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Lightweight markdown renderer — handles bold, italic, bullet lists, paragraphs
 function MarkdownText({ content }) {
   if (!content) return null;
 
-  const paragraphs = content.split(/\n\n+/);
+  // Strip code block wrappers (```) if Claude wraps the RELATED block in them
+  const cleaned = content.replace(/```[a-z]*\n?/g, "").replace(/```/g, "");
+  const paragraphs = cleaned.split(/\n\n+/);
 
   return (
-    <div>
+    <div style={{ fontSize: "15px", lineHeight: 1.7 }}>
       {paragraphs.map((para, pi) => {
         const lines = para.split("\n");
         const isList = lines.every((l) => l.trim().startsWith("- ") || l.trim().startsWith("* ") || l.trim() === "");
@@ -387,7 +438,21 @@ function ChatContent() {
             >
               {msg.content ? (
                 msg.role === "assistant" ? (
-                  <MarkdownText content={msg.content} />
+                  (() => {
+                    const { body, links } = parseRelated(msg.content);
+                    return (
+                      <>
+                        <MarkdownText content={body} />
+                        <RelatedChips
+                          links={links}
+                          onNavigate={(id) => {
+                            const type = ["f1","f2","f3","f4","f5","f6","f7"].includes(id) ? "concept" : "pain";
+                            router.push(`/chat?entry=${id}&type=${type}`);
+                          }}
+                        />
+                      </>
+                    );
+                  })()
                 ) : (
                   msg.content
                 )
