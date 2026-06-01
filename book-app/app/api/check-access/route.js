@@ -14,7 +14,18 @@ export async function GET() {
     return Response.json({ access: "none" });
   }
 
-  // 1. Check lifetime_users (SmartLog lifetime = book included)
+  // 1. Check book_lifetime_users (book-specific lifetime)
+  const { data: bookLifetime } = await supabase
+    .from("book_lifetime_users")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (bookLifetime) {
+    return Response.json({ access: "pro", plan: "lifetime" });
+  }
+
+  // 2. Check lifetime_users (SmartLog lifetime = book included)
   const { data: lifetime } = await supabase
     .from("lifetime_users")
     .select("user_id")
