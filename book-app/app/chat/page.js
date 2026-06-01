@@ -138,11 +138,17 @@ function ChatContent() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Auth check
+  // Auth check + guard: must arrive with an entry point
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
-        router.push("/auth?redirectTo=/chat" + (entryId ? `?entry=${entryId}&type=${type}` : ""));
+        const dest = entryId ? `/chat?entry=${entryId}&type=${type}` : "/";
+        router.push(`/auth?redirectTo=${encodeURIComponent(dest)}`);
+        return;
+      }
+      // No entry point selected → send back to homepage to pick one
+      if (!entryId) {
+        router.push("/");
         return;
       }
       setUser(user);

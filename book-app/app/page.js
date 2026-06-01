@@ -154,6 +154,7 @@ export default function Home() {
   const router = useRouter();
   const supabase = createClient();
   const [user, setUser] = useState(null);
+  const [access, setAccess] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -166,6 +167,11 @@ export default function Home() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user);
       setLoading(false);
+      if (user) {
+        fetch("/api/check-access")
+          .then((r) => r.json())
+          .then((d) => setAccess(d.access));
+      }
     });
   }, []);
 
@@ -251,6 +257,22 @@ export default function Home() {
           )}
         </div>
       </header>
+
+      {/* Logged-in user bar */}
+      {user && (
+        <div style={styles.userBar}>
+          <span style={styles.userEmail}>{user.email}</span>
+          {access && (
+            <span style={{
+              ...styles.planBadge,
+              background: access === "pro" ? "var(--accent)" : "var(--border)",
+              color: access === "pro" ? "#000" : "var(--muted)",
+            }}>
+              {access === "pro" ? (pt ? "PRO" : "PRO") : (pt ? "Grátis" : "Free")}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Hero */}
       <section style={styles.hero}>
@@ -659,6 +681,24 @@ const styles = {
     color: "var(--muted)",
     fontSize: "12px",
     lineHeight: 1.6,
+  },
+  userBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "10px 0",
+    borderBottom: "1px solid var(--border)",
+  },
+  userEmail: {
+    fontSize: "13px",
+    color: "var(--muted)",
+  },
+  planBadge: {
+    fontSize: "11px",
+    fontWeight: 700,
+    padding: "2px 8px",
+    borderRadius: "20px",
+    letterSpacing: "0.04em",
   },
   footer: {
     display: "flex",

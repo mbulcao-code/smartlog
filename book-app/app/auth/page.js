@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase";
 function AuthContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") || "/chat";
+  const redirectTo = searchParams.get("redirectTo") || "/";
 
   const supabase = createClient();
   const [mode, setMode] = useState("signin"); // "signin" | "signup"
