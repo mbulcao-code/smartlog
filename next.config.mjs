@@ -1,6 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: '/:path*',
+          has: [{ type: 'host', value: 'book.smartlogtrading.com' }],
+          destination: '/book.html',
+        },
+      ],
+    };
+  },
 };
 
 export default nextConfig;

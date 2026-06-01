@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Trader's Mind — Interactive</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d0d12;
+    color: #e8e8f0;
+    font-family: 'Georgia', serif;
+    font-size: 17px;
+    line-height: 1.75;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── Header ── */
+  #header {
+    width: 100%;
+    max-width: 680px;
+    padding: 32px 24px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  #title {
+    font-size: 13px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #5a5a7a;
+    font-family: 'Helvetica Neue', sans-serif;
+  }
+
+  /* ── Progress bar ── */
+  #progress {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .prog-step {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #3a3a52;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid #2a2a3a;
+    transition: all 0.4s ease;
+    white-space: nowrap;
+  }
+
+  .prog-step.active {
+    color: #a78bfa;
+    border-color: #a78bfa44;
+    background: #a78bfa11;
+  }
+
+  .prog-step.done {
+    color: #4ade8055;
+    border-color: #4ade8022;
+  }
+
+  .prog-divider {
+    color: #2a2a3a;
+    font-size: 10px;
+  }
+
+  /* ── Chat area ── */
+  #chat {
+    width: 100%;
+    max-width: 680px;
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    flex: 1;
+  }
+
+  /* Book message */
+  .msg-book {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 20px;
+    opacity: 0;
+    transform: translateY(8px);
+    animation: fadeUp 0.45s ease forwards;
+  }
+
+  .msg-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6d28d9, #4f46e5);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    margin-top: 2px;
+  }
+
+  .msg-bubble {
+    background: #16161f;
+    border: 1px solid #252535;
+    border-radius: 4px 16px 16px 16px;
+    padding: 14px 18px;
+    max-width: 520px;
+    color: #d8d8ec;
+    line-height: 1.8;
+  }
+
+  .msg-bubble strong {
+    color: #a78bfa;
+    font-style: normal;
+  }
+
+  .msg-bubble em {
+    color: #94a3b8;
+    font-style: italic;
+  }
+
+  /* Pause line (—) */
+  .pause {
+    color: #4a4a6a;
+    margin: 0 2px;
+  }
+
+  /* Insight block */
+  .insight-block {
+    background: #1a1a28;
+    border-left: 3px solid #a78bfa;
+    padding: 12px 16px;
+    margin-top: 10px;
+    border-radius: 0 8px 8px 0;
+    font-size: 15px;
+    color: #c4b5fd;
+    font-style: italic;
+  }
+
+  /* HUG table */
+  .hug-table {
+    margin-top: 12px;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    font-family: 'Helvetica Neue', sans-serif;
+  }
+
+  .hug-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #252535;
+    color: #9898b8;
+  }
+
+  .hug-table td:first-child {
+    color: #a78bfa;
+    font-weight: 500;
+    width: 40%;
+  }
+
+  .hug-table tr:last-child td { border-bottom: none; }
+
+  /* Action box */
+  .action-box {
+    background: #0f1a14;
+    border: 1px solid #166534;
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-top: 10px;
+  }
+
+  .action-box .action-label {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #4ade80;
+    margin-bottom: 8px;
+  }
+
+  .action-box p {
+    font-size: 15px;
+    color: #86efac;
+    line-height: 1.7;
+  }
+
+  /* Log template */
+  .log-template {
+    background: #111118;
+    border: 1px solid #2a2a3a;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-top: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #6868a8;
+    line-height: 2;
+  }
+
+  .log-template span {
+    color: #a78bfa;
+  }
+
+  /* ── Choices ── */
+  #choices-area {
+    width: 100%;
+    max-width: 680px;
+    padding: 0 24px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  #choices-area.visible { opacity: 1; }
+
+  .choice-btn {
+    background: #16161f;
+    border: 1px solid #2e2e45;
+    border-radius: 10px;
+    padding: 12px 18px;
+    color: #b8b8d8;
+    font-family: 'Georgia', serif;
+    font-size: 15px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    line-height: 1.5;
+  }
+
+  .choice-btn:hover {
+    background: #1e1e2e;
+    border-color: #a78bfa55;
+    color: #e0e0f8;
+  }
+
+  .choice-btn.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  /* User reply */
+  .msg-user {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 24px;
+    opacity: 0;
+    transform: translateY(6px);
+    animation: fadeUp 0.3s ease forwards;
+  }
+
+  .msg-user-bubble {
+    background: #1e1e35;
+    border: 1px solid #2e2e4a;
+    border-radius: 16px 4px 16px 16px;
+    padding: 10px 16px;
+    max-width: 400px;
+    color: #9898c8;
+    font-size: 15px;
+    font-style: italic;
+  }
+
+  /* ── Depth dives ── */
+  .depth-area {
+    margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-left: 46px;
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: fadeUp 0.4s ease 0.1s forwards;
+  }
+
+  .depth-btn {
+    background: transparent;
+    border: 1px solid #2e2e45;
+    border-radius: 20px;
+    padding: 5px 14px;
+    color: #5a5a8a;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .depth-btn:hover {
+    border-color: #a78bfa55;
+    color: #a78bfa;
+    background: #a78bfa08;
+  }
+
+  .depth-btn.nerd { border-color: #2a3545; color: #4a6a8a; }
+  .depth-btn.nerd:hover { border-color: #38bdf8aa; color: #38bdf8; background: #38bdf808; }
+
+  .depth-card {
+    margin-left: 46px;
+    margin-bottom: 16px;
+    background: #12121c;
+    border: 1px solid #252535;
+    border-radius: 12px;
+    padding: 18px;
+    font-size: 15px;
+    color: #8888a8;
+    line-height: 1.8;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .depth-card.open {
+    display: block;
+    opacity: 1;
+  }
+
+  .depth-card h4 {
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #a78bfa88;
+    margin-bottom: 10px;
+    font-family: 'Helvetica Neue', sans-serif;
+  }
+
+  .depth-card.nerd-card h4 { color: #38bdf888; }
+
+  /* ── Typing indicator ── */
+  .typing {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 20px;
+    opacity: 0;
+    animation: fadeUp 0.3s ease forwards;
+  }
+
+  .typing-dots {
+    background: #16161f;
+    border: 1px solid #252535;
+    border-radius: 4px 16px 16px 16px;
+    padding: 14px 18px;
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #3a3a5a;
+    animation: bounce 1.2s infinite;
+  }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+
+  /* ── End screen ── */
+  #end-screen {
+    display: none;
+    width: 100%;
+    max-width: 680px;
+    padding: 24px;
+    margin-top: 16px;
+  }
+
+  .end-card {
+    background: #12121c;
+    border: 1px solid #252535;
+    border-radius: 16px;
+    padding: 28px;
+  }
+
+  .end-card h3 {
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #5a5a7a;
+    margin-bottom: 16px;
+    font-family: 'Helvetica Neue', sans-serif;
+  }
+
+  .end-links {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .end-link {
+    background: #16161f;
+    border: 1px solid #2e2e45;
+    border-radius: 10px;
+    padding: 13px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .end-link:hover {
+    border-color: #a78bfa55;
+    background: #1a1a28;
+  }
+
+  .end-link-title {
+    color: #9898c8;
+    font-size: 15px;
+  }
+
+  .end-link-tag {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  .tag-deep { background: #a78bfa15; color: #a78bfa; border: 1px solid #a78bfa33; }
+  .tag-nerd { background: #38bdf815; color: #38bdf8; border: 1px solid #38bdf833; }
+
+  .restart-btn {
+    margin-top: 20px;
+    background: transparent;
+    border: 1px solid #2e2e45;
+    border-radius: 10px;
+    padding: 11px 18px;
+    color: #5a5a7a;
+    font-family: 'Georgia', serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+  }
+
+  .restart-btn:hover { color: #9898b8; border-color: #3e3e55; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-5px); }
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="title">The Trader's Mind</div>
+  <div id="progress">
+    <div class="prog-step" id="p-entry">Entry</div>
+    <div class="prog-divider">›</div>
+    <div class="prog-step" id="p-act1">Act I</div>
+    <div class="prog-divider">›</div>
+    <div class="prog-step" id="p-act2">Act II</div>
+    <div class="prog-divider">›</div>
+    <div class="prog-step" id="p-act3">Act III</div>
+    <div class="prog-divider">›</div>
+    <div class="prog-step" id="p-action">Action</div>
+  </div>
+</div>
+
+<div id="chat"></div>
+<div id="choices-area"></div>
+<div id="end-screen">
+  <div class="end-card">
+    <h3>Explore Further</h3>
+    <p style="color:#5a5a7a; font-size:14px; margin-bottom:4px;">You've completed the FOMO journey. These depth dives go further.</p>
+    <div class="end-links">
+      <div class="end-link" onclick="openDepthDive('emotions-full')">
+        <span class="end-link-title">Emotions as Goal Protectors</span>
+        <span class="end-link-tag tag-deep">Depth Dive</span>
+      </div>
+      <div class="end-link" onclick="openDepthDive('habits-full')">
+        <span class="end-link-title">All Habits Are Successful — Even Bad Ones</span>
+        <span class="end-link-tag tag-deep">Depth Dive</span>
+      </div>
+      <div class="end-link" onclick="openDepthDive('congress-full')">
+        <span class="end-link-title">The President and the Mental Congress</span>
+        <span class="end-link-tag tag-deep">Depth Dive</span>
+      </div>
+      <div class="end-link" onclick="openDepthDive('gage-full')">
+        <span class="end-link-title">Phineas Gage — The Emotionless Man</span>
+        <span class="end-link-tag tag-nerd">Going Nerd</span>
+      </div>
+      <div class="end-link" onclick="openDepthDive('kahneman-full')">
+        <span class="end-link-title">Kahneman's Systems 1 and 2</span>
+        <span class="end-link-tag tag-nerd">Going Nerd</span>
+      </div>
+    </div>
+    <button class="restart-btn" onclick="restart()">↩ Start over with a different behaviour</button>
+  </div>
+</div>
+
+<script>
+
+// ── Depth dive content ──────────────────────────────────────────
+const DEPTH_CONTENT = {
+  'emotions': {
+    type: 'deep',
+    title: 'Emotions as Goal Protectors',
+    content: `Every emotion is a signal that something you value is at stake. Positive emotions tell you a goal is being advanced. Negative emotions tell you a goal is under threat. This is not a flaw in our design — it is the design. Without emotional responses, we would have no way to distinguish what matters from what doesn't. Reason would have nothing to reason about.`
+  },
+  'gage': {
+    type: 'nerd',
+    title: 'Going Nerd — Phineas Gage',
+    content: `In 1848, a railroad worker named Phineas Gage survived an iron rod passing through his skull. His intellect remained intact. His personality was destroyed. He became impulsive, erratic, unable to make consistent decisions. Neuroscientist Antonio Damasio studied similar patients — people who lost emotional processing while retaining full cognitive ability. None of them could function. Without emotional responses to weight options, decision-making collapsed entirely. Reason needs emotion to work.`
+  },
+  'congress': {
+    type: 'deep',
+    title: 'The President and the Mental Congress',
+    content: `Imagine your mind as a legislative congress. Your primary goal is the governing party — it sets the agenda and should hold the majority. Your secondary goals are the opposition — they represent real interests and don't disappear just because they're outvoted. A good president doesn't govern by suppression. They negotiate, give the opposition a proportional voice, and build stable coalitions. A president who silences the opposition entirely doesn't create order — they create conditions for a coup.`
+  },
+  'kahneman': {
+    type: 'nerd',
+    title: 'Going Nerd — Kahneman\'s Systems 1 & 2',
+    content: `Daniel Kahneman identified two modes of thinking. System 1 is fast, automatic, emotional, pattern-driven. System 2 is slow, deliberate, analytical, effortful. Most of the time, System 1 runs the show — and System 2 is just the storyteller that explains what System 1 already decided. FOMO is a System 1 response. "Be disciplined" is a System 2 instruction. The reason System 2 keeps losing is that it's running on low fuel: willpower depletes, attention depletes, and System 1 doesn't. The solution is not to make System 2 stronger — it's to change the environment so System 1 points in the right direction.`
+  },
+  'habits': {
+    type: 'deep',
+    title: 'All Habits Are Successful — Even Bad Ones',
+    content: `A habit doesn't persist because it's good for you. It persists because it works — for something. Every repeated behaviour is satisfying a need, even when it contradicts your stated goals. Smoking relieves anxiety. Revenge trading relieves the pressure of an open loss. FOMO relieves the fear of missing. The fact that it also damages your primary goal doesn't make it irrational — it makes it a conflict. The path forward is not to break the habit by force. It's to find another way to satisfy the underlying need, one that doesn't damage the primary goal.`
+  }
+};
+
+// ── Conversation nodes ──────────────────────────────────────────
+const NODES = {
+
+  'welcome': {
+    act: null,
+    messages: [
+      { text: "What brings you here today?", delay: 600 }
+    ],
+    choices: [
+      { text: "FOMO — I enter too early and can't wait for my setup", next: 'entry-1' },
+      { text: "Early exit — I take profit before my target", next: 'coming-soon' },
+      { text: "Revenge trading — I trade to recover losses", next: 'coming-soon' },
+      { text: "Stop tampering — I move my stop to avoid being stopped out", next: 'coming-soon' },
+    ]
+  },
+
+  'entry-1': {
+    act: 'entry',
+    messages: [
+      { text: "You entered early again.", delay: 700 },
+      { text: "The setup wasn't complete — you knew that. But the move was starting, the fear of missing it was too strong, and you jumped in.", delay: 1000 },
+      { text: "Sound familiar?", delay: 800 }
+    ],
+    choices: [
+      { text: "Yes, that's exactly it", next: 'entry-2' },
+      { text: "More or less", next: 'entry-2' }
+    ]
+  },
+
+  'entry-2': {
+    act: 'entry',
+    messages: [
+      { text: "There are two things traders in this situation usually say. Which one lands harder for you?", delay: 800 }
+    ],
+    choices: [
+      { text: "I know what I should do — but I can't resist. It's stronger than me.", next: 'entry-3' },
+      { text: "I don't understand why I keep doing this. It goes against my own interest.", next: 'entry-3' }
+    ]
+  },
+
+  'entry-3': {
+    act: 'entry',
+    messages: [
+      { text: "Both are versions of the same pain. <em>Powerlessness.</em> And a puzzle that doesn't make sense: <span class='pause'>—</span> why would someone keep doing something they know is hurting them?", delay: 1000 },
+      { text: "That's what we're here to solve. And it starts with questioning something you've probably been told — or told yourself — for a long time.", delay: 1200 }
+    ],
+    choices: [
+      { text: "Go on", next: 'act1-1' }
+    ]
+  },
+
+  'act1-1': {
+    act: 'act1',
+    messages: [
+      { text: "Here's the first thing to look at.", delay: 700 },
+      { text: "The standard diagnosis is that <strong>emotion is the problem</strong>. That if you could just control it, switch it off, or overpower it with discipline <span class='pause'>—</span> you'd trade better.", delay: 1000 },
+      { text: "That diagnosis is wrong. And getting it wrong is part of why the loop keeps running.", delay: 900 },
+      {
+        text: `<div class='insight-block'>Emotions are not irrational obstacles to reason.<br>They are <strong>markers of value</strong> — protectors of goals.<br><br>Where there's an emotion, there's a goal being threatened or achieved.</div>`,
+        delay: 1000
+      }
+    ],
+    choices: [
+      { text: "What goal is FOMO protecting?", next: 'act1-2' }
+    ],
+    depthDives: ['emotions', 'gage']
+  },
+
+  'act1-2': {
+    act: 'act1',
+    messages: [
+      { text: "FOMO guarantees you're on the trade.", delay: 700 },
+      { text: "That's its job. The fear of missing is the fear of being left out of something valuable <span class='pause'>—</span> and entering early solves that fear immediately. It works. Just not for your primary goal.", delay: 1100 },
+      {
+        text: `<table class='hug-table'>
+          <tr><td>FOMO / early entry</td><td>Guarantees being on the trade</td></tr>
+          <tr><td>Early exit</td><td>Guarantees the profit/win</td></tr>
+          <tr><td>Stop tampering</td><td>Keeps the hope of a reversal alive</td></tr>
+          <tr><td>Revenge trading</td><td>Relieves the pressure of an open loss</td></tr>
+        </table>`,
+        delay: 900
+      },
+      { text: "Every impulsive behaviour has a <strong>Hidden Underlying Goal</strong> — a HUG. The behaviour keeps repeating because the HUG keeps going unmet.", delay: 1000 }
+    ],
+    choices: [
+      { text: "So I have two conflicting goals?", next: 'act1-3' },
+      { text: "Why can't I just choose the primary goal and stick to it?", next: 'act1-3' }
+    ],
+    depthDives: ['habits']
+  },
+
+  'act1-3': {
+    act: 'act1',
+    messages: [
+      { text: "Yes. And here's why the loop is inevitable when you ignore the second one.", delay: 700 },
+      { text: "Every time you repress the FOMO impulse, the goal behind it goes unmet. Unmet goals don't disappear <span class='pause'>—</span> they accumulate frustration. When the frustration crosses a threshold, the impulse breaks through anyway.", delay: 1200 },
+      { text: "Then you blame yourself for being weak.", delay: 700 },
+      { text: "You're not weak. <strong>You're running a strategy that was always going to fail.</strong>", delay: 800 }
+    ],
+    choices: [
+      { text: "Why does willpower always fail?", next: 'act1-4' }
+    ]
+  },
+
+  'act1-4': {
+    act: 'act1',
+    messages: [
+      { text: "Because willpower assumes you have one will.", delay: 700 },
+      { text: "You don't.", delay: 500 },
+      { text: "Think of your mind as a congress. Your primary goal <span class='pause'>—</span> follow the setup <span class='pause'>—</span> is the governing party. Your FOMO <span class='pause'>—</span> guarantee being on the trade <span class='pause'>—</span> is the opposition. You can't govern by suppression. The opposition gets louder. Eventually it wins.", delay: 1300 },
+      { text: "There are also two structural reasons willpower fails <span class='pause'>—</span> neither of them is about your character.", delay: 900 },
+      {
+        text: `<div class='insight-block'><strong>1. Wrong target.</strong> Willpower fights the emotion — the signal. The real source, the unmet goal and the uncertainty behind it, is never touched.<br><br><strong>2. Vague instructions.</strong> "Be disciplined / patient / strong" describes the desired outcome, not the path. Vagueness <em>is</em> uncertainty. It feeds the very problem it claims to solve.</div>`,
+        delay: 1000
+      }
+    ],
+    choices: [
+      { text: "So what's the actual enemy?", next: 'act2-1' }
+    ],
+    depthDives: ['congress', 'kahneman']
+  },
+
+  'act2-1': {
+    act: 'act2',
+    messages: [
+      { text: "Uncertainty.", delay: 600 },
+      { text: "Uncertainty creates urgency. Urgency drives the impulsive behaviour. The chain is:", delay: 800 },
+      {
+        text: `<div class='insight-block' style='font-family: monospace; font-size: 14px; letter-spacing: 0.02em;'>Uncertainty → Urgency → Impulsive behaviour</div>`,
+        delay: 700
+      },
+      { text: "Your FOMO is driven by a doubt you've never fully resolved: <strong>is it better to enter early or wait for the full setup?</strong> You've never actually answered that. You've just been fighting the feeling it creates.", delay: 1200 }
+    ],
+    choices: [
+      { text: "I've never actually tested this", next: 'act2-2' },
+      { text: "How do I solve the uncertainty?", next: 'act2-2' }
+    ]
+  },
+
+  'act2-2': {
+    act: 'act2',
+    messages: [
+      { text: "That's the starting point. Let's name what you actually don't know.", delay: 700 },
+      {
+        text: `<div class='insight-block'><strong>The What:</strong> What does a good entry look like — early vs. full conditions? Are both goals clear?<br><br><strong>The How:</strong> Which entry method actually performs better for you? Have you tested both?<br><br><strong>The What to Expect:</strong> How often does waiting for full conditions mean missing the move entirely? Is your expectation realistic?</div>`,
+        delay: 1000
+      },
+      { text: "These three questions are what keep the mind restless. The mind goes quiet when all three are solved. Not before.", delay: 1000 }
+    ],
+    choices: [
+      { text: "How do I solve them?", next: 'act2-3' }
+    ]
+  },
+
+  'act2-3': {
+    act: 'act2',
+    messages: [
+      { text: "Your FOMO is a <strong>Zero-Sum</strong> question: one of these two entries — early or full conditions — genuinely performs better over a sample. Once you know which one, the doubt dissolves. The urgency dissolves with it.", delay: 1100 },
+      { text: "Not through willpower. Through evidence.", delay: 600 },
+      { text: "This is where the method begins.", delay: 700 }
+    ],
+    choices: [
+      { text: "Show me the method", next: 'act3-1' }
+    ]
+  },
+
+  'act3-1': {
+    act: 'act3',
+    messages: [
+      { text: "The method produces what we call <strong>structured decisions</strong>.", delay: 700 },
+      {
+        text: `<div class='insight-block'>A structured decision either:<br><br><strong>Stage 1:</strong> Removes regret — it collects evidence that will eventually solve the uncertainty.<br><br><strong>Stage 2:</strong> Is already grounded in resolved uncertainty — it is evidence-based.<br><br>The opposite is an impulsive decision: driven by urgency, not evidence.</div>`,
+        delay: 1000
+      },
+      { text: "You can't skip to Stage 2. You have to earn it.", delay: 800 }
+    ],
+    choices: [
+      { text: "Start with Stage 1", next: 'act3-2' }
+    ]
+  },
+
+  'act3-2': {
+    act: 'act3',
+    messages: [
+      { text: "Stage 1: you can't yet remove the uncertainty. But you can remove the regret.", delay: 700 },
+      { text: "Stop fighting the FOMO impulse. <strong>Start logging it instead.</strong>", delay: 800 },
+      { text: "Every time you feel FOMO and enter early <span class='pause'>—</span> log it.<br>Every time you feel FOMO and wait for full conditions <span class='pause'>—</span> log that too.<br>Don't judge either decision. Both are data points, not verdicts.", delay: 1200 },
+      { text: "The moment you do this, something shifts. You're not second-guessing yourself anymore <span class='pause'>—</span> you're running an experiment. You know that by the end of this process, you'll have the answer. That removes the regret. And regret was feeding the urgency.", delay: 1300 }
+    ],
+    choices: [
+      { text: "What exactly should I log?", next: 'act3-3' }
+    ]
+  },
+
+  'act3-3': {
+    act: 'act3',
+    messages: [
+      { text: "Keep it simple.", delay: 600 },
+      {
+        text: `<div class='log-template'>
+          <span>Date:</span> ________<br>
+          <span>Entry type:</span> Early entry / Full conditions<br>
+          <span>Entry price:</span> ________ &nbsp;<span>Stop:</span> ________<br>
+          <span>Target:</span> ________ &nbsp;<span>Result:</span> ________<br>
+          <span>FOMO intensity (1–5):</span> ____
+        </div>`,
+        delay: 900
+      },
+      { text: "After 30–50 trades, you'll have enough data to compare. Do early entries hit targets more or less often? Better or worse risk-reward? You'll know — not believe, not hope. <strong>Know.</strong>", delay: 1100 }
+    ],
+    choices: [
+      { text: "And then?", next: 'act3-4' }
+    ]
+  },
+
+  'act3-4': {
+    act: 'act3',
+    messages: [
+      { text: "Stage 2: the uncertainty dissolves.", delay: 700 },
+      { text: "Once you have the data, one of a few things happens. Either early entry genuinely performs better <span class='pause'>—</span> and you update your setup accordingly. Or full conditions perform better <span class='pause'>—</span> and now you have evidence, not just a rule.", delay: 1200 },
+      { text: "The FOMO no longer feels like resistance. It feels like choosing the worse option.", delay: 800 },
+      { text: "That's not discipline. That's knowledge.", delay: 600 }
+    ],
+    choices: [
+      { text: "What do I do in my next session?", next: 'action' }
+    ]
+  },
+
+  'action': {
+    act: 'action',
+    messages: [
+      { text: "One thing.", delay: 600 },
+      {
+        text: `<div class='action-box'>
+          <div class='action-label'>Your next session — action</div>
+          <p>When FOMO strikes: don't fight it. Name it.<br><br>Write: <em>"I want to enter now because I'm afraid of missing. My setup says wait because [condition]."</em><br><br>Just name both. Don't judge. Don't resist.<br><br>That single act shifts you from fighting to observing. And observing is how you start collecting the evidence that will — over time — solve this for good.</p>
+        </div>`,
+        delay: 900
+      },
+      { text: "That's Stage 1 beginning. You've already moved.", delay: 800 }
+    ],
+    choices: [],
+    isEnd: true
+  },
+
+  'coming-soon': {
+    act: null,
+    messages: [
+      { text: "That behaviour is coming in the next module. For now, let's start with FOMO — the same principles apply, and you'll be able to transfer them.", delay: 900 }
+    ],
+    choices: [
+      { text: "Okay, take me to FOMO", next: 'entry-1' }
+    ]
+  }
+
+};
+
+// ── State ───────────────────────────────────────────────────────
+let currentNode = null;
+let isAnimating = false;
+
+const ACT_STEPS = {
+  'entry': 'p-entry',
+  'act1': 'p-act1',
+  'act2': 'p-act2',
+  'act3': 'p-act3',
+  'action': 'p-action'
+};
+
+const ACT_ORDER = [null, 'entry', 'act1', 'act2', 'act3', 'action'];
+let highestActReached = -1;
+
+// ── DOM helpers ─────────────────────────────────────────────────
+const chat = document.getElementById('chat');
+const choicesArea = document.getElementById('choices-area');
+
+function scrollBottom() {
+  setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 60);
+}
+
+function setProgress(act) {
+  const idx = ACT_ORDER.indexOf(act);
+  if (idx <= highestActReached) return;
+  highestActReached = idx;
+
+  ACT_ORDER.forEach((a, i) => {
+    if (!a) return;
+    const el = document.getElementById(ACT_STEPS[a]);
+    if (i < idx) { el.className = 'prog-step done'; }
+    else if (i === idx) { el.className = 'prog-step active'; }
+    else { el.className = 'prog-step'; }
+  });
+}
+
+// ── Render ──────────────────────────────────────────────────────
+function renderTyping() {
+  const el = document.createElement('div');
+  el.className = 'typing';
+  el.id = 'typing-indicator';
+  el.innerHTML = `
+    <div class="msg-avatar">◈</div>
+    <div class="typing-dots">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>`;
+  chat.appendChild(el);
+  scrollBottom();
+  return el;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typing-indicator');
+  if (t) t.remove();
+}
+
+function renderBookMessage(html) {
+  const el = document.createElement('div');
+  el.className = 'msg-book';
+  el.innerHTML = `<div class="msg-avatar">◈</div><div class="msg-bubble">${html}</div>`;
+  chat.appendChild(el);
+  scrollBottom();
+  return el;
+}
+
+function renderUserMessage(text) {
+  const el = document.createElement('div');
+  el.className = 'msg-user';
+  el.innerHTML = `<div class="msg-user-bubble">${text}</div>`;
+  chat.appendChild(el);
+  scrollBottom();
+}
+
+function renderDepthDives(keys) {
+  if (!keys || keys.length === 0) return;
+
+  const area = document.createElement('div');
+  area.className = 'depth-area';
+
+  keys.forEach(key => {
+    const d = DEPTH_CONTENT[key];
+    if (!d) return;
+
+    const btn = document.createElement('button');
+    btn.className = `depth-btn ${d.type === 'nerd' ? 'nerd' : ''}`;
+    btn.innerHTML = `${d.type === 'nerd' ? '🔬' : '↗'} ${d.title}`;
+    btn.onclick = () => toggleDepth(key, card, btn);
+    area.appendChild(btn);
+
+    const card = document.createElement('div');
+    card.className = `depth-card ${d.type === 'nerd' ? 'nerd-card' : ''}`;
+    card.innerHTML = `<h4>${d.title}</h4><p>${d.content}</p>`;
+    chat.appendChild(card);
+
+    area.appendChild(btn);
+  });
+
+  chat.appendChild(area);
+  scrollBottom();
+}
+
+function toggleDepth(key, card, btn) {
+  const isOpen = card.classList.contains('open');
+  card.classList.toggle('open', !isOpen);
+  scrollBottom();
+}
+
+function renderChoices(choices) {
+  choicesArea.innerHTML = '';
+  choicesArea.classList.remove('visible');
+
+  choices.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = c.text;
+    btn.onclick = () => handleChoice(c.text, c.next);
+    choicesArea.appendChild(btn);
+  });
+
+  setTimeout(() => choicesArea.classList.add('visible'), 80);
+  scrollBottom();
+}
+
+// ── Flow ────────────────────────────────────────────────────────
+async function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function goTo(nodeId) {
+  if (isAnimating) return;
+  isAnimating = true;
+
+  const node = NODES[nodeId];
+  if (!node) { isAnimating = false; return; }
+  currentNode = nodeId;
+
+  choicesArea.innerHTML = '';
+  choicesArea.classList.remove('visible');
+
+  if (node.act) setProgress(node.act);
+
+  for (let i = 0; i < node.messages.length; i++) {
+    const m = node.messages[i];
+    const typing = renderTyping();
+    await sleep(m.delay || 800);
+    removeTyping();
+    renderBookMessage(m.text);
+    await sleep(200);
+  }
+
+  if (node.depthDives) {
+    renderDepthDives(node.depthDives);
+    await sleep(200);
+  }
+
+  if (node.isEnd) {
+    showEndScreen();
+  } else if (node.choices.length > 0) {
+    renderChoices(node.choices);
+  }
+
+  isAnimating = false;
+}
+
+function handleChoice(text, nextId) {
+  if (isAnimating) return;
+
+  // Disable choices
+  choicesArea.querySelectorAll('.choice-btn').forEach(b => b.classList.add('disabled'));
+  choicesArea.classList.remove('visible');
+
+  setTimeout(() => {
+    renderUserMessage(text);
+    choicesArea.innerHTML = '';
+    setTimeout(() => goTo(nextId), 400);
+  }, 200);
+}
+
+function showEndScreen() {
+  const endScreen = document.getElementById('end-screen');
+  endScreen.style.display = 'block';
+  setTimeout(() => { endScreen.style.opacity = '1'; scrollBottom(); }, 100);
+}
+
+function openDepthDive(key) {
+  // placeholder for end-screen links
+  alert(`[${key}] — Full chapter content coming in next build.`);
+}
+
+function restart() {
+  chat.innerHTML = '';
+  choicesArea.innerHTML = '';
+  document.getElementById('end-screen').style.display = 'none';
+  highestActReached = -1;
+  document.querySelectorAll('.prog-step').forEach(el => el.className = 'prog-step');
+  goTo('welcome');
+}
+
+// ── Boot ────────────────────────────────────────────────────────
+goTo('welcome');
+
+</script>
+</body>
+</html>
