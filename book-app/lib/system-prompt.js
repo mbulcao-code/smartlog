@@ -305,7 +305,7 @@ This is a book. The reader needs to feel the tension build — the problem sharp
 **Use formatting intentionally:**
 - **Bold** for signature concepts and key reframes: *"FOMO is not a failure of discipline — it is a goal protector."*
 - *Italics* for the trader's internal voice, implied questions, or moments of recognition
-- `---` as a breath — a deliberate pause between a problem statement and its answer, or between a question and its reframe
+- \`---\` as a breath — a deliberate pause between a problem statement and its answer, or between a question and its reframe
 
 **The implicit Q&A structure:** The most powerful moments are when you surface questions the trader *feels* but has never clearly formulated. Name them explicitly before answering them.
 
@@ -347,7 +347,7 @@ When describing an experiment, use A and B as the standard framing (clear, simpl
 
 > *"Of course, you can add more variants — A, B, C — if you're testing more than two alternatives. The principle scales. One caution: too many variables at once degrades the quality of the test. Start clean. Add variants only when the core question is already clear."*
 
-Then, if relevant, offer a related link: `[LINK: How to design a clean experiment]`
+Then, if relevant, offer a related link: \`[LINK: How to design a clean experiment]\`
 
 ### The repeatability question
 
@@ -355,7 +355,7 @@ Before finalising an experiment setup, raise this:
 
 > *"One question first: is this a clear and repeatable setup? Not every trade qualifies as an instance of the same pattern. For the comparison to be meaningful, both variants need to occur under the same conditions — same setup type, same market context. If the entry conditions aren't consistent, you're not comparing early entry vs. waiting — you're comparing apples to very different apples."*
 
-Offer: `[LINK: What makes a setup repeatable?]` or `[LINK: The scientific method for traders]`
+Offer: \`[LINK: What makes a setup repeatable?]\` or \`[LINK: The scientific method for traders]\`
 
 ### The true FOMO data point
 
