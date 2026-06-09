@@ -3,523 +3,432 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { useT } from "@/lib/i18n-book";
+import { BOOK_MAP } from "@/lib/book-map";
 
-const CHAPTERS = [
-  {
-    section: "foundations",
-    items: [
-      { id: "f1", label: "Emotions as Goal Protectors", labelPt: "Emoções como Protetores de Metas" },
-      { id: "f2", label: "All Habits Are Successful", labelPt: "Todo Hábito É Bem-Sucedido" },
-      { id: "f3", label: "The Mental Congress", labelPt: "O Congresso Mental" },
-      { id: "f4", label: "The Pirates' Dilemma", labelPt: "O Dilema dos Piratas" },
-      { id: "f5", label: "Keys to Sustainable Discipline", labelPt: "Chaves para Disciplina Sustentável" },
-      { id: "f6", label: "The Mind as a Problem-Solver", labelPt: "A Mente como Solucionadora de Problemas" },
-      { id: "f7", label: "The Probabilistic Trader", labelPt: "O Trader Probabilístico" },
-    ],
-  },
-  {
-    section: "patterns",
-    items: [
-      { id: "fomo", label: "FOMO", labelPt: "FOMO" },
-      { id: "hesitation", label: "Hesitation", labelPt: "Hesitação" },
-      { id: "early_exit", label: "Early exit", labelPt: "Saída antecipada" },
-      { id: "revenge", label: "Revenge trading", labelPt: "Revenge trading" },
-      { id: "stop_tampering", label: "Stop tampering", labelPt: "Mexer no stop" },
-      { id: "overtrading", label: "Overtrading", labelPt: "Overtrading" },
-      { id: "greed", label: "Greed", labelPt: "Ganância" },
-      { id: "loss_aversion", label: "Loss aversion", labelPt: "Aversão à perda" },
-      { id: "confirmation_bias", label: "Confirmation bias", labelPt: "Viés de confirmação" },
-      { id: "hindsight_bias", label: "Hindsight bias", labelPt: "Viés retrospectivo" },
-      { id: "anchoring", label: "Anchoring / recency", labelPt: "Ancoragem / recência" },
-      { id: "herd", label: "Herd mentality", labelPt: "Mentalidade de manada" },
-      { id: "redemption", label: "Redemption trap", labelPt: "Armadilha da redenção" },
-      { id: "overconfidence", label: "Overconfidence", labelPt: "Excesso de confiança" },
-      { id: "limiting_beliefs", label: "Limiting beliefs", labelPt: "Crenças limitantes" },
-    ],
-  },
-];
-
-export default function BookSidebar({ isOpen, onClose, lang, setLang }) {
+export default function BookSidebar({
+  // Support both old (isOpen) and new (open) prop names
+  open,
+  isOpen,
+  onClose,
+  user: userProp,
+  accessLevel,
+  currentSlug,
+  // Legacy props — kept for backward compat, not used in new layout
+  lang,
+  setLang,
+}) {
   const router = useRouter();
-  const t = useT(lang);
+  const isVisible = open ?? isOpen ?? false;
   const supabase = createClient();
 
-  const [user, setUser] = useState(null);
-  const [access, setAccess] = useState(null);
+  const [user, setUser] = useState(userProp || null);
+  const [access, setAccess] = useState(accessLevel || null);
   const [periodEnd, setPeriodEnd] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [chaptersOpen, setChaptersOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState("foundations"); // foundations | patterns
+  const [expandedChapters, setExpandedChapters] = useState({});
 
+  // Sync user from prop or auth
   useEffect(() => {
+    if (userProp) { setUser(userProp); return; }
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
-  }, []);
+  }, [userProp]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (accessLevel) { setAccess(accessLevel); return; }
+    if (!isVisible) return;
     fetch("/api/check-access")
       .then((r) => r.json())
       .then((d) => {
-        setAccess(d.access);
+        setAccess(d.hasAccess ? "pro" : "free");
         setPeriodEnd(d.periodEnd || null);
       });
-    fetch("/api/history")
-      .then((r) => r.json())
-      .then((d) => setHistory(d.conversations || []));
-  }, [isOpen]);
+  }, [isVisible, accessLevel]);
+
+  // Auto-expand the chapter containing currentSlug
+  useEffect(() => {
+    if (!currentSlug) return;
+    const parent = BOOK_MAP.find((ch) =>
+      ch.children?.some((c) => c.slug === currentSlug)
+    );
+    if (parent) {
+      setExpandedChapters((prev) => ({ ...prev, [parent.id]: true }));
+    }
+  }, [currentSlug]);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.push("/");
-    onClose();
+    onClose?.();
   }
 
   function navigate(path) {
     router.push(path);
-    onClose();
+    onClose?.();
+  }
+
+  function toggleChapter(id) {
+    setExpandedChapters((prev) => ({ ...prev, [id]: !prev[id] }));
   }
 
   function formatDate(iso) {
     if (!iso) return "";
-    return new Date(iso).toLocaleDateString(lang === "pt" ? "pt-BR" : "en-US", {
-      month: "short",
-      day: "numeric",
-    });
-  }
-
-  function planLabel() {
-    if (!access || access === "free" || access === "locked") return t.free;
-    return t.pro;
+    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   }
 
   return (
     <>
-      {/* Overlay */}
-      {isOpen && (
+      {isVisible && (
         <div
           onClick={onClose}
           style={{
-            position: "fixed",
-            inset: 0,
+            position: "fixed", inset: 0,
             background: "rgba(0,0,0,0.6)",
             zIndex: 100,
           }}
         />
       )}
 
-      {/* Sidebar panel */}
-      <aside
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          bottom: 0,
-          width: 280,
-          background: "var(--surface)",
-          borderRight: "1px solid var(--border)",
-          zIndex: 101,
-          display: "flex",
-          flexDirection: "column",
-          transform: isOpen ? "translateX(0)" : "translateX(-100%)",
-          transition: "transform 0.25s ease",
-          overflowY: "auto",
-        }}
-      >
+      <aside style={{
+        position: "fixed",
+        top: 0, left: 0, bottom: 0,
+        width: 288,
+        background: "var(--surface, #1a1a1c)",
+        borderRight: "1px solid var(--border, #2a2a2c)",
+        zIndex: 101,
+        display: "flex",
+        flexDirection: "column",
+        transform: isVisible ? "translateX(0)" : "translateX(-100%)",
+        transition: "transform 0.22s ease",
+        overflowY: "auto",
+      }}>
+
         {/* Header */}
-        <div style={s.sidebarHeader}>
-          <span style={s.sidebarTitle}>{t.title}</span>
+        <div style={s.header}>
+          <button onClick={() => navigate("/")} style={s.logoBtn}>
+            Trading Without Ego
+          </button>
           <button onClick={onClose} style={s.closeBtn}>✕</button>
         </div>
 
-        {/* Language toggle */}
-        <div style={s.langRow}>
-          {["en", "pt"].map((l) => (
-            <button
-              key={l}
-              onClick={() => setLang(l)}
-              style={{
-                ...s.langBtn,
-                ...(lang === l ? s.langBtnActive : {}),
-              }}
-            >
-              {l.toUpperCase()}
-            </button>
-          ))}
-        </div>
-
-        {/* User info */}
+        {/* User + plan */}
         {user && (
-          <div style={s.userSection}>
+          <div style={s.userBlock}>
             <div style={s.userEmail}>{user.email}</div>
-            <div
-              style={{
-                ...s.planBadge,
-                background: access === "pro" ? "var(--accent)" : "var(--border)",
-                color: access === "pro" ? "#000" : "var(--muted)",
-              }}
-            >
-              {planLabel()}
+            <div style={{
+              ...s.planBadge,
+              background: access === "pro" ? "var(--accent, #c8a96e)" : "transparent",
+              color: access === "pro" ? "#0f0f10" : "var(--muted, #8b8685)",
+              border: access === "pro" ? "none" : "1px solid var(--border, #2a2a2c)",
+            }}>
+              {access === "pro" ? "PRO" : "FREE"}
             </div>
+            {access === "pro" && periodEnd && (
+              <div style={s.validUntil}>Valid until {formatDate(periodEnd)}</div>
+            )}
+            {access !== "pro" && (
+              <button onClick={() => navigate("/#pricing")} style={s.upgradeLink}>
+                Upgrade to Pro →
+              </button>
+            )}
+          </div>
+        )}
+        {!user && (
+          <div style={s.userBlock}>
+            <button onClick={() => navigate("/auth")} style={s.signInBtn}>
+              Sign in →
+            </button>
           </div>
         )}
 
-        {/* Nav links */}
+        <div style={s.divider} />
+
+        {/* Book chapters — expandable per chapter */}
         <nav style={s.nav}>
-          <button onClick={() => navigate("/")} style={s.navItem}>
-            {lang === "pt" ? "Início" : "Home"}
-          </button>
-          <a
-            href="https://smartlogtrading.com/about"
-            target="_blank"
-            style={s.navItemLink}
-            onClick={onClose}
-          >
-            {t.aboutUs}
-          </a>
-          <a
-            href="https://smartlogtrading.com/contact"
-            target="_blank"
-            style={s.navItemLink}
-            onClick={onClose}
-          >
-            {t.contactUs}
-          </a>
+          <div style={s.sectionLabel}>Contents</div>
+          {BOOK_MAP.map((chapter) => (
+            <div key={chapter.id}>
+              <button
+                onClick={() => toggleChapter(chapter.id)}
+                style={s.chapterHeader}
+              >
+                <span>
+                  <span style={s.chapterTag}>{chapter.title}</span>
+                  <span style={s.chapterName}>{chapter.subtitle}</span>
+                </span>
+                <span style={s.chevron}>
+                  {expandedChapters[chapter.id] ? "▾" : "▸"}
+                </span>
+              </button>
+
+              {expandedChapters[chapter.id] && chapter.children && (
+                <div style={s.children}>
+                  {chapter.children.map((child) => {
+                    const isCurrent = child.slug === currentSlug;
+                    return (
+                      <button
+                        key={child.id}
+                        onClick={() => navigate(`/book/${child.slug}`)}
+                        style={{
+                          ...s.childItem,
+                          color: isCurrent
+                            ? "var(--accent, #c8a96e)"
+                            : "var(--muted, #8b8685)",
+                          borderLeft: isCurrent
+                            ? "2px solid var(--accent, #c8a96e)"
+                            : "2px solid transparent",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isCurrent) e.currentTarget.style.color = "var(--text, #e8e6e1)";
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isCurrent) e.currentTarget.style.color = "var(--muted, #8b8685)";
+                        }}
+                      >
+                        <span style={s.childId}>{child.title}</span>
+                        <span style={s.childName}>{child.subtitle}</span>
+                        {!child.free && access !== "pro" && (
+                          <span style={s.lockIcon}>🔒</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
         </nav>
 
         <div style={s.divider} />
 
         {/* Settings */}
-        <div style={s.section}>
-          <div style={s.sectionTitle}>{t.settings}</div>
-          <div style={s.settingRow}>
-            <span style={s.settingLabel}>{t.currentPlan}</span>
-            <span style={s.settingValue}>{planLabel()}</span>
-          </div>
-          {periodEnd && (
-            <div style={s.settingRow}>
-              <span style={s.settingLabel}>{t.validUntil}</span>
-              <span style={s.settingValue}>{formatDate(periodEnd)}</span>
-            </div>
-          )}
-          <button onClick={() => navigate("/subscribe")} style={s.settingAction}>
-            {t.changePlan}
+        <div style={s.settingsBlock}>
+          <div style={s.sectionLabel}>Account</div>
+          <button onClick={() => navigate("/#pricing")} style={s.settingLink}>
+            {access === "pro" ? "Change plan" : "Upgrade to Pro"}
           </button>
           {access === "pro" && (
             <button
               onClick={() => navigate("/subscribe?manage=1")}
-              style={{ ...s.settingAction, color: "var(--danger)" }}
+              style={{ ...s.settingLink, color: "var(--muted, #8b8685)" }}
             >
-              {t.cancelSubscription}
+              Cancel subscription
             </button>
           )}
         </div>
 
-        <div style={s.divider} />
-
-        {/* Book Chapters */}
-        <div style={s.section}>
-          <button
-            onClick={() => setChaptersOpen((o) => !o)}
-            style={s.sectionToggle}
-          >
-            <span style={s.sectionTitle}>{t.bookChapters}</span>
-            <span style={{ color: "var(--muted)", fontSize: "12px" }}>
-              {chaptersOpen ? "▲" : "▼"}
-            </span>
-          </button>
-
-          {chaptersOpen && (
-            <div>
-              {/* Sub-tab: Foundations / Patterns */}
-              <div style={s.subTabRow}>
-                {["foundations", "patterns"].map((sec) => (
-                  <button
-                    key={sec}
-                    onClick={() => setActiveSection(sec)}
-                    style={{
-                      ...s.subTab,
-                      ...(activeSection === sec ? s.subTabActive : {}),
-                    }}
-                  >
-                    {sec === "foundations" ? t.foundations : t.patterns}
-                  </button>
-                ))}
-              </div>
-              {CHAPTERS.find((c) => c.section === activeSection)?.items.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() =>
-                    navigate(
-                      `/chat?entry=${item.id}&type=${activeSection === "foundations" ? "concept" : "pain"}`
-                    )
-                  }
-                  style={s.chapterItem}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
-                >
-                  {lang === "pt" ? item.labelPt : item.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div style={s.divider} />
-
-        {/* Chat History */}
-        <div style={s.section}>
-          <button
-            onClick={() => setHistoryOpen((o) => !o)}
-            style={s.sectionToggle}
-          >
-            <span style={s.sectionTitle}>{t.chatHistory}</span>
-            <span style={{ color: "var(--muted)", fontSize: "12px" }}>
-              {historyOpen ? "▲" : "▼"}
-            </span>
-          </button>
-
-          {historyOpen && (
-            <div>
-              {history.length === 0 ? (
-                <p style={s.emptyNote}>{t.noHistory}</p>
-              ) : (
-                history.map((conv) => (
-                  <button
-                    key={conv.id}
-                    onClick={() =>
-                      navigate(`/chat?entry=${conv.chapterId || "browse"}&type=${conv.type}&cid=${conv.id}`)
-                    }
-                    style={s.historyItem}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <span style={s.historyLabel}>{conv.label}</span>
-                    <span style={s.historyMeta}>
-                      {conv.messageCount} msg · {formatDate(conv.lastMessageAt)}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
         <div style={{ flex: 1 }} />
-        {user && (
-          <div style={s.sidebarFooter}>
-            <button onClick={handleSignOut} style={s.signOutBtn}>
-              {t.signOut}
-            </button>
-          </div>
-        )}
+
+        <div style={s.footer}>
+          <a href="https://smartlogtrading.com" target="_blank" style={s.footerLink}>
+            SmartLog
+          </a>
+          <span style={s.footerSep}>·</span>
+          <a href="mailto:marcos@smartlogtrading.com" style={s.footerLink}>
+            Contact
+          </a>
+          {user && (
+            <>
+              <span style={s.footerSep}>·</span>
+              <button onClick={handleSignOut} style={s.signOutBtn}>
+                Sign out
+              </button>
+            </>
+          )}
+        </div>
       </aside>
     </>
   );
 }
 
 const s = {
-  sidebarHeader: {
+  header: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "20px 20px 16px",
-    borderBottom: "1px solid var(--border)",
+    padding: "1rem 1.25rem",
+    borderBottom: "1px solid var(--border, #2a2a2c)",
+    flexShrink: 0,
   },
-  sidebarTitle: {
-    fontSize: "13px",
-    fontWeight: 600,
-    color: "var(--accent)",
-    letterSpacing: "0.04em",
+  logoBtn: {
+    background: "none",
+    border: "none",
+    color: "var(--accent, #c8a96e)",
+    fontSize: "0.8125rem",
+    fontWeight: 700,
+    cursor: "pointer",
+    letterSpacing: "0.03em",
+    padding: 0,
   },
   closeBtn: {
     background: "none",
     border: "none",
-    color: "var(--muted)",
-    fontSize: "16px",
+    color: "var(--muted, #8b8685)",
+    fontSize: "1rem",
     cursor: "pointer",
-    padding: "2px 6px",
+    padding: "0.2rem 0.4rem",
   },
-  langRow: {
+  userBlock: {
+    padding: "0.875rem 1.25rem",
+    borderBottom: "1px solid var(--border, #2a2a2c)",
     display: "flex",
-    gap: "6px",
-    padding: "12px 20px",
-    borderBottom: "1px solid var(--border)",
-  },
-  langBtn: {
-    background: "transparent",
-    border: "1px solid var(--border)",
-    borderRadius: "6px",
-    padding: "4px 12px",
-    color: "var(--muted)",
-    fontSize: "12px",
-    fontWeight: 600,
-    cursor: "pointer",
-    letterSpacing: "0.04em",
-  },
-  langBtnActive: {
-    background: "var(--accent)",
-    color: "#000",
-    borderColor: "var(--accent)",
-  },
-  userSection: {
-    padding: "14px 20px",
-    borderBottom: "1px solid var(--border)",
+    flexDirection: "column",
+    gap: "0.375rem",
   },
   userEmail: {
-    fontSize: "13px",
-    color: "var(--text)",
-    marginBottom: "6px",
+    fontSize: "0.8125rem",
+    color: "var(--text, #e8e6e1)",
     wordBreak: "break-all",
   },
   planBadge: {
-    display: "inline-block",
-    fontSize: "11px",
+    alignSelf: "flex-start",
+    fontSize: "0.65rem",
     fontWeight: 700,
-    padding: "2px 8px",
+    letterSpacing: "0.06em",
+    padding: "0.2em 0.55em",
     borderRadius: "20px",
-    letterSpacing: "0.04em",
+  },
+  validUntil: {
+    fontSize: "0.75rem",
+    color: "var(--muted, #8b8685)",
+  },
+  upgradeLink: {
+    background: "none",
+    border: "none",
+    color: "var(--accent, #c8a96e)",
+    fontSize: "0.8125rem",
+    padding: 0,
+    cursor: "pointer",
+    textAlign: "left",
+  },
+  signInBtn: {
+    background: "none",
+    border: "1px solid var(--border, #2a2a2c)",
+    color: "var(--text, #e8e6e1)",
+    padding: "0.4rem 0.75rem",
+    borderRadius: "6px",
+    fontSize: "0.8125rem",
+    cursor: "pointer",
+    alignSelf: "flex-start",
+  },
+  divider: {
+    borderTop: "1px solid var(--border, #2a2a2c)",
   },
   nav: {
     display: "flex",
     flexDirection: "column",
-    padding: "8px 0",
+    overflowY: "auto",
+    flex: 1,
+    paddingBottom: "0.5rem",
   },
-  navItem: {
-    background: "none",
-    border: "none",
-    color: "var(--muted)",
-    fontSize: "14px",
-    padding: "9px 20px",
-    textAlign: "left",
-    cursor: "pointer",
-  },
-  navItemLink: {
-    color: "var(--muted)",
-    fontSize: "14px",
-    padding: "9px 20px",
-    display: "block",
-    textDecoration: "none",
-  },
-  divider: {
-    borderTop: "1px solid var(--border)",
-    margin: "0",
-  },
-  section: {
-    padding: "12px 0",
-  },
-  sectionTitle: {
-    fontSize: "11px",
+  sectionLabel: {
+    fontSize: "0.65rem",
     fontWeight: 700,
-    color: "var(--muted)",
-    letterSpacing: "0.08em",
+    letterSpacing: "0.1em",
     textTransform: "uppercase",
-    paddingLeft: "20px",
+    color: "var(--muted, #8b8685)",
+    padding: "0.75rem 1.25rem 0.375rem",
   },
-  sectionToggle: {
+  chapterHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     width: "100%",
     background: "none",
     border: "none",
-    cursor: "pointer",
-    padding: "4px 20px 8px",
+    color: "var(--text, #e8e6e1)",
+    padding: "0.5rem 1.25rem",
     textAlign: "left",
+    cursor: "pointer",
+    gap: "0.5rem",
   },
-  settingRow: {
+  chapterTag: {
+    fontSize: "0.65rem",
+    fontWeight: 700,
+    color: "var(--accent, #c8a96e)",
+    letterSpacing: "0.06em",
+    marginRight: "0.5rem",
+  },
+  chapterName: {
+    fontSize: "0.8125rem",
+    color: "var(--text, #e8e6e1)",
+  },
+  chevron: {
+    fontSize: "0.75rem",
+    color: "var(--muted, #8b8685)",
+    flexShrink: 0,
+  },
+  children: {
+    paddingBottom: "0.25rem",
+  },
+  childItem: {
     display: "flex",
-    justifyContent: "space-between",
-    padding: "5px 20px",
-  },
-  settingLabel: {
-    fontSize: "13px",
-    color: "var(--muted)",
-  },
-  settingValue: {
-    fontSize: "13px",
-    color: "var(--text)",
-  },
-  settingAction: {
+    alignItems: "baseline",
+    gap: "0.4rem",
+    width: "100%",
     background: "none",
     border: "none",
-    color: "var(--accent)",
-    fontSize: "13px",
-    padding: "6px 20px",
-    cursor: "pointer",
+    padding: "0.375rem 1.25rem 0.375rem 1.5rem",
     textAlign: "left",
-    width: "100%",
-  },
-  subTabRow: {
-    display: "flex",
-    gap: "6px",
-    padding: "8px 20px",
-  },
-  subTab: {
-    background: "transparent",
-    border: "1px solid var(--border)",
-    borderRadius: "6px",
-    padding: "3px 10px",
-    color: "var(--muted)",
-    fontSize: "11px",
-    fontWeight: 600,
     cursor: "pointer",
-    letterSpacing: "0.03em",
+    transition: "color 0.12s",
+    borderLeft: "2px solid transparent",
   },
-  subTabActive: {
-    background: "var(--surface)",
-    borderColor: "var(--accent)",
-    color: "var(--accent)",
+  childId: {
+    fontSize: "0.65rem",
+    color: "inherit",
+    fontWeight: 600,
+    letterSpacing: "0.04em",
+    flexShrink: 0,
+    minWidth: "2rem",
   },
-  chapterItem: {
+  childName: {
+    fontSize: "0.8125rem",
+    color: "inherit",
+    flex: 1,
+    minWidth: 0,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  lockIcon: {
+    fontSize: "0.6rem",
+    flexShrink: 0,
+  },
+  settingsBlock: {
+    padding: "0.75rem 0",
+  },
+  settingLink: {
     display: "block",
     width: "100%",
     background: "none",
     border: "none",
-    color: "var(--muted)",
-    fontSize: "13px",
-    padding: "6px 20px 6px 28px",
+    color: "var(--accent, #c8a96e)",
+    fontSize: "0.8125rem",
+    padding: "0.5rem 1.25rem",
     textAlign: "left",
     cursor: "pointer",
-    transition: "color 0.12s",
   },
-  historyItem: {
+  footer: {
     display: "flex",
-    flexDirection: "column",
-    width: "100%",
-    background: "transparent",
-    border: "none",
-    padding: "7px 20px",
-    cursor: "pointer",
-    textAlign: "left",
-    borderRadius: 0,
-    transition: "background 0.12s",
+    alignItems: "center",
+    gap: "0.375rem",
+    padding: "0.875rem 1.25rem",
+    borderTop: "1px solid var(--border, #2a2a2c)",
+    flexWrap: "wrap",
   },
-  historyLabel: {
-    fontSize: "13px",
-    color: "var(--text)",
-    marginBottom: "2px",
+  footerLink: {
+    fontSize: "0.75rem",
+    color: "var(--muted, #8b8685)",
+    textDecoration: "none",
   },
-  historyMeta: {
-    fontSize: "11px",
-    color: "var(--muted)",
-  },
-  emptyNote: {
-    fontSize: "13px",
-    color: "var(--muted)",
-    padding: "8px 20px",
-  },
-  sidebarFooter: {
-    borderTop: "1px solid var(--border)",
-    padding: "12px 20px",
+  footerSep: {
+    fontSize: "0.75rem",
+    color: "var(--border, #2a2a2c)",
   },
   signOutBtn: {
     background: "none",
     border: "none",
-    color: "var(--muted)",
-    fontSize: "13px",
+    color: "var(--muted, #8b8685)",
+    fontSize: "0.75rem",
     cursor: "pointer",
     padding: 0,
   },

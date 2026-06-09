@@ -15,7 +15,7 @@ export async function POST(request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { messages, conversationId, entryPoint, entryType } = await request.json();
+    const { messages, conversationId, entryPoint, entryType, systemContext } = await request.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return Response.json({ error: "No messages provided" }, { status: 400 });
@@ -49,7 +49,9 @@ export async function POST(request) {
     const stream = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
-      system: BOOK_SYSTEM_PROMPT,
+      system: systemContext
+        ? `${BOOK_SYSTEM_PROMPT}\n\n---\n\n${systemContext}`
+        : BOOK_SYSTEM_PROMPT,
       messages: messages.map((m) => ({
         role: m.role,
         content: m.content,
@@ -67,11 +69,14 @@ export async function POST(request) {
               event.type === "content_block_delta" &&
               event.delta.type === "text_delta"
             ) {
-              const chunk = JSON.stringify({ text: event.delta.text }) + "\n";
+              const chunk =
+                "data: " +
+                JSON.stringify({ delta: { text: event.delta.text } }) +
+                "\n\n";
               controller.enqueue(encoder.encode(chunk));
             }
             if (event.type === "message_stop") {
-              controller.enqueue(encoder.encode(JSON.stringify({ done: true }) + "\n"));
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
               controller.close();
             }
           }

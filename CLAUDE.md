@@ -386,10 +386,24 @@ ALTER TABLE journal_setups
 
 ---
 
+## Completed (June 2, 2026)
+
+### Production outage fix ✅
+- Root cause: `claude-sonnet-4-5` model deprecated → all `/api/chat` calls were failing with stream error
+- Fixed: `app/api/chat/route.js` → updated model to `claude-sonnet-4-6`
+- Secondary cause: `ANTHROPIC_API_KEY` in Vercel was stale/wrong — updated to active key in both projects
+- Book app had unescaped backticks in `book-app/lib/system-prompt.js` causing build failure → escaped all three instances
+- Both SmartLog and book app confirmed working in production
+
+### API key note
+- Active Anthropic API key: `sk-ant-api03-_1ZUH...` (updated in `.env.local` and both Vercel projects)
+- Old key `sk-ant-api03-PGhh...` was invalid — do not use
+
+---
+
 ## Pending — User actions required
 
 ### SmartLog
-- [ ] **Git push** contact form fix
 - [ ] **Run Supabase migrations** — "SmartLog App" block in `PENDING_MIGRATIONS.md`
 - [ ] Recreate test setup (delete "Reversal 1" with old `variantA`/`variantB` format)
 - [ ] Send to 2 friends for beta testing
@@ -398,7 +412,6 @@ ALTER TABLE journal_setups
 - [ ] Run "Interactive AI Book" SQL block in `PENDING_MIGRATIONS.md`
 - [ ] Create 3 Stripe price IDs for the book ($29/mo, $79/yr, $199 lifetime)
 - [ ] Add `book.smartlogtrading.com/**` to Supabase redirect allowlist
-- [ ] Deploy `book-app/` to Vercel (new project, fill `.env.example` vars)
 - [ ] Add CNAME `book` → `cname.vercel-dns.com` in Namecheap
 - [ ] Add domain in Vercel project settings
 

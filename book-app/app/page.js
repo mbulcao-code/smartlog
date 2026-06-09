@@ -4,192 +4,189 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import BookSidebar from "@/app/components/BookSidebar";
-import { useLang } from "@/lib/use-lang";
+import { BOOK_MAP, PAIN_LINKS } from "@/lib/book-map";
 
-const ENTRY_POINTS = [
-  {
-    id: "fomo",
-    label: "FOMO",
-    labelPt: "FOMO",
-    description: "You enter before your level is reached — and you know it.",
-    descriptionPt: "Você entra antes do seu nível ser atingido — e sabe disso.",
-    type: "pain",
-  },
-  {
-    id: "hesitation",
-    label: "Hesitation",
-    labelPt: "Hesitação",
-    description: "The setup is there. You don't take it. Then you watch it move.",
-    descriptionPt: "O setup está lá. Você não entra. E aí vê o preço andar.",
-    type: "pain",
-  },
-  {
-    id: "early_exit",
-    label: "Early exit",
-    labelPt: "Saída antecipada",
-    description: "You get out before target. Usually it keeps going.",
-    descriptionPt: "Você sai antes do alvo. Geralmente ele continua andando.",
-    type: "pain",
-  },
-  {
-    id: "revenge",
-    label: "Revenge trading",
-    labelPt: "Revenge trading",
-    description: "After a loss, you take a trade you shouldn't.",
-    descriptionPt: "Depois de um prejuízo, você opera quando não deveria.",
-    type: "pain",
-  },
-  {
-    id: "stop_tampering",
-    label: "Stop tampering",
-    labelPt: "Mexer no stop",
-    description: "You move your stop — and it almost always makes things worse.",
-    descriptionPt: "Você mexe no stop — e quase sempre piora as coisas.",
-    type: "pain",
-  },
-  {
-    id: "overtrading",
-    label: "Overtrading",
-    labelPt: "Overtrading",
-    description: "You take trades outside your plan. More trades, worse results.",
-    descriptionPt: "Você opera fora do plano. Mais trades, piores resultados.",
-    type: "pain",
-  },
-  {
-    id: "f1",
-    label: "Why emotions feel like the enemy",
-    labelPt: "Por que as emoções parecem o inimigo",
-    description: "The foundation: emotions as goal protectors.",
-    descriptionPt: "A base: emoções como protetoras de objetivos.",
-    type: "concept",
-  },
-  {
-    id: "f3",
-    label: "The Mental Congress",
-    labelPt: "O Congresso Mental",
-    description: "Why your mind has multiple competing voices — and what to do with them.",
-    descriptionPt: "Por que sua mente tem vozes concorrentes — e o que fazer com elas.",
-    type: "concept",
-  },
-  {
-    id: "f6",
-    label: "The Mind as a Problem-Solver",
-    labelPt: "A Mente como Solucionadora",
-    description: "Why vague plans create emotional turbulence.",
-    descriptionPt: "Por que planos vagos criam turbulência emocional.",
-    type: "concept",
-  },
-  {
-    id: "f7",
-    label: "Confidence as a statistic",
-    labelPt: "Confiança como estatística",
-    description: "Why conviction is built through logging, not through winning.",
-    descriptionPt: "Por que convicção se constrói com registros, não com vitórias.",
-    type: "concept",
-  },
-];
+// ─── MAP TREE ─────────────────────────────────────────────────────────────────
+
+function ChapterNode({ chapter, depth = 0 }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+
+  const isTopLevel = depth === 0;
+  const hasChildren = chapter.children && chapter.children.length > 0;
+
+  return (
+    <div className={`map-chapter ${open ? "open" : ""}`}>
+      <button
+        className={`map-chapter-header depth-${depth}`}
+        onClick={() => {
+          if (hasChildren) setOpen((o) => !o);
+          else if (chapter.slug) router.push(`/book/${chapter.slug}`);
+        }}
+        aria-expanded={open}
+      >
+        <span className="chapter-label">
+          {isTopLevel ? (
+            <>
+              <span className="chapter-title">{chapter.title}</span>
+              <span className="chapter-subtitle">{chapter.subtitle}</span>
+            </>
+          ) : (
+            <>
+              <span className="section-id">{chapter.title}</span>
+              <span className="section-subtitle">{chapter.subtitle}</span>
+              {chapter.starred && <span className="star-badge">⭐</span>}
+            </>
+          )}
+        </span>
+        {hasChildren && (
+          <span className="chevron" aria-hidden="true">
+            {open ? "▾" : "▸"}
+          </span>
+        )}
+        {!chapter.free && !isTopLevel && (
+          <span className="pro-badge">PRO</span>
+        )}
+      </button>
+      {hasChildren && open && (
+        <div className="map-children">
+          {chapter.children.map((child) => (
+            <ChapterNode key={child.id} chapter={child} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MapTree() {
+  return (
+    <div className="map-tree">
+      {BOOK_MAP.map((chapter) => (
+        <ChapterNode key={chapter.id} chapter={chapter} />
+      ))}
+    </div>
+  );
+}
+
+// ─── PAIN FINDER ──────────────────────────────────────────────────────────────
+
+function PainFinder({ onNavigate }) {
+  return (
+    <div className="pain-finder">
+      <p className="pain-finder-label">Or go straight to your pattern:</p>
+      <div className="pain-grid">
+        {PAIN_LINKS.map((item) => (
+          <button
+            key={item.slug}
+            className="pain-chip"
+            onClick={() => onNavigate(`/book/${item.slug}`)}
+          >
+            {item.pain}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── PLANS ────────────────────────────────────────────────────────────────────
 
 const PLANS = [
   {
     id: "free",
     label: "Free",
-    labelPt: "Grátis",
-    price: "$0",
-    period: "",
-    description: "One free conversation to see how the method works. No card required.",
-    descriptionPt: "Uma conversa gratuita para ver como o método funciona. Sem cartão.",
-    cta: "Start free",
-    ctaPt: "Começar grátis",
-    href: "/auth",
-    hrefLoggedIn: "/chat",
+    price: null,
+    perMonth: null,
+    description: "Entry sections + one AI conversation",
+    cta: "Start reading",
+    ctaFree: true,
+    priceId: null,
   },
   {
     id: "monthly",
     label: "Monthly",
-    labelPt: "Mensal",
     price: "$29",
-    period: "/month",
-    periodPt: "/mês",
-    description: "Full access to every conversation, every depth layer, every pattern.",
-    descriptionPt: "Acesso completo a todas as conversas, camadas e padrões.",
-    cta: "Get Monthly",
-    ctaPt: "Assinar Mensal",
+    perMonth: "$29/mo",
+    description: "Full access · Unlimited AI conversations",
+    cta: "Get full access",
     priceId: process.env.NEXT_PUBLIC_BOOK_MONTHLY_PRICE_ID,
   },
   {
     id: "yearly",
     label: "Yearly",
-    labelPt: "Anual",
     price: "$79",
-    period: "/year",
-    periodPt: "/ano",
+    perMonth: "$6.58/mo",
+    description: "Full access · Save 77% vs monthly",
+    cta: "Get full access",
     badge: "Best value",
-    badgePt: "Melhor custo",
-    description: "Full access + included in SmartLog yearly plan. Two tools, one subscription.",
-    descriptionPt: "Acesso completo + incluso no plano anual do SmartLog.",
-    cta: "Get Yearly",
-    ctaPt: "Assinar Anual",
     priceId: process.env.NEXT_PUBLIC_BOOK_YEARLY_PRICE_ID,
-    featured: true,
   },
   {
     id: "lifetime",
     label: "Lifetime",
-    labelPt: "Vitalício",
     price: "$199",
-    period: "one-time",
-    periodPt: "pagamento único",
+    perMonth: "one-time",
+    description: "Full access forever · Founders price",
+    cta: "Get lifetime access",
     badge: "Founders price",
-    badgePt: "Preço fundador",
-    badgeColor: "#c8a96e",
-    description: "Pay once. Access forever. Includes all future updates and SmartLog lifetime.",
-    descriptionPt: "Pague uma vez. Acesso eterno. Inclui atualizações e SmartLog vitalício.",
-    cta: "Get Lifetime",
-    ctaPt: "Comprar Vitalício",
     priceId: process.env.NEXT_PUBLIC_BOOK_LIFETIME_PRICE_ID,
   },
 ];
 
-export default function Home() {
-  const router = useRouter();
-  const supabase = createClient();
-  const [user, setUser] = useState(null);
-  const [access, setAccess] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [lang, setLang] = useLang();
-  const [planLoading, setPlanLoading] = useState(null);
+// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
-  const pt = lang === "pt";
+export default function HomePage() {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [accessLevel, setAccessLevel] = useState(null); // "free" | "pro" | null
+  const [loadingCheckout, setLoadingCheckout] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-      setLoading(false);
-      if (user) {
-        fetch("/api/check-access")
-          .then((r) => r.json())
-          .then((d) => setAccess(d.access));
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        checkAccess(session.user);
       }
     });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user) {
+          setUser(session.user);
+          checkAccess(session.user);
+        } else {
+          setUser(null);
+          setAccessLevel(null);
+        }
+      }
+    );
+    return () => subscription.unsubscribe();
   }, []);
 
-  function startConversation(entry) {
-    const params = new URLSearchParams({ entry: entry.id, type: entry.type });
-    router.push(`/chat?${params.toString()}`);
+  async function checkAccess(u) {
+    if (!u) return;
+    try {
+      const res = await fetch("/api/check-access");
+      const data = await res.json();
+      setAccessLevel(data.hasAccess ? "pro" : "free");
+    } catch {
+      setAccessLevel("free");
+    }
   }
 
-  async function handlePlan(plan) {
-    if (plan.id === "free") {
-      router.push(user ? "/chat" : "/auth");
+  async function handleCheckout(plan) {
+    if (plan.ctaFree) {
+      router.push("/book/entry/1");
       return;
     }
     if (!user) {
-      router.push("/auth?redirectTo=/");
+      router.push("/auth?redirect=/subscribe");
       return;
     }
-    setPlanLoading(plan.id);
+    setLoadingCheckout(plan.id);
     try {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
@@ -197,540 +194,654 @@ export default function Home() {
         body: JSON.stringify({
           priceId: plan.priceId,
           mode: plan.id === "lifetime" ? "payment" : "subscription",
-          successUrl: `${window.location.origin}/chat?subscribed=1`,
-          cancelUrl: `${window.location.origin}/`,
+          product: "book",
         }),
       });
-      const { url } = await res.json();
-      if (url) window.location.href = url;
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
     } catch {
-      setPlanLoading(null);
+      // silently fail — retry
+    } finally {
+      setLoadingCheckout(null);
     }
   }
 
-  const filtered =
-    filter === "all"
-      ? ENTRY_POINTS
-      : ENTRY_POINTS.filter((e) => e.type === filter);
-
   return (
-    <main style={styles.main}>
+    <>
       <BookSidebar
-        isOpen={sidebarOpen}
+        open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        lang={lang}
-        setLang={setLang}
+        user={user}
+        accessLevel={accessLevel}
       />
 
-      <header style={styles.header}>
-        <div style={styles.headerLeft}>
-          <button onClick={() => setSidebarOpen(true)} style={styles.menuBtn} title="Menu">
+      <main className="home-main">
+        {/* ── HEADER ──────────────────────────────────────────────── */}
+        <header className="home-header">
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
             ☰
           </button>
-          <div style={styles.logo}>Trading Without Ego</div>
-        </div>
-        <div style={styles.headerRight}>
-          {/* PT/EN toggle */}
-          <div style={styles.langRow}>
-            {["en", "pt"].map((l) => (
+          <span className="home-logo">Trading Without Ego</span>
+          <div className="header-actions">
+            {user ? (
+              <span className="header-user">
+                {user.user_metadata?.full_name || user.email?.split("@")[0]}
+              </span>
+            ) : (
               <button
-                key={l}
-                onClick={() => setLang(l)}
-                style={{ ...styles.langBtn, ...(lang === l ? styles.langBtnActive : {}) }}
+                className="btn-ghost"
+                onClick={() => router.push("/auth")}
               >
-                {l.toUpperCase()}
+                Sign in
               </button>
-            ))}
+            )}
           </div>
+        </header>
 
-          {/* Auth — only show sign in for logged-out users */}
-          {!loading && !user && (
-            <a href="/auth" style={styles.signInBtn}>
-              {pt ? "Entrar" : "Sign in"}
-            </a>
-          )}
-        </div>
-      </header>
-
-      {/* Logged-in user bar */}
-      {user && (
-        <div style={styles.userBar}>
-          <span style={styles.userEmail}>{user.email}</span>
-          {access && (
-            <span style={{
-              ...styles.planBadge,
-              background: access === "pro" ? "var(--accent)" : "var(--border)",
-              color: access === "pro" ? "#000" : "var(--muted)",
-            }}>
-              {access === "pro" ? (pt ? "PRO" : "PRO") : (pt ? "Grátis" : "Free")}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Hero */}
-      <section style={styles.hero}>
-        <p style={styles.eyebrow}>{pt ? "Livro Interativo" : "Interactive Book"}</p>
-        <h1 style={styles.headline}>
-          {pt
-            ? <>Você não pode remover a incerteza do trading.<br /><span style={styles.accentText}>Mas pode remover o arrependimento das suas decisões.</span></>
-            : <>You can&apos;t remove uncertainty from trading.<br /><span style={styles.accentText}>But you can remove regret from your decisions.</span></>
-          }
-        </h1>
-        <p style={styles.subhead}>
-          {pt
-            ? "Comece por um padrão que você está enfrentando ou um conceito que quer entender. A IA conduz a conversa — você escolhe até onde ir."
-            : "Start from a pattern you're struggling with, or a concept you want to understand. The AI conducts the conversation — you choose how deep to go."
-          }
-        </p>
-      </section>
-
-      {/* Entry cards */}
-      <section style={styles.entries}>
-        <div style={styles.filterRow}>
-          {[
-            { id: "all", en: "Everything", pt: "Tudo" },
-            { id: "pain", en: "I struggle with...", pt: "Tenho dificuldade com..." },
-            { id: "concept", en: "I want to understand...", pt: "Quero entender..." },
-          ].map((f) => (
+        {/* ── HERO ─────────────────────────────────────────────────── */}
+        <section className="hero">
+          <p className="hero-eyebrow">A book about trading psychology</p>
+          <h1 className="hero-title">Trading Without Ego</h1>
+          <p className="hero-lead">
+            Every trader reading this page has lost money they shouldn&apos;t have.
+            Not because they lacked information — but because something inside them
+            had a different goal. This book is about that something. It doesn&apos;t
+            ask you to feel less. It asks you to understand <em>what</em> you feel,
+            and <em>why</em> — so the feeling stops costing you.
+          </p>
+          <p className="hero-sub">
+            An interactive experience: read the framework, talk to an AI that
+            knows the full book, and build an emotionally stable strategy that
+            actually fits how you trade.
+          </p>
+          <div className="hero-cta-row">
             <button
-              key={f.id}
-              onClick={() => setFilter(f.id)}
-              style={{ ...styles.filterBtn, ...(filter === f.id ? styles.filterBtnActive : {}) }}
+              className="btn-primary"
+              onClick={() => router.push("/book/entry/1")}
             >
-              {pt ? f.pt : f.en}
+              Start reading — it&apos;s free →
             </button>
-          ))}
-        </div>
-
-        <div style={styles.grid}>
-          {filtered.map((entry) => (
             <button
-              key={entry.id}
-              onClick={() => startConversation(entry)}
-              style={styles.card}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+              className="btn-ghost"
+              onClick={() => {
+                document
+                  .getElementById("the-map")
+                  ?.scrollIntoView({ behavior: "smooth" });
+              }}
             >
-              <div style={styles.cardLabel}>{pt ? entry.labelPt : entry.label}</div>
-              <div style={styles.cardDesc}>{pt ? entry.descriptionPt : entry.description}</div>
+              See the full map ↓
             </button>
-          ))}
-        </div>
+          </div>
+        </section>
 
-        <div style={styles.browseHint}>
-          {pt ? "Não sabe por onde começar?" : "Not sure where to start?"}{" "}
-          <button onClick={() => router.push("/chat?type=browse")} style={styles.browseLink}>
-            {pt ? "Ver o mapa completo →" : "Browse the full map →"}
-          </button>
-        </div>
-      </section>
+        {/* ── THE MAP ──────────────────────────────────────────────── */}
+        <section className="map-section" id="the-map">
+          <div className="map-section-header">
+            <h2 className="map-heading">The Map</h2>
+            <p className="map-subheading">
+              Every section of the book. Click any chapter to expand it —
+              click any section to read.
+            </p>
+          </div>
+          <MapTree />
+          <PainFinder onNavigate={(path) => router.push(path)} />
+        </section>
 
-      {/* Pricing — shown to logged-out users or free/locked users only */}
-      {(!user || access === "free" || access === "locked") && (
-        <section style={styles.pricingSection}>
-          {/* Upgrade nudge for free/locked logged-in users */}
-          {user && access === "locked" && (
-            <div style={styles.upgradeNudge}>
-              <p style={styles.upgradeText}>
-                {pt
-                  ? "Você usou sua conversa gratuita. Para continuar explorando, escolha um plano."
-                  : "You've used your free conversation. To keep going, choose a plan."
-                }
-              </p>
-            </div>
-          )}
+        {/* ── WHAT MAKES THIS DIFFERENT ────────────────────────────── */}
+        <section className="differentiators">
+          <div className="diff-card">
+            <span className="diff-icon">🧠</span>
+            <h3>A framework, not advice</h3>
+            <p>
+              Most trading psychology books give you advice. This one gives you
+              a model — a way to diagnose what&apos;s happening, not just what to
+              do differently.
+            </p>
+          </div>
+          <div className="diff-card">
+            <span className="diff-icon">🗣</span>
+            <h3>An AI that knows the book</h3>
+            <p>
+              Every page has an AI companion that has read the whole book. Ask
+              it anything — about your specific pattern, about the framework,
+              about what to log.
+            </p>
+          </div>
+          <div className="diff-card">
+            <span className="diff-icon">🧩</span>
+            <h3>15 specific patterns</h3>
+            <p>
+              FOMO. Revenge trading. Stop tampering. Early exit. Each one gets
+              its own chapter: the hidden goal behind it, the mechanism, and a
+              concrete experiment to run.
+            </p>
+          </div>
+        </section>
 
-          {!user && (
-            <>
-              <h2 style={styles.pricingTitle}>{pt ? "Planos" : "Plans"}</h2>
-              <p style={styles.pricingSubtitle}>
-                {pt
-                  ? "Uma conversa gratuita para ver como funciona. Assine para ir mais fundo."
-                  : "One free conversation to see how it works. Upgrade to go as deep as you need."
-                }
-              </p>
-            </>
-          )}
-
-          <div style={styles.pricingGrid}>
-            {(user ? PLANS.filter(p => p.id !== "free") : PLANS).map((plan) => (
+        {/* ── PRICING ──────────────────────────────────────────────── */}
+        <section className="pricing-section" id="pricing">
+          <h2 className="pricing-heading">Get full access</h2>
+          <p className="pricing-sub">
+            The Entry sections are free. Everything else — the full framework,
+            all 15 patterns, glossary, FAQ, depth dives, and unlimited AI
+            conversations — requires a subscription.
+          </p>
+          <div className="plans-grid">
+            {PLANS.map((plan) => (
               <div
                 key={plan.id}
-                style={{
-                  ...styles.pricingCard,
-                  ...(plan.featured ? styles.pricingCardFeatured : {}),
-                }}
+                className={`plan-card ${plan.badge ? "plan-featured" : ""}`}
               >
-                <div style={styles.pricingCardTop}>
-                  <div style={styles.planName}>{pt ? plan.labelPt : plan.label}</div>
-                  {plan.badge && (
-                    <div
-                      style={{
-                        ...styles.badge,
-                        background: plan.badgeColor || "var(--surface)",
-                        color: plan.badgeColor ? "#000" : "var(--accent)",
-                        border: plan.badgeColor ? "none" : "1px solid var(--accent)",
-                      }}
-                    >
-                      {pt ? plan.badgePt : plan.badge}
-                    </div>
-                  )}
-                </div>
-                <div style={styles.priceRow}>
-                  <span style={styles.price}>{plan.price}</span>
-                  {plan.period && (
-                    <span style={styles.period}>{pt && plan.periodPt ? plan.periodPt : plan.period}</span>
-                  )}
-                </div>
-                <p style={styles.planDesc}>{pt ? plan.descriptionPt : plan.description}</p>
+                {plan.badge && (
+                  <div className="plan-badge">{plan.badge}</div>
+                )}
+                <div className="plan-label">{plan.label}</div>
+                {plan.price ? (
+                  <>
+                    <div className="plan-price">{plan.price}</div>
+                    <div className="plan-per-month">{plan.perMonth}</div>
+                  </>
+                ) : (
+                  <div className="plan-price plan-free">Free</div>
+                )}
+                <p className="plan-description">{plan.description}</p>
                 <button
-                  onClick={() => handlePlan(plan)}
-                  disabled={planLoading === plan.id}
-                  style={{
-                    ...styles.planCta,
-                    ...(plan.featured ? styles.planCtaFeatured : {}),
-                  }}
+                  className={`btn-plan ${plan.badge ? "btn-plan-primary" : ""}`}
+                  onClick={() => handleCheckout(plan)}
+                  disabled={loadingCheckout === plan.id}
                 >
-                  {planLoading === plan.id ? "..." : (pt ? plan.ctaPt : plan.cta)}
+                  {loadingCheckout === plan.id
+                    ? "Loading…"
+                    : user && accessLevel === "pro" && !plan.ctaFree
+                    ? "Current plan"
+                    : plan.cta}
                 </button>
               </div>
             ))}
           </div>
-
-          <p style={styles.pricingNote}>
-            {pt
-              ? "Já assina o SmartLog anual ou vitalício? Você já tem acesso — entre com a mesma conta."
-              : "Already on SmartLog yearly or lifetime? You already have access — sign in with the same account."
-            }
+          <p className="pricing-disclaimer">
+            All plans include the same content. Pricing is in USD. Cancel
+            anytime. Questions?{" "}
+            <a href="mailto:marcos@smartlogtrading.com">
+              marcos@smartlogtrading.com
+            </a>
           </p>
         </section>
-      )}
 
-      <footer style={styles.footer}>
-        <div>
-          {pt ? "Por" : "By"}{" "}
-          <a href="https://smartlogtrading.com/about" target="_blank">Marcos Bulcao</a>
-          {" · "}{pt ? "Parte do" : "Part of"}{" "}
-          <a href="https://app.smartlogtrading.com" target="_blank">SmartLog</a>
-        </div>
-        <div>
-          <a href="https://smartlogtrading.com/privacy" target="_blank">
-            {pt ? "Privacidade" : "Privacy"}
-          </a>
-          {" · "}
-          <a href="https://smartlogtrading.com/terms" target="_blank">
-            {pt ? "Termos" : "Terms"}
-          </a>
-        </div>
-      </footer>
-    </main>
+        {/* ── FOOTER ───────────────────────────────────────────────── */}
+        <footer className="home-footer">
+          <p>
+            <a href="https://smartlogtrading.com">SmartLog</a> ·{" "}
+            <a href="/privacy">Privacy</a> ·{" "}
+            <a href="/terms">Terms</a>
+          </p>
+          <p className="footer-copy">
+            © 2026 SmartLog. Built by Marcos Bulcão.
+          </p>
+        </footer>
+      </main>
+
+      <style jsx>{`
+        /* ── LAYOUT ── */
+        .home-main {
+          min-height: 100vh;
+          background: var(--bg, #0f0f10);
+          color: var(--text, #e8e6e1);
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        /* ── HEADER ── */
+        .home-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 1rem 2rem;
+          border-bottom: 1px solid var(--border, #2a2a2c);
+          position: sticky;
+          top: 0;
+          background: var(--bg, #0f0f10);
+          z-index: 10;
+        }
+        .sidebar-toggle {
+          background: none;
+          border: none;
+          color: var(--muted, #8b8685);
+          font-size: 1.25rem;
+          cursor: pointer;
+          padding: 0.25rem 0.5rem;
+        }
+        .home-logo {
+          font-weight: 600;
+          font-size: 1rem;
+          color: var(--text, #e8e6e1);
+        }
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+        .header-user {
+          font-size: 0.875rem;
+          color: var(--muted, #8b8685);
+        }
+
+        /* ── HERO ── */
+        .hero {
+          max-width: 700px;
+          margin: 0 auto;
+          padding: 5rem 2rem 4rem;
+          text-align: center;
+        }
+        .hero-eyebrow {
+          font-size: 0.75rem;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--muted, #8b8685);
+          margin-bottom: 1rem;
+        }
+        .hero-title {
+          font-size: clamp(2rem, 5vw, 3.5rem);
+          font-weight: 700;
+          line-height: 1.15;
+          margin-bottom: 1.5rem;
+          background: linear-gradient(135deg, #e8e6e1 0%, #a09890 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .hero-lead {
+          font-size: 1.125rem;
+          line-height: 1.75;
+          color: var(--text, #e8e6e1);
+          margin-bottom: 1rem;
+        }
+        .hero-lead em {
+          font-style: italic;
+          color: var(--accent, #c8a96e);
+        }
+        .hero-sub {
+          font-size: 0.9375rem;
+          line-height: 1.65;
+          color: var(--muted, #8b8685);
+          margin-bottom: 2rem;
+        }
+        .hero-cta-row {
+          display: flex;
+          gap: 1rem;
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+
+        /* ── BUTTONS ── */
+        .btn-primary {
+          background: var(--accent, #c8a96e);
+          color: #0f0f10;
+          border: none;
+          padding: 0.75rem 1.5rem;
+          border-radius: 8px;
+          font-size: 0.9375rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: opacity 0.15s;
+        }
+        .btn-primary:hover {
+          opacity: 0.88;
+        }
+        .btn-ghost {
+          background: none;
+          border: 1px solid var(--border, #2a2a2c);
+          color: var(--muted, #8b8685);
+          padding: 0.75rem 1.25rem;
+          border-radius: 8px;
+          font-size: 0.9375rem;
+          cursor: pointer;
+          transition: border-color 0.15s, color 0.15s;
+        }
+        .btn-ghost:hover {
+          border-color: var(--muted, #8b8685);
+          color: var(--text, #e8e6e1);
+        }
+
+        /* ── MAP SECTION ── */
+        .map-section {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 4rem 2rem;
+        }
+        .map-section-header {
+          margin-bottom: 2rem;
+        }
+        .map-heading {
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin-bottom: 0.5rem;
+        }
+        .map-subheading {
+          font-size: 0.875rem;
+          color: var(--muted, #8b8685);
+        }
+
+        /* ── MAP TREE ── */
+        .map-tree {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+        .map-chapter {
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        .map-chapter-header {
+          width: 100%;
+          background: none;
+          border: 1px solid var(--border, #2a2a2c);
+          color: var(--text, #e8e6e1);
+          padding: 0.875rem 1rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          cursor: pointer;
+          text-align: left;
+          border-radius: 8px;
+          transition: background 0.12s, border-color 0.12s;
+          gap: 0.75rem;
+        }
+        .map-chapter-header:hover {
+          background: var(--surface, #1a1a1c);
+          border-color: var(--muted, #8b8685);
+        }
+        .open > .map-chapter-header {
+          background: var(--surface, #1a1a1c);
+          border-bottom-left-radius: 0;
+          border-bottom-right-radius: 0;
+          border-color: var(--accent, #c8a96e);
+        }
+        .map-chapter-header.depth-0 {
+          padding: 1rem 1.125rem;
+        }
+        .map-chapter-header.depth-1 {
+          padding: 0.625rem 1rem;
+          border-left: 3px solid transparent;
+        }
+        .map-chapter-header.depth-1:hover {
+          border-left-color: var(--accent, #c8a96e);
+        }
+        .chapter-label {
+          display: flex;
+          align-items: baseline;
+          gap: 0.75rem;
+          flex: 1;
+          min-width: 0;
+        }
+        .chapter-title {
+          font-size: 0.75rem;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--accent, #c8a96e);
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .chapter-subtitle {
+          font-size: 0.9375rem;
+          color: var(--text, #e8e6e1);
+          font-weight: 500;
+        }
+        .section-id {
+          font-size: 0.7rem;
+          font-weight: 600;
+          letter-spacing: 0.06em;
+          color: var(--muted, #8b8685);
+          white-space: nowrap;
+          flex-shrink: 0;
+          min-width: 2.5rem;
+        }
+        .section-subtitle {
+          font-size: 0.875rem;
+          color: var(--text, #e8e6e1);
+          flex: 1;
+          min-width: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .star-badge {
+          font-size: 0.75rem;
+          flex-shrink: 0;
+        }
+        .pro-badge {
+          font-size: 0.65rem;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+          background: rgba(200, 169, 110, 0.12);
+          color: var(--accent, #c8a96e);
+          border: 1px solid rgba(200, 169, 110, 0.25);
+          padding: 0.15em 0.45em;
+          border-radius: 4px;
+          flex-shrink: 0;
+        }
+        .chevron {
+          color: var(--muted, #8b8685);
+          font-size: 0.75rem;
+          flex-shrink: 0;
+        }
+        .map-children {
+          border: 1px solid var(--border, #2a2a2c);
+          border-top: none;
+          border-radius: 0 0 8px 8px;
+          padding: 0.375rem 0.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.125rem;
+          background: var(--surface, #1a1a1c);
+        }
+
+        /* ── PAIN FINDER ── */
+        .pain-finder {
+          margin-top: 2rem;
+          padding-top: 2rem;
+          border-top: 1px solid var(--border, #2a2a2c);
+        }
+        .pain-finder-label {
+          font-size: 0.875rem;
+          color: var(--muted, #8b8685);
+          margin-bottom: 1rem;
+        }
+        .pain-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+        .pain-chip {
+          background: none;
+          border: 1px solid var(--border, #2a2a2c);
+          color: var(--muted, #8b8685);
+          padding: 0.4rem 0.75rem;
+          border-radius: 20px;
+          font-size: 0.8125rem;
+          cursor: pointer;
+          transition: border-color 0.12s, color 0.12s;
+          text-align: left;
+        }
+        .pain-chip:hover {
+          border-color: var(--accent, #c8a96e);
+          color: var(--text, #e8e6e1);
+        }
+
+        /* ── DIFFERENTIATORS ── */
+        .differentiators {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 2rem 2rem 4rem;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 1.5rem;
+          border-top: 1px solid var(--border, #2a2a2c);
+        }
+        .diff-card {
+          padding: 1.5rem;
+          background: var(--surface, #1a1a1c);
+          border: 1px solid var(--border, #2a2a2c);
+          border-radius: 10px;
+        }
+        .diff-icon {
+          font-size: 1.5rem;
+          display: block;
+          margin-bottom: 0.75rem;
+        }
+        .diff-card h3 {
+          font-size: 0.9375rem;
+          font-weight: 600;
+          margin-bottom: 0.5rem;
+          color: var(--text, #e8e6e1);
+        }
+        .diff-card p {
+          font-size: 0.875rem;
+          line-height: 1.6;
+          color: var(--muted, #8b8685);
+        }
+
+        /* ── PRICING ── */
+        .pricing-section {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 4rem 2rem;
+          border-top: 1px solid var(--border, #2a2a2c);
+        }
+        .pricing-heading {
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin-bottom: 0.5rem;
+        }
+        .pricing-sub {
+          font-size: 0.9rem;
+          color: var(--muted, #8b8685);
+          max-width: 560px;
+          line-height: 1.6;
+          margin-bottom: 2.5rem;
+        }
+        .plans-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+        }
+        .plan-card {
+          position: relative;
+          padding: 1.5rem 1.25rem;
+          border: 1px solid var(--border, #2a2a2c);
+          border-radius: 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .plan-featured {
+          border-color: var(--accent, #c8a96e);
+          background: rgba(200, 169, 110, 0.04);
+        }
+        .plan-badge {
+          position: absolute;
+          top: -0.75rem;
+          left: 50%;
+          transform: translateX(-50%);
+          font-size: 0.7rem;
+          font-weight: 700;
+          background: var(--accent, #c8a96e);
+          color: #0f0f10;
+          padding: 0.2em 0.6em;
+          border-radius: 20px;
+          white-space: nowrap;
+        }
+        .plan-label {
+          font-size: 0.75rem;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--muted, #8b8685);
+        }
+        .plan-price {
+          font-size: 1.75rem;
+          font-weight: 700;
+          color: var(--text, #e8e6e1);
+        }
+        .plan-free {
+          font-size: 1.25rem;
+        }
+        .plan-per-month {
+          font-size: 0.75rem;
+          color: var(--muted, #8b8685);
+          margin-top: -0.375rem;
+        }
+        .plan-description {
+          font-size: 0.8125rem;
+          color: var(--muted, #8b8685);
+          line-height: 1.5;
+          flex: 1;
+        }
+        .btn-plan {
+          margin-top: 0.5rem;
+          width: 100%;
+          background: var(--surface, #1a1a1c);
+          border: 1px solid var(--border, #2a2a2c);
+          color: var(--text, #e8e6e1);
+          padding: 0.625rem;
+          border-radius: 6px;
+          font-size: 0.875rem;
+          cursor: pointer;
+          transition: border-color 0.12s;
+        }
+        .btn-plan:hover {
+          border-color: var(--muted, #8b8685);
+        }
+        .btn-plan:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .btn-plan-primary {
+          background: var(--accent, #c8a96e);
+          color: #0f0f10;
+          border-color: transparent;
+          font-weight: 600;
+        }
+        .btn-plan-primary:hover {
+          opacity: 0.88;
+          border-color: transparent;
+        }
+        .pricing-disclaimer {
+          font-size: 0.8125rem;
+          color: var(--muted, #8b8685);
+          line-height: 1.6;
+        }
+        .pricing-disclaimer a {
+          color: var(--accent, #c8a96e);
+          text-decoration: none;
+        }
+
+        /* ── FOOTER ── */
+        .home-footer {
+          text-align: center;
+          padding: 2rem;
+          border-top: 1px solid var(--border, #2a2a2c);
+          font-size: 0.8125rem;
+          color: var(--muted, #8b8685);
+          line-height: 2;
+        }
+        .home-footer a {
+          color: var(--muted, #8b8685);
+          text-decoration: none;
+          transition: color 0.12s;
+        }
+        .home-footer a:hover {
+          color: var(--text, #e8e6e1);
+        }
+        .footer-copy {
+          margin-top: 0.25rem;
+        }
+      `}</style>
+    </>
   );
 }
-
-const styles = {
-  main: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    maxWidth: "900px",
-    margin: "0 auto",
-    padding: "0 24px",
-  },
-  header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "16px 0",
-    borderBottom: "1px solid var(--border)",
-  },
-  headerLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-  },
-  headerRight: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-  },
-  menuBtn: {
-    background: "none",
-    border: "none",
-    color: "var(--muted)",
-    fontSize: "18px",
-    cursor: "pointer",
-    padding: "0 4px",
-    lineHeight: 1,
-  },
-  logo: {
-    fontSize: "15px",
-    fontWeight: 600,
-    color: "var(--text)",
-    letterSpacing: "0.02em",
-  },
-  langRow: {
-    display: "flex",
-    gap: "4px",
-  },
-  langBtn: {
-    background: "transparent",
-    border: "1px solid var(--border)",
-    borderRadius: "6px",
-    padding: "4px 10px",
-    color: "var(--muted)",
-    fontSize: "11px",
-    fontWeight: 700,
-    cursor: "pointer",
-    letterSpacing: "0.04em",
-  },
-  langBtnActive: {
-    background: "var(--accent)",
-    color: "#000",
-    borderColor: "var(--accent)",
-  },
-  signInBtn: {
-    background: "var(--surface)",
-    border: "1px solid var(--border)",
-    borderRadius: "8px",
-    padding: "7px 16px",
-    color: "var(--text)",
-    fontSize: "13px",
-    fontWeight: 600,
-    textDecoration: "none",
-    cursor: "pointer",
-  },
-  continueBtn: {
-    background: "var(--accent)",
-    border: "none",
-    borderRadius: "8px",
-    padding: "7px 16px",
-    color: "#000",
-    fontSize: "13px",
-    fontWeight: 700,
-    textDecoration: "none",
-    cursor: "pointer",
-  },
-  hero: {
-    padding: "56px 0 36px",
-  },
-  eyebrow: {
-    fontSize: "12px",
-    color: "var(--accent)",
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    marginBottom: "14px",
-  },
-  headline: {
-    fontSize: "clamp(22px, 4vw, 38px)",
-    fontWeight: 700,
-    lineHeight: 1.2,
-    marginBottom: "18px",
-    color: "var(--text)",
-  },
-  accentText: {
-    color: "var(--accent)",
-  },
-  subhead: {
-    fontSize: "16px",
-    color: "var(--muted)",
-    maxWidth: "540px",
-    lineHeight: 1.6,
-  },
-  entries: {
-    paddingBottom: "48px",
-  },
-  filterRow: {
-    display: "flex",
-    gap: "8px",
-    marginBottom: "24px",
-    flexWrap: "wrap",
-  },
-  filterBtn: {
-    padding: "6px 14px",
-    borderRadius: "20px",
-    border: "1px solid var(--border)",
-    background: "transparent",
-    color: "var(--muted)",
-    fontSize: "13px",
-    cursor: "pointer",
-  },
-  filterBtnActive: {
-    background: "var(--accent)",
-    color: "#000",
-    borderColor: "var(--accent)",
-    fontWeight: 600,
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-    gap: "12px",
-    marginBottom: "28px",
-  },
-  card: {
-    background: "var(--surface)",
-    border: "1px solid var(--border)",
-    borderRadius: "10px",
-    padding: "20px",
-    textAlign: "left",
-    transition: "border-color 0.15s",
-    cursor: "pointer",
-  },
-  cardLabel: {
-    fontSize: "15px",
-    fontWeight: 600,
-    color: "var(--text)",
-    marginBottom: "8px",
-  },
-  cardDesc: {
-    fontSize: "13px",
-    color: "var(--muted)",
-    lineHeight: 1.5,
-  },
-  browseHint: {
-    color: "var(--muted)",
-    fontSize: "14px",
-    textAlign: "center",
-  },
-  browseLink: {
-    background: "none",
-    border: "none",
-    color: "var(--accent)",
-    fontSize: "14px",
-    cursor: "pointer",
-    padding: 0,
-  },
-  pricingSection: {
-    paddingBottom: "60px",
-    borderTop: "1px solid var(--border)",
-    paddingTop: "48px",
-  },
-  pricingTitle: {
-    fontSize: "24px",
-    fontWeight: 700,
-    marginBottom: "8px",
-    textAlign: "center",
-  },
-  pricingSubtitle: {
-    color: "var(--muted)",
-    fontSize: "15px",
-    textAlign: "center",
-    marginBottom: "32px",
-  },
-  pricingGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "14px",
-    marginBottom: "24px",
-  },
-  pricingCard: {
-    background: "var(--surface)",
-    border: "1px solid var(--border)",
-    borderRadius: "14px",
-    padding: "24px",
-  },
-  pricingCardFeatured: {
-    border: "1px solid var(--accent)",
-  },
-  pricingCardTop: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: "14px",
-  },
-  planName: {
-    fontSize: "15px",
-    fontWeight: 600,
-  },
-  badge: {
-    fontSize: "10px",
-    fontWeight: 700,
-    padding: "2px 7px",
-    borderRadius: "20px",
-    letterSpacing: "0.04em",
-  },
-  priceRow: {
-    display: "flex",
-    alignItems: "baseline",
-    gap: "4px",
-    marginBottom: "10px",
-  },
-  price: {
-    fontSize: "28px",
-    fontWeight: 700,
-    color: "var(--text)",
-  },
-  period: {
-    fontSize: "13px",
-    color: "var(--muted)",
-  },
-  planDesc: {
-    fontSize: "12px",
-    color: "var(--muted)",
-    lineHeight: 1.6,
-    marginBottom: "20px",
-  },
-  planCta: {
-    width: "100%",
-    padding: "10px",
-    background: "transparent",
-    border: "1px solid var(--accent)",
-    color: "var(--accent)",
-    borderRadius: "8px",
-    fontWeight: 600,
-    fontSize: "13px",
-    cursor: "pointer",
-  },
-  planCtaFeatured: {
-    background: "var(--accent)",
-    color: "#000",
-    border: "none",
-  },
-  pricingNote: {
-    textAlign: "center",
-    color: "var(--muted)",
-    fontSize: "12px",
-    lineHeight: 1.6,
-  },
-  upgradeNudge: {
-    background: "var(--surface)",
-    border: "1px solid var(--accent)",
-    borderRadius: "10px",
-    padding: "16px 20px",
-    marginBottom: "24px",
-    textAlign: "center",
-  },
-  upgradeText: {
-    fontSize: "14px",
-    color: "var(--text)",
-    margin: 0,
-  },
-  userBar: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    padding: "10px 0",
-    borderBottom: "1px solid var(--border)",
-  },
-  userEmail: {
-    fontSize: "13px",
-    color: "var(--muted)",
-  },
-  planBadge: {
-    fontSize: "11px",
-    fontWeight: 700,
-    padding: "2px 8px",
-    borderRadius: "20px",
-    letterSpacing: "0.04em",
-  },
-  footer: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "20px 0",
-    borderTop: "1px solid var(--border)",
-    color: "var(--muted)",
-    fontSize: "13px",
-    flexWrap: "wrap",
-    gap: "8px",
-  },
-};
