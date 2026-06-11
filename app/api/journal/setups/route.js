@@ -18,7 +18,6 @@ export async function GET(request) {
       .from("journal_setups")
       .select("*")
       .eq("user_id", user.id)
-      .eq("is_active", true)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -42,8 +41,7 @@ export async function POST(request) {
     const { count: existingCount } = await supabase
       .from("journal_setups")
       .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("is_active", true);
+      .eq("user_id", user.id);
 
     if ((existingCount || 0) >= 10) {
       return Response.json(
