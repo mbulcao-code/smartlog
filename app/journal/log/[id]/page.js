@@ -459,8 +459,12 @@ function TradeDetailContent() {
     if (!editEntryCategory) return false;
     if (editEntryCategory === "early" && editLevelMetAfter === null) return false;
     if (editEntryCategory === "late" && !editEntryType) return false;
-    // At least one outcome selected — sub-options are optional context
-    return Object.keys(editOutcomeSelections).length > 0;
+    if (Object.keys(editOutcomeSelections).length === 0) return false;
+    // For options that have sub-options, a sub-option must be selected.
+    // Options with empty details (panic_exit, no_stop) are allowed without a sub-option.
+    return Object.entries(editOutcomeSelections).every(([type, detail]) =>
+      type === "panic_exit" || type === "no_stop" || detail !== null
+    );
   }
 
   function saveNotes() {

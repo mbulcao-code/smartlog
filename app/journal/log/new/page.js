@@ -171,8 +171,12 @@ export default function NewTradePage() {
   }
 
   function canAdvanceFromOutcome() {
-    // Continue as soon as at least one outcome is selected — sub-options are optional context
-    return Object.keys(tradeOutcomeSelections).length > 0;
+    if (Object.keys(tradeOutcomeSelections).length === 0) return false;
+    // For options that have sub-options, a sub-option must be selected.
+    // Options with empty details (panic_exit, no_stop) are allowed without a sub-option.
+    return Object.entries(tradeOutcomeSelections).every(([type, detail]) =>
+      type === "panic_exit" || type === "no_stop" || detail !== null
+    );
   }
 
   // ── Conditions helpers ────────────────────────────────────────────────────
@@ -227,7 +231,7 @@ export default function NewTradePage() {
   async function handleSave() {
     if (!outcome || saving) return;
     if (!entryType) {
-      alert(pt ? "Tipo de entrada não selecionado. Volte e selecione." : "Entry type not selected. Please go back and select.");
+      goTo(3); // shouldn't happen in normal flow, but redirect back to entry type step if state is missing
       return;
     }
     setSaving(true);
@@ -536,13 +540,13 @@ export default function NewTradePage() {
                     <SubBtn
                       label={pt ? "Nível / condições foram atingidos depois" : "Level / conditions met after"}
                       selected={levelMetAfter === true}
-                      onClick={() => setLevelMetAfter(true)}
+                      onClick={() => { setEntryType("early"); setLevelMetAfter(true); }}
                       selectedClass="border-amber-500/60 bg-amber-950/20 text-amber-300"
                     />
                     <SubBtn
                       label={pt ? "Nível / condições NÃO foram atingidos depois" : "Level / conditions NOT met after"}
                       selected={levelMetAfter === false}
-                      onClick={() => setLevelMetAfter(false)}
+                      onClick={() => { setEntryType("early"); setLevelMetAfter(false); }}
                       selectedClass="border-green-500/60 bg-green-950/20 text-green-300"
                     />
                   </div>
