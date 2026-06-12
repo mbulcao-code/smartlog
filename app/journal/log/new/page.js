@@ -541,13 +541,11 @@ export default function NewTradePage() {
                       label={pt ? "Nível / condições foram atingidos depois" : "Level / conditions met after"}
                       selected={levelMetAfter === true}
                       onClick={() => { setEntryType("early"); setLevelMetAfter(true); }}
-                      selectedClass="border-amber-500/60 bg-amber-950/20 text-amber-300"
                     />
                     <SubBtn
                       label={pt ? "Nível / condições NÃO foram atingidos depois" : "Level / conditions NOT met after"}
                       selected={levelMetAfter === false}
                       onClick={() => { setEntryType("early"); setLevelMetAfter(false); }}
-                      selectedClass="border-green-500/60 bg-green-950/20 text-green-300"
                     />
                   </div>
                 )}
