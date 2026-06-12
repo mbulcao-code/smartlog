@@ -239,18 +239,6 @@ function BehavioralReport({ trades, setups, lang }) {
               pt={pt}
             />
           )}
-          {(() => {
-            const uncategorized = d.allWithOutcome.filter(t => !t.after_trade?.entry_type);
-            if (uncategorized.length === 0) return null;
-            return (
-              <StatRow
-                label={pt ? "Sem classificação" : "Unclassified"}
-                wins={d.wins(uncategorized)} losses={d.losses(uncategorized)} total={uncategorized.length}
-                note={pt ? "Operações registradas antes do sistema de classificação." : "Trades logged before the entry classification system."}
-                pt={pt}
-              />
-            );
-          })()}
         </Card>
       </Section>
 

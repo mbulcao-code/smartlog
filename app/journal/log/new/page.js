@@ -706,8 +706,27 @@ export default function NewTradePage() {
                   <div className="mt-2 ml-3 flex flex-col gap-2">
                     <SubBtn label={pt ? "Saída ótima" : "Optimal exit"}
                       selected={tradeOutcomeSelections["last_target_hit"] === "optimal"} onClick={() => setOutcomeDetail("last_target_hit", "optimal")} />
-                    <SubBtn label={pt ? "Preço continuou depois — deixei dinheiro na mesa" : "Price kept going — left money on the table"}
+                    <SubBtn label={pt ? "Preço continuou — deixei dinheiro na mesa" : "Price kept going — left money on the table"}
                       selected={tradeOutcomeSelections["last_target_hit"] === "kept_going"} onClick={() => setOutcomeDetail("last_target_hit", "kept_going")} />
+                    <SubBtn label={pt ? "Saída atrasada (ganância) — pior que o plano" : "Delayed exit (greedy) — worse than plan"}
+                      selected={tradeOutcomeSelections["last_target_hit"] === "delayed_worse"} onClick={() => setOutcomeDetail("last_target_hit", "delayed_worse")} />
+                    <SubBtn label={pt ? "Saída atrasada (ganância) — melhor que o plano" : "Delayed exit (greedy) — better than plan"}
+                      selected={tradeOutcomeSelections["last_target_hit"] === "delayed_better"} onClick={() => setOutcomeDetail("last_target_hit", "delayed_better")} />
+                  </div>
+                )}
+              </div>
+
+              {/* 7. Multiple targets */}
+              <div>
+                <OptionBtn label={pt ? "Múltiplos alvos" : "Multiple targets"}
+                  selected={"multiple_targets" in tradeOutcomeSelections}
+                  onClick={() => toggleOutcomeType("multiple_targets")} />
+                {"multiple_targets" in tradeOutcomeSelections && (
+                  <div className="mt-2 ml-3 flex flex-col gap-2">
+                    <SubBtn label={pt ? "Todos os alvos atingidos" : "All targets hit"}
+                      selected={tradeOutcomeSelections["multiple_targets"] === "all_hit"} onClick={() => setOutcomeDetail("multiple_targets", "all_hit")} />
+                    <SubBtn label={pt ? "Alvos parcialmente atingidos" : "Partial targets hit"}
+                      selected={tradeOutcomeSelections["multiple_targets"] === "partial_hit"} onClick={() => setOutcomeDetail("multiple_targets", "partial_hit")} />
                   </div>
                 )}
               </div>
