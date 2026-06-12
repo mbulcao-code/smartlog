@@ -631,7 +631,7 @@ function TradeDetailContent() {
         )}
 
         {/* Trade title + setup + direction ─────────────────────────────── */}
-        <Section label={pt ? "Operação" : "Trade"} onEdit={openTradeInfo} pt={pt}>
+        <Section label={pt ? "Resumo da operação" : "Trade summary"} onEdit={openTradeInfo} pt={pt}>
           <div className="p-3 rounded-xl border border-slate-800 bg-slate-900">
             {/* Setup */}
             <div className="flex items-baseline justify-between py-2 border-b border-slate-800">

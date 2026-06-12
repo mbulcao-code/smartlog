@@ -30,7 +30,10 @@ function Card({ children }) {
 }
 
 function StatRow({ label, wins, losses, total, winRate, note, pt }) {
-  const wr = winRate ?? (total > 0 ? Math.round((wins / total) * 100) : null);
+  const be = total != null ? total - wins - losses : 0;
+  // Win rate excludes BE: wins / (wins + losses)
+  const decisive = wins + losses;
+  const wr = winRate ?? (decisive > 0 ? Math.round((wins / decisive) * 100) : null);
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-slate-800 last:border-0">
       <div className="min-w-0">
@@ -39,7 +42,7 @@ function StatRow({ label, wins, losses, total, winRate, note, pt }) {
       </div>
       <div className="flex items-center gap-3 flex-shrink-0 ml-3">
         <span className="text-xs text-slate-500 tabular-nums">
-          {wins}W · {losses}L{total != null ? ` · ${total}` : ""}
+          {wins}W · {losses}L{be > 0 ? ` · ${be}BE` : ""}
         </span>
         {wr !== null && (
           <span className={`text-sm font-bold tabular-nums w-10 text-right ${wr >= 50 ? "text-green-400" : "text-red-400"}`}>
@@ -100,12 +103,14 @@ function computeReportData(trades) {
     else if (et === "random") byEntry.random.push(t);
   });
 
-  function wr(arr) {
-    if (!arr.length) return null;
-    return Math.round((arr.filter(t => t.outcome === "win").length / arr.length) * 100);
-  }
   function wins(arr) { return arr.filter(t => t.outcome === "win").length; }
   function losses(arr) { return arr.filter(t => t.outcome === "loss").length; }
+  function wr(arr) {
+    const w = wins(arr), l = losses(arr);
+    const decisive = w + l;
+    if (decisive === 0) return null;
+    return Math.round((w / decisive) * 100);
+  }
 
   // FOMO
   const earlyTrades = byEntry.early;
