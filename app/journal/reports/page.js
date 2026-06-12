@@ -82,7 +82,9 @@ function getIssueSetupType(trade, issueId) {
 // ── Compute report data from trades ──────────────────────────────────────────
 
 function computeReportData(trades) {
-  // Only v2 trades (have after_trade.entry_type)
+  // All trades with an outcome (win/loss/be)
+  const allWithOutcome = trades.filter(t => t.outcome);
+  // Only v2 trades (have after_trade.entry_type) — for behavioral breakdown
   const v2 = trades.filter(t => t.after_trade?.entry_type);
   const total = trades.length;
   const v2Total = v2.length;
@@ -158,8 +160,8 @@ function computeReportData(trades) {
   const overtradingSplit = issueSplit("overtrading", overtradingT);
   const oversizingSplit  = issueSplit("oversizing",  oversizingT);
 
-  // P&L
-  const pnlTrades = v2.filter(t => t.pnl != null);
+  // P&L — include all trades that have pnl, not just v2
+  const pnlTrades = trades.filter(t => t.pnl != null);
   const totalPnl  = pnlTrades.reduce((sum, t) => sum + (parseFloat(t.pnl) || 0), 0);
 
   // P&L per setup
@@ -172,7 +174,7 @@ function computeReportData(trades) {
   });
 
   return {
-    total, v2Total,
+    total, v2Total, allWithOutcome,
     byEntry, wr, wins, losses,
     earlyTrades, earlyWR, earlyWithLevelMet, earlyWithLevelNotMet, trueMissedOpps,
     hesitationBetter, hesitationWorse, chaseProfit, chaseLoss, allChase, allHesitation,
@@ -212,7 +214,6 @@ function BehavioralReport({ trades, setups, lang }) {
     );
   }
 
-  const allV2     = trades.filter(t => t.after_trade?.entry_type);
   const fullTrades = d.byEntry.full_setup;
   const incTrades  = [...d.byEntry.early, ...d.byEntry.hesitation, ...d.byEntry.chase];
   const randTrades = d.byEntry.random;
@@ -223,7 +224,7 @@ function BehavioralReport({ trades, setups, lang }) {
       {/* ── OVERALL ── */}
       <Section title={pt ? "Visão geral" : "Overall"}>
         <Card>
-          <StatRow label={pt ? "Total" : "Total"} wins={d.wins(allV2)} losses={d.losses(allV2)} total={allV2.length} pt={pt} />
+          <StatRow label={pt ? "Total" : "Total"} wins={d.wins(d.allWithOutcome)} losses={d.losses(d.allWithOutcome)} total={d.allWithOutcome.length} pt={pt} />
           {fullTrades.length > 0 && (
             <StatRow label={pt ? "Setup completo" : "Full setup"} wins={d.wins(fullTrades)} losses={d.losses(fullTrades)} total={fullTrades.length} pt={pt} />
           )}

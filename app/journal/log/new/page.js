@@ -226,6 +226,10 @@ export default function NewTradePage() {
 
   async function handleSave() {
     if (!outcome || saving) return;
+    if (!entryType) {
+      alert(pt ? "Tipo de entrada não selecionado. Volte e selecione." : "Entry type not selected. Please go back and select.");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/journal", {
