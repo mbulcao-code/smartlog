@@ -652,7 +652,22 @@ export default function NewTradePage() {
                 )}
               </div>
 
-              {/* 3. Panic exit */}
+              {/* 3. Trailing stop */}
+              <div>
+                <OptionBtn label={pt ? "Stop móvel (trailing)" : "Trailing stop"}
+                  selected={"trailing_stop" in tradeOutcomeSelections}
+                  onClick={() => toggleOutcomeType("trailing_stop")} />
+                {"trailing_stop" in tradeOutcomeSelections && (
+                  <div className="mt-2 ml-3 flex flex-col gap-2">
+                    <SubBtn label={pt ? "Protegeu — perda menor / lucro garantido" : "Protected — smaller loss / locked profit"}
+                      selected={tradeOutcomeSelections["trailing_stop"] === "protected"} onClick={() => setOutcomeDetail("trailing_stop", "protected")} />
+                    <SubBtn label={pt ? "Muito curto — alvo foi atingido depois" : "Too tight — target was hit after"}
+                      selected={tradeOutcomeSelections["trailing_stop"] === "too_tight"} onClick={() => setOutcomeDetail("trailing_stop", "too_tight")} />
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Panic exit */}
               <div>
                 <OptionBtn label={pt ? "Fechei manualmente — saída por pânico" : "Closed manually — panic exit"}
                   selected={"panic_exit" in tradeOutcomeSelections}

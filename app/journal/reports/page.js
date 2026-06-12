@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { getLang } from "@/lib/i18n";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── Micro-components ──────────────────────────────────────────────────────────
 
 function LoadingSpinner() {
   return (
@@ -16,27 +16,21 @@ function LoadingSpinner() {
   );
 }
 
-function Section({ title, children }) {
-  return (
-    <div className="mb-8">
-      <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">{title}</p>
-      {children}
-    </div>
-  );
+function Card({ children, className = "" }) {
+  return <div className={`p-4 rounded-xl bg-slate-900 border border-slate-800 ${className}`}>{children}</div>;
 }
 
-function Card({ children }) {
-  return <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">{children}</div>;
+function SectionLabel({ text }) {
+  return <p className="text-xs text-slate-500 uppercase tracking-wider mb-2 mt-5 first:mt-0">{text}</p>;
 }
 
-function StatRow({ label, wins, losses, total, winRate, note, pt }) {
-  const be = total != null ? total - wins - losses : 0;
-  // Win rate excludes BE: wins / (wins + losses)
+function StatRow({ label, wins, losses, total, note, pt }) {
+  const be = total != null ? Math.max(0, total - wins - losses) : 0;
   const decisive = wins + losses;
-  const wr = winRate ?? (decisive > 0 ? Math.round((wins / decisive) * 100) : null);
+  const rate = decisive > 0 ? Math.round((wins / decisive) * 100) : null;
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-slate-800 last:border-0">
-      <div className="min-w-0">
+      <div className="flex-1 min-w-0">
         <p className="text-sm text-slate-300">{label}</p>
         {note && <p className="text-xs text-slate-600 mt-0.5">{note}</p>}
       </div>
@@ -44,11 +38,27 @@ function StatRow({ label, wins, losses, total, winRate, note, pt }) {
         <span className="text-xs text-slate-500 tabular-nums">
           {wins}W · {losses}L{be > 0 ? ` · ${be}BE` : ""}
         </span>
-        {wr !== null && (
-          <span className={`text-sm font-bold tabular-nums w-10 text-right ${wr >= 50 ? "text-green-400" : "text-red-400"}`}>
-            {wr}%
-          </span>
+        {rate !== null ? (
+          <span className={`text-sm font-bold tabular-nums w-10 text-right ${rate >= 50 ? "text-green-400" : "text-red-400"}`}>{rate}%</span>
+        ) : (
+          <span className="w-10" />
         )}
+      </div>
+    </div>
+  );
+}
+
+function CountRow({ label, count, sub, countColor, note }) {
+  const cc = countColor || "text-slate-300";
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-slate-800 last:border-0">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-slate-400">{label}</p>
+        {note && <p className="text-xs text-slate-600 mt-0.5">{note}</p>}
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+        {sub && <span className="text-xs text-slate-600">{sub}</span>}
+        <span className={`text-sm font-bold tabular-nums ${cc}`}>{count}×</span>
       </div>
     </div>
   );
@@ -62,17 +72,36 @@ function Moral({ text, highlight }) {
   );
 }
 
-const UNIVERSAL_REMINDER = {
-  en: "Confidence is not a feeling. It's a function of past performance. Trusted setups — profitable and repeatable — are the way to build reliable confidence. Size should reflect both profitability and sample size. A setup tested only 5 times is not enough. Grow your financial size with your sample size.",
-  pt: "Confiança não é um estado de espírito. É uma função do desempenho passado. Setups testados e lucrativos são o caminho para construir confiança real. O tamanho da posição deve refletir tanto a lucratividade quanto o tamanho da amostragem. Um setup testado 5 vezes não é suficiente. Aumente seu tamanho financeiro com sua amostragem.",
-};
+function BehSection({ title, count, children }) {
+  const [open, setOpen] = useState(false);
+  if (!count) return null;
+  return (
+    <div className="mb-2 rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3.5 text-left"
+      >
+        <span className="text-sm font-medium text-slate-200">{title}</span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-xs text-slate-500 tabular-nums">{count}</span>
+          <span className="text-xs text-slate-500">{open ? "▲" : "▼"}</span>
+        </div>
+      </button>
+      {open && (
+        <div className="border-t border-slate-800 px-4 pt-3 pb-4">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
 
-// ── other_issues helpers (handles both old string[] and new object[] format) ──
+// ── Issue helpers ─────────────────────────────────────────────────────────────
 
 function hasIssue(trade, issueId) {
   const items = trade.after_trade?.other_issues;
   if (!Array.isArray(items) || items.length === 0) return false;
-  return items.some(item => typeof item === "string" ? item === issueId : item.id === issueId);
+  return items.some(i => (typeof i === "string" ? i === issueId : i.id === issueId));
 }
 
 function getIssueSetupType(trade, issueId) {
@@ -82,607 +111,789 @@ function getIssueSetupType(trade, issueId) {
   return item?.setup_type || null;
 }
 
-// ── Compute report data from trades ──────────────────────────────────────────
+// ── Data computation ──────────────────────────────────────────────────────────
 
-function computeReportData(trades) {
-  // All trades with an outcome (win/loss/be)
-  const allWithOutcome = trades.filter(t => t.outcome);
-  // Only v2 trades (have after_trade.entry_type) — for behavioral breakdown
+function computeData(trades, setups) {
   const v2 = trades.filter(t => t.after_trade?.entry_type);
-  const total = trades.length;
-  const v2Total = v2.length;
 
-  // Overall by entry type
-  const byEntry = { full_setup: [], early: [], hesitation: [], chase: [], random: [] };
-  v2.forEach(t => {
-    const et = t.after_trade.entry_type;
-    if (et === "full_setup") byEntry.full_setup.push(t);
-    else if (et === "early") byEntry.early.push(t);
-    else if (et === "hesitation_better" || et === "hesitation_worse") byEntry.hesitation.push(t);
-    else if (et === "chase_profit" || et === "chase_loss") byEntry.chase.push(t);
-    else if (et === "random") byEntry.random.push(t);
-  });
-
-  function wins(arr) { return arr.filter(t => t.outcome === "win").length; }
+  function wins(arr)   { return arr.filter(t => t.outcome === "win").length; }
   function losses(arr) { return arr.filter(t => t.outcome === "loss").length; }
   function wr(arr) {
-    const w = wins(arr), l = losses(arr);
-    const decisive = w + l;
-    if (decisive === 0) return null;
-    return Math.round((w / decisive) * 100);
+    const w = wins(arr), l = losses(arr), d = w + l;
+    return d > 0 ? Math.round((w / d) * 100) : null;
   }
 
-  // FOMO
-  const earlyTrades = byEntry.early;
-  const earlyWithLevelMet = earlyTrades.filter(t => t.after_trade?.level_met_after === true);
-  const earlyWithLevelNotMet = earlyTrades.filter(t => t.after_trade?.level_met_after === false);
-  // "True missed opportunity" = early + level NOT met + trade was profitable (win)
-  const trueMissedOpps = earlyWithLevelNotMet.filter(t => t.outcome === "win");
-  // These are the real FOMO wins where waiting would have meant missing out
-  const earlyWR = wr(earlyTrades);
+  // Read from v3 trade_outcomes array
+  function withOutcome(arr, type, detail = null) {
+    return arr.filter(t => {
+      const outcomes = t.after_trade?.trade_outcomes;
+      if (!Array.isArray(outcomes)) return false;
+      return outcomes.some(o => o.type === type && (detail === null || o.detail === detail));
+    });
+  }
 
-  // Hesitation/chasing
-  const hesitationBetter = v2.filter(t => t.after_trade.entry_type === "hesitation_better");
-  const hesitationWorse  = v2.filter(t => t.after_trade.entry_type === "hesitation_worse");
-  const chaseProfit      = v2.filter(t => t.after_trade.entry_type === "chase_profit");
-  const chaseLoss        = v2.filter(t => t.after_trade.entry_type === "chase_loss");
-  const allChase         = [...chaseProfit, ...chaseLoss];
-  const allHesitation    = [...hesitationBetter, ...hesitationWorse];
+  // Entry groupings
+  const full        = v2.filter(t => t.after_trade.entry_type === "full_setup");
+  const early       = v2.filter(t => t.after_trade.entry_type === "early");
+  const hesitBetter = v2.filter(t => t.after_trade.entry_type === "hesitation_better");
+  const hesitWorse  = v2.filter(t => t.after_trade.entry_type === "hesitation_worse");
+  const chaseProfit = v2.filter(t => t.after_trade.entry_type === "chase_profit");
+  const chaseLoss   = v2.filter(t => t.after_trade.entry_type === "chase_loss");
+  const random      = v2.filter(t => t.after_trade.entry_type === "random");
+  const incomplete  = [...early, ...hesitBetter, ...hesitWorse, ...chaseProfit, ...chaseLoss];
+  const hesitation  = [...hesitBetter, ...hesitWorse];
+  const chase       = [...chaseProfit, ...chaseLoss];
 
-  // Stop outcomes
-  const stopTrades = v2.filter(t => t.after_trade?.stop_outcome);
-  const stopChanged = stopTrades.filter(t => ["changed_worse","changed_smaller","changed_profit"].includes(t.after_trade.stop_outcome));
-  const stopChangedWorse   = stopTrades.filter(t => t.after_trade.stop_outcome === "changed_worse");
-  const stopChangedSmaller = stopTrades.filter(t => t.after_trade.stop_outcome === "changed_smaller");
-  const stopChangedProfit  = stopTrades.filter(t => t.after_trade.stop_outcome === "changed_profit");
-  const stopRespected = stopTrades.filter(t => ["respected_protected","respected_reversal"].includes(t.after_trade.stop_outcome));
-  const stopProtected  = stopTrades.filter(t => t.after_trade.stop_outcome === "respected_protected");
-  const stopReversal   = stopTrades.filter(t => t.after_trade.stop_outcome === "respected_reversal");
-  const stopPanic      = stopTrades.filter(t => t.after_trade.stop_outcome === "panic");
+  // Early-entry specific
+  const earlyLevelMet    = early.filter(t => t.after_trade?.level_met_after === true);
+  const earlyLevelNotMet = early.filter(t => t.after_trade?.level_met_after === false);
+  const trueMissedOpps   = earlyLevelNotMet.filter(t => t.outcome === "win");
 
-  // Target outcomes
-  const targetTrades = v2.filter(t => t.after_trade?.target_outcome);
-  const earlyExits     = targetTrades.filter(t => ["early_not_hit","early_hit"].includes(t.after_trade.target_outcome));
-  const earlyExitHit   = targetTrades.filter(t => t.after_trade.target_outcome === "early_hit");
-  const earlyExitNoHit = targetTrades.filter(t => t.after_trade.target_outcome === "early_not_hit");
-  const lastOptimal    = targetTrades.filter(t => t.after_trade.target_outcome === "last_optimal");
-  const lastKeptGoing  = targetTrades.filter(t => t.after_trade.target_outcome === "last_kept_going");
+  // Exit outcomes (v3 trade_outcomes)
+  const respStop       = withOutcome(v2, "respected_stop");
+  const respProtect    = withOutcome(v2, "respected_stop",  "protected");
+  const respReverse    = withOutcome(v2, "respected_stop",  "reversed");
+  const changedStop    = withOutcome(v2, "changed_stop");
+  const changedBetter  = withOutcome(v2, "changed_stop",    "better");
+  const changedWorse   = withOutcome(v2, "changed_stop",    "worse");
+  const trailing       = withOutcome(v2, "trailing_stop");
+  const trailProtect   = withOutcome(v2, "trailing_stop",   "protected");
+  const trailTight     = withOutcome(v2, "trailing_stop",   "too_tight");
+  const panic          = withOutcome(v2, "panic_exit");
+  const noStop         = withOutcome(v2, "no_stop");
+  const tgtNotHit      = withOutcome(v2, "target_not_hit");
+  const tgtNeverOnside = withOutcome(v2, "target_not_hit",  "never_onside");
+  const tgtOnsideBE    = withOutcome(v2, "target_not_hit",  "onside_be");
+  const tgtOnsideLoss  = withOutcome(v2, "target_not_hit",  "onside_loss");
+  const earlyExit      = withOutcome(v2, "early_exit");
+  const earlyExitHit   = withOutcome(v2, "early_exit",      "hit_after");
+  const earlyExitNotHit= withOutcome(v2, "early_exit",      "not_hit_after");
+  const lastTarget     = withOutcome(v2, "last_target_hit");
+  const lastOptimal    = withOutcome(v2, "last_target_hit",  "optimal");
+  const lastKept       = withOutcome(v2, "last_target_hit",  "kept_going");
+  const lastDelayWorse = withOutcome(v2, "last_target_hit",  "delayed_worse");
+  const lastDelayBetter= withOutcome(v2, "last_target_hit",  "delayed_better");
+  const multiTarget    = withOutcome(v2, "multiple_targets");
+  const multiAll       = withOutcome(v2, "multiple_targets", "all_hit");
+  const multiPartial   = withOutcome(v2, "multiple_targets", "partial_hit");
 
-  // Other issues (supports both old string[] and new object[] format)
-  const otherIssuesTrades = v2.filter(t => t.after_trade?.other_issues?.length > 0);
+  const totalExitCount = respStop.length + changedStop.length + trailing.length + panic.length + noStop.length + tgtNotHit.length + earlyExit.length + lastTarget.length + multiTarget.length;
+
+  // Other issues
   const revengeT     = v2.filter(t => hasIssue(t, "revenge"));
   const overtradingT = v2.filter(t => hasIssue(t, "overtrading"));
   const oversizingT  = v2.filter(t => hasIssue(t, "oversizing"));
-  const otherTextT   = v2.filter(t => hasIssue(t, "other"));
 
-  // Per-issue trusted/random breakdown (new format only)
-  function issueSplit(issueId, trades) {
-    const trusted = trades.filter(t => getIssueSetupType(t, issueId) === "trusted");
-    const random  = trades.filter(t => getIssueSetupType(t, issueId) === "random");
-    return { trusted, random };
+  function issueSplit(id, arr) {
+    return {
+      trusted: arr.filter(t => getIssueSetupType(t, id) === "trusted"),
+      random:  arr.filter(t => getIssueSetupType(t, id) === "random"),
+    };
   }
-  const revengeSplit     = issueSplit("revenge",     revengeT);
-  const overtradingSplit = issueSplit("overtrading", overtradingT);
-  const oversizingSplit  = issueSplit("oversizing",  oversizingT);
 
-  // P&L — include all trades that have pnl, not just v2
+  // P&L
   const pnlTrades = trades.filter(t => t.pnl != null);
-  const totalPnl  = pnlTrades.reduce((sum, t) => sum + (parseFloat(t.pnl) || 0), 0);
+  const totalPnl  = pnlTrades.reduce((s, t) => s + (parseFloat(t.pnl) || 0), 0);
 
-  // P&L per setup
-  const pnlBySetup = {};
-  pnlTrades.forEach(t => {
-    if (!t.setup_id) return;
-    if (!pnlBySetup[t.setup_id]) pnlBySetup[t.setup_id] = { pnl: 0, count: 0 };
-    pnlBySetup[t.setup_id].pnl += parseFloat(t.pnl) || 0;
-    pnlBySetup[t.setup_id].count++;
-  });
+  // Per-setup stats
+  const setupStats = setups
+    .map(setup => {
+      const st   = v2.filter(t => t.setup_id === setup.id);
+      const freq = v2.length > 0 ? Math.round((st.length / v2.length) * 100) : 0;
+      const pnlSt    = pnlTrades.filter(t => t.setup_id === setup.id);
+      const setupPnl = pnlSt.reduce((s, t) => s + (parseFloat(t.pnl) || 0), 0);
+      const condStats = (setup.conditions || []).map(cond => {
+        const condTrades = st.filter(t =>
+          Array.isArray(t.conditions_met) && t.conditions_met.some(cm => cm.id === cond.id)
+        );
+        const varStats = (cond.variants || []).map(v => {
+          const vTrades = st.filter(t =>
+            Array.isArray(t.conditions_met) &&
+            t.conditions_met.some(cm => cm.id === cond.id && cm.selected_variant === v.id)
+          );
+          return { variant: v, trades: vTrades, w: wins(vTrades), l: losses(vTrades), rate: wr(vTrades) };
+        });
+        return { cond, trades: condTrades, varStats };
+      });
+      return {
+        setup, trades: st,
+        w: wins(st), l: losses(st),
+        be: st.filter(t => t.outcome === "be").length,
+        rate: wr(st), freq,
+        setupPnl, pnlCount: pnlSt.length,
+        condStats,
+      };
+    })
+    .filter(s => s.trades.length > 0);
 
   return {
-    total, v2Total, allWithOutcome,
-    byEntry, wr, wins, losses,
-    earlyTrades, earlyWR, earlyWithLevelMet, earlyWithLevelNotMet, trueMissedOpps,
-    hesitationBetter, hesitationWorse, chaseProfit, chaseLoss, allChase, allHesitation,
-    stopTrades, stopChanged, stopChangedWorse, stopChangedSmaller, stopChangedProfit,
-    stopRespected, stopProtected, stopReversal, stopPanic,
-    targetTrades, earlyExits, earlyExitHit, earlyExitNoHit, lastOptimal, lastKeptGoing,
-    otherIssuesTrades, revengeT, overtradingT, oversizingT, otherTextT,
-    revengeSplit, overtradingSplit, oversizingSplit,
-    pnlTrades, totalPnl, pnlBySetup,
+    total: trades.length, v2Total: v2.length, v2,
+    allWithOutcome: trades.filter(t => t.outcome),
+    full, incomplete, random,
+    early, hesitation, hesitBetter, hesitWorse,
+    chase, chaseProfit, chaseLoss,
+    earlyLevelMet, earlyLevelNotMet, trueMissedOpps,
+    respStop, respProtect, respReverse,
+    changedStop, changedBetter, changedWorse,
+    trailing, trailProtect, trailTight,
+    panic, noStop,
+    tgtNotHit, tgtNeverOnside, tgtOnsideBE, tgtOnsideLoss,
+    earlyExit, earlyExitHit, earlyExitNotHit,
+    lastTarget, lastOptimal, lastKept, lastDelayWorse, lastDelayBetter,
+    multiTarget, multiAll, multiPartial,
+    totalExitCount,
+    revengeT, overtradingT, oversizingT,
+    revengeSplit:     issueSplit("revenge",     revengeT),
+    overtradingSplit: issueSplit("overtrading", overtradingT),
+    oversizingSplit:  issueSplit("oversizing",  oversizingT),
+    pnlTrades, totalPnl,
+    setupStats,
+    wins, losses, wr,
   };
 }
 
-// ── Behavioral report ─────────────────────────────────────────────────────────
+// ── Universal reminder ─────────────────────────────────────────────────────────
 
-function BehavioralReport({ trades, setups, lang }) {
-  const pt = lang === "pt";
-  const d = computeReportData(trades);
+const UNIVERSAL_REMINDER = {
+  en: "Confidence is not a feeling. It's a function of past performance. Trusted setups — profitable and repeatable — are the way to build reliable confidence. Size should reflect both profitability and sample size. A setup tested only 5 times is not enough. Grow your financial size with your sample size.",
+  pt: "Confiança não é um estado de espírito. É uma função do desempenho passado. Setups testados e lucrativos são o caminho para construir confiança real. O tamanho da posição deve refletir tanto a lucratividade quanto o tamanho da amostragem. Um setup testado 5 vezes não é suficiente. Aumente seu tamanho financeiro com sua amostragem.",
+};
 
-  if (d.total < 3) {
-    return (
-      <div className="text-center py-16 px-6">
-        <p className="text-3xl mb-3">📊</p>
-        <p className="text-slate-300 font-medium mb-2">{pt ? "Dados insuficientes" : "Not enough data yet"}</p>
-        <p className="text-sm text-slate-500">
-          {pt ? `Você tem ${d.total} operação${d.total !== 1?"ões":""} registrada${d.total !== 1?"s":""}. Registre pelo menos 3 para ver os relatórios.`
-               : `You have ${d.total} trade${d.total !== 1?"s":""} logged. Log at least 3 to see reports.`}
-        </p>
-      </div>
-    );
+// ── Tab 1: Raw Data ───────────────────────────────────────────────────────────
+
+function RawDataTab({ d, pt }) {
+  const { wins, losses, wr } = d;
+  const totalW  = wins(d.allWithOutcome);
+  const totalL  = losses(d.allWithOutcome);
+  const totalBE = d.allWithOutcome.length - totalW - totalL;
+  const totalWR = wr(d.allWithOutcome);
+
+  const hasIssues = d.revengeT.length + d.overtradingT.length + d.oversizingT.length;
+
+  function subStr(parts) {
+    return parts.filter(Boolean).join(" · ");
   }
-
-  if (d.v2Total === 0) {
-    return (
-      <div className="text-center py-16 px-6">
-        <p className="text-slate-400 text-sm">{pt ? "Seus registros anteriores usam o formato antigo. Registre uma nova operação com o formulário atualizado para ver os relatórios." : "Your existing trades use the old format. Log a new trade with the updated form to see reports."}</p>
-      </div>
-    );
-  }
-
-  const fullTrades = d.byEntry.full_setup;
-  const incTrades  = [...d.byEntry.early, ...d.byEntry.hesitation, ...d.byEntry.chase];
-  const randTrades = d.byEntry.random;
 
   return (
-    <div className="space-y-2 pb-8">
+    <div className="pb-8">
 
-      {/* ── OVERALL ── */}
-      <Section title={pt ? "Visão geral" : "Overall"}>
-        <Card>
-          <StatRow label={pt ? "Total" : "Total"} wins={d.wins(d.allWithOutcome)} losses={d.losses(d.allWithOutcome)} total={d.allWithOutcome.length} pt={pt} />
-          {fullTrades.length > 0 && (
-            <StatRow label={pt ? "Setup completo" : "Full setup"} wins={d.wins(fullTrades)} losses={d.losses(fullTrades)} total={fullTrades.length} pt={pt} />
-          )}
-          {incTrades.length > 0 && (
-            <StatRow label={pt ? "Setup incompleto" : "Incomplete setup"} wins={d.wins(incTrades)} losses={d.losses(incTrades)} total={incTrades.length} pt={pt} />
-          )}
-          {randTrades.length > 0 && (
-            <StatRow
-              label={pt ? "Aleatória (sem setup)" : "Random (no setup)"}
-              wins={d.wins(randTrades)} losses={d.losses(randTrades)} total={randTrades.length}
-              note={pt ? "Você não pode aprender com operações aleatórias." : "You can't learn from random trades."}
-              pt={pt}
-            />
-          )}
-        </Card>
-      </Section>
+      {/* Summary */}
+      <Card className="text-center py-5 mb-6">
+        <p className="text-xl font-bold text-slate-100">
+          {totalW}W · {totalL}L{totalBE > 0 ? ` · ${totalBE}BE` : ""}
+        </p>
+        {totalWR !== null && (
+          <p className={`text-4xl font-bold mt-1 ${totalWR >= 50 ? "text-green-400" : "text-red-400"}`}>{totalWR}%</p>
+        )}
+        <p className="text-xs text-slate-600 mt-1">{d.total} {pt ? "operações totais" : "total trades"}</p>
+      </Card>
 
-      {/* ── P&L ── */}
-      {d.pnlTrades.length > 0 && (
-        <Section title="P&L">
+      {/* Entry types */}
+      {d.v2Total > 0 && (
+        <>
+          <SectionLabel text={pt ? "Tipo de entrada" : "Entry type"} />
           <Card>
-            <div className="flex items-center justify-between py-2.5 border-b border-slate-800">
-              <span className="text-sm text-slate-300">{pt ? "P&L total" : "Total P&L"}</span>
+            {d.full.length > 0 && (
+              <StatRow label={pt ? "Setup completo" : "Full setup"} wins={wins(d.full)} losses={losses(d.full)} total={d.full.length} pt={pt} />
+            )}
+            {d.incomplete.length > 0 && (
+              <StatRow label={pt ? "Setup incompleto" : "Incomplete setup"} wins={wins(d.incomplete)} losses={losses(d.incomplete)} total={d.incomplete.length} pt={pt} />
+            )}
+            {d.random.length > 0 && (
+              <StatRow
+                label={pt ? "Aleatória" : "Random"}
+                wins={wins(d.random)} losses={losses(d.random)} total={d.random.length}
+                note={pt ? "Operações aleatórias não ensinam nada." : "Random trades teach nothing."}
+                pt={pt}
+              />
+            )}
+          </Card>
+        </>
+      )}
+
+      {/* Exit outcomes */}
+      {d.totalExitCount > 0 && (
+        <>
+          <SectionLabel text={pt ? "Resultados" : "Exit outcomes"} />
+          <Card>
+            {d.respStop.length > 0 && (
+              <CountRow
+                label={pt ? "Stop respeitado" : "Respected stop"}
+                count={d.respStop.length}
+                sub={subStr([
+                  d.respProtect.length ? `${pt ? "protegeu" : "protected"}: ${d.respProtect.length}` : "",
+                  d.respReverse.length ? `${pt ? "reverteu" : "reversed"}: ${d.respReverse.length}` : "",
+                ])}
+              />
+            )}
+            {d.changedStop.length > 0 && (
+              <CountRow
+                label={pt ? "Stop alterado" : "Changed stop"}
+                count={d.changedStop.length}
+                sub={subStr([
+                  d.changedBetter.length ? `${pt ? "melhor" : "better"}: ${d.changedBetter.length}` : "",
+                  d.changedWorse.length  ? `${pt ? "pior" : "worse"}: ${d.changedWorse.length}` : "",
+                ])}
+                countColor={d.changedWorse.length > d.changedBetter.length ? "text-red-400" : "text-slate-300"}
+              />
+            )}
+            {d.trailing.length > 0 && (
+              <CountRow
+                label={pt ? "Stop móvel (trailing)" : "Trailing stop"}
+                count={d.trailing.length}
+                sub={subStr([
+                  d.trailProtect.length ? `${pt ? "protegeu" : "protected"}: ${d.trailProtect.length}` : "",
+                  d.trailTight.length   ? `${pt ? "curto demais" : "too tight"}: ${d.trailTight.length}` : "",
+                ])}
+              />
+            )}
+            {d.panic.length > 0 && (
+              <CountRow label={pt ? "Saída por pânico" : "Panic exit"} count={d.panic.length} countColor="text-red-400" />
+            )}
+            {d.noStop.length > 0 && (
+              <CountRow label={pt ? "Sem stop" : "No stop"} count={d.noStop.length} countColor="text-amber-400" />
+            )}
+            {d.tgtNotHit.length > 0 && (
+              <CountRow
+                label={pt ? "Alvo não atingido" : "Target not hit"}
+                count={d.tgtNotHit.length}
+                sub={subStr([
+                  d.tgtNeverOnside.length ? `${pt ? "nunca favorável" : "never onside"}: ${d.tgtNeverOnside.length}` : "",
+                  d.tgtOnsideBE.length    ? `→BE: ${d.tgtOnsideBE.length}` : "",
+                  d.tgtOnsideLoss.length  ? `→${pt ? "perda" : "loss"}: ${d.tgtOnsideLoss.length}` : "",
+                ])}
+              />
+            )}
+            {d.earlyExit.length > 0 && (
+              <CountRow
+                label={pt ? "Saída prematura" : "Early exit"}
+                count={d.earlyExit.length}
+                sub={subStr([
+                  d.earlyExitHit.length    ? `${pt ? "atingido depois" : "hit after"}: ${d.earlyExitHit.length}` : "",
+                  d.earlyExitNotHit.length ? `${pt ? "não atingido" : "not hit"}: ${d.earlyExitNotHit.length}` : "",
+                ])}
+                countColor={d.earlyExitHit.length > d.earlyExitNotHit.length ? "text-amber-400" : "text-slate-300"}
+              />
+            )}
+            {d.lastTarget.length > 0 && (
+              <CountRow
+                label={pt ? "Último alvo atingido" : "Last target hit"}
+                count={d.lastTarget.length}
+                sub={subStr([
+                  d.lastOptimal.length    ? `${pt ? "ótimo" : "optimal"}: ${d.lastOptimal.length}` : "",
+                  d.lastKept.length       ? `${pt ? "continuou" : "kept going"}: ${d.lastKept.length}` : "",
+                  d.lastDelayWorse.length ? `${pt ? "atrasado/pior" : "delayed/worse"}: ${d.lastDelayWorse.length}` : "",
+                  d.lastDelayBetter.length? `${pt ? "atrasado/melhor" : "delayed/better"}: ${d.lastDelayBetter.length}` : "",
+                ])}
+                countColor="text-green-400"
+              />
+            )}
+            {d.multiTarget.length > 0 && (
+              <CountRow
+                label={pt ? "Múltiplos alvos" : "Multiple targets"}
+                count={d.multiTarget.length}
+                sub={subStr([
+                  d.multiAll.length     ? `${pt ? "todos" : "all"}: ${d.multiAll.length}` : "",
+                  d.multiPartial.length ? `${pt ? "parcial" : "partial"}: ${d.multiPartial.length}` : "",
+                ])}
+                countColor="text-green-400"
+              />
+            )}
+          </Card>
+        </>
+      )}
+
+      {/* Other issues */}
+      {hasIssues > 0 && (
+        <>
+          <SectionLabel text={pt ? "Outros problemas" : "Other issues"} />
+          <Card>
+            {[
+              { label: pt ? "Vingança"              : "Revenge",     arr: d.revengeT,     split: d.revengeSplit     },
+              { label: pt ? "Excesso de operações"  : "Overtrading", arr: d.overtradingT, split: d.overtradingSplit },
+              { label: pt ? "Tamanho excessivo"     : "Oversizing",  arr: d.oversizingT,  split: d.oversizingSplit  },
+            ].filter(({ arr }) => arr.length > 0).map(({ label, arr, split }) => (
+              <div key={label} className="border-b border-slate-800 last:border-0">
+                <div className="flex justify-between py-2.5">
+                  <span className="text-sm text-slate-300">{label}</span>
+                  <span className="text-sm text-red-400 font-bold">{arr.length}×</span>
+                </div>
+                {(split.trusted.length > 0 || split.random.length > 0) && (
+                  <div className="pl-4 pb-2 space-y-1">
+                    {split.trusted.length > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">{pt ? "↳ Setup testado" : "↳ Trusted setup"}</span>
+                        <span className="text-slate-400">
+                          {wins(split.trusted)}W · {losses(split.trusted)}L{wr(split.trusted) !== null ? ` · ${wr(split.trusted)}%` : ""}
+                        </span>
+                      </div>
+                    )}
+                    {split.random.length > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-amber-700">{pt ? "↳ Aleatória" : "↳ Random"}</span>
+                        <span className="text-amber-700">{split.random.length}× — {pt ? "sem aprendizado" : "no learning"}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </Card>
+        </>
+      )}
+
+      {/* P&L */}
+      {d.pnlTrades.length > 0 && (
+        <>
+          <SectionLabel text="P&L" />
+          <Card>
+            <div className="flex justify-between py-1">
+              <span className="text-sm text-slate-300">{pt ? "Total registrado" : "Total logged"}</span>
               <span className={`text-sm font-bold ${d.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
                 {d.totalPnl >= 0 ? "+" : ""}{d.totalPnl.toFixed(2)}
               </span>
             </div>
-            {Object.entries(d.pnlBySetup).map(([sid, info]) => {
-              const setup = setups.find(s => s.id === sid);
-              return (
-                <div key={sid} className="flex items-center justify-between py-2.5 border-b border-slate-800 last:border-0">
-                  <span className="text-sm text-slate-400">{setup?.name || (pt ? "Setup desconhecido" : "Unknown setup")}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-slate-600">{info.count} {pt ? "op." : "trades"}</span>
-                    <span className={`text-sm font-bold ${info.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-                      {info.pnl >= 0 ? "+" : ""}{info.pnl.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-            {fullTrades.length >= 5 && d.wr(fullTrades) !== null && (
-              <Moral pt={pt} highlight text={
-                pt
-                  ? `Seu melhor setup tem ${d.wr(fullTrades)}% de acerto em ${fullTrades.length} operações. Esse é o caminho mais rápido para recuperar — não tentar "salvar" trades ruins.`
-                  : `Your best tested setup has a ${d.wr(fullTrades)}% win rate over ${fullTrades.length} trades. That's your fastest way to recover — not trying to "save" bad trades.`
-              } />
-            )}
           </Card>
-        </Section>
+        </>
       )}
-
-      {/* ── FOMO (entry question) ── */}
-      {d.earlyTrades.length > 0 && (
-        <Section title={pt ? "Entrada antecipada (FOMO)" : "Early entry (FOMO)"}>
-          <Card>
-            <div className="flex items-center justify-between py-2.5 border-b border-slate-800">
-              <span className="text-sm text-slate-300">{pt ? "Entradas antecipadas" : "Early entries"}</span>
-              <span className="text-sm font-bold text-slate-200">{d.earlyTrades.length}</span>
-            </div>
-            <div className="flex items-center justify-between py-2.5 border-b border-slate-800">
-              <span className="text-sm text-slate-400">
-                {pt ? "↳ Nível atingido depois" : "↳ Level reached after"}
-              </span>
-              <span className="text-sm text-slate-300">{d.earlyWithLevelMet.length}</span>
-            </div>
-            <div className="flex items-center justify-between py-2.5 border-b border-slate-800">
-              <span className="text-sm text-slate-400">
-                {pt ? "↳ Nível NÃO atingido" : "↳ Level NOT reached"}
-              </span>
-              <span className="text-sm text-slate-300">{d.earlyWithLevelNotMet.length}</span>
-            </div>
-            <div className="flex items-center justify-between py-2.5">
-              <div>
-                <span className="text-sm text-slate-300">
-                  {pt ? "Oportunidades realmente perdidas" : "Truly missed opportunities"}
-                </span>
-                <p className="text-xs text-slate-600 mt-0.5">
-                  {pt ? "(entrada antecipada + nível não atingido + lucro)" : "(early + level not met + profit)"}
-                </p>
-              </div>
-              <span className={`text-sm font-bold ${d.trueMissedOpps.length === 0 ? "text-green-400" : "text-amber-400"}`}>
-                {d.trueMissedOpps.length}
-              </span>
-            </div>
-
-            {d.earlyTrades.length >= 3 && (() => {
-              const n = d.earlyTrades.length;
-              const missedPct = Math.round((d.trueMissedOpps.length / n) * 100);
-              const payingOff = d.earlyWR !== null && d.earlyWR >= 50;
-              const sampleNote = n < 10
-                ? (pt ? ` — amostra pequena, continue registrando` : ` — small sample, keep logging`)
-                : n < 20
-                ? (pt ? ` — algo está se consolidando` : ` — something is consolidating`)
-                : (pt ? ` — dado confiável` : ` — reliable data`);
-              return (
-                <>
-                  <Moral pt={pt} highlight={d.trueMissedOpps.length === 0} text={
-                    d.trueMissedOpps.length === 0
-                      ? (pt
-                          ? `Seu FOMO está valendo a pena? Até agora: zero oportunidades verdadeiramente perdidas em ${n} entradas antecipadas${sampleNote}. Você não estava perdendo nada.`
-                          : `Is your FOMO really paying off? So far: zero truly missed opportunities out of ${n} early entries${sampleNote}. You weren't missing anything.`)
-                      : (pt
-                          ? `Seu FOMO está valendo a pena? ${d.trueMissedOpps.length} oportunidade${d.trueMissedOpps.length !== 1 ? "s" : ""} verdadeiramente perdida${d.trueMissedOpps.length !== 1 ? "s" : ""} em ${n} entradas antecipadas (${missedPct}%)${sampleNote}. Faça as contas.`
-                          : `Is your FOMO really paying off? ${d.trueMissedOpps.length} truly missed opportunit${d.trueMissedOpps.length !== 1 ? "ies" : "y"} out of ${n} early entries (${missedPct}%)${sampleNote}. Do the math.`)
-                  } />
-                  {!payingOff && n >= 5 && (
-                    <Moral pt={pt} text={
-                      pt
-                        ? `Se o FOMO é inevitável, considere a "taxa pirata do FOMO": entre com tamanho reduzido. Você participa do trade, pega um pedaço quando funciona, e não destrói seu R:R quando não funciona.`
-                        : `If FOMO is unavoidable, consider the "FOMO pirate fee": enter with reduced size. You're on the trade, get a piece when it works, and it doesn't hurt your R:R when it doesn't.`
-                    } />
-                  )}
-                  {payingOff && (
-                    <Moral pt={pt} highlight text={
-                      pt
-                        ? `${d.earlyWR}% de acerto nas entradas antecipadas. Considere transformar isso em uma variante oficial do seu setup — assim você aprende com ela de forma estruturada.`
-                        : `${d.earlyWR}% win rate on early entries. Consider making this an official setup variant — so you can learn from it in a structured way.`
-                    } />
-                  )}
-                </>
-              );
-            })()}
-          </Card>
-        </Section>
-      )}
-
-      {/* ── Hesitation + Chasing ── */}
-      {(d.allHesitation.length > 0 || d.allChase.length > 0) && (
-        <Section title={pt ? "Hesitação e perseguição" : "Hesitation & chasing"}>
-          <Card>
-            {d.hesitationBetter.length > 0 && (
-              <StatRow label={pt ? "Hesitação — preço melhor" : "Hesitation — better price"}
-                wins={d.wins(d.hesitationBetter)} losses={d.losses(d.hesitationBetter)} total={d.hesitationBetter.length} pt={pt} />
-            )}
-            {d.hesitationWorse.length > 0 && (
-              <StatRow label={pt ? "Hesitação — preço pior" : "Hesitation — worse price"}
-                wins={d.wins(d.hesitationWorse)} losses={d.losses(d.hesitationWorse)} total={d.hesitationWorse.length} pt={pt} />
-            )}
-            {d.chaseProfit.length > 0 && (
-              <StatRow label={pt ? "Perseguiu — lucro" : "Chased — profit"}
-                wins={d.wins(d.chaseProfit)} losses={d.losses(d.chaseProfit)} total={d.chaseProfit.length} pt={pt} />
-            )}
-            {d.chaseLoss.length > 0 && (
-              <StatRow label={pt ? "Perseguiu — perda" : "Chased — loss"}
-                wins={d.wins(d.chaseLoss)} losses={d.losses(d.chaseLoss)} total={d.chaseLoss.length} pt={pt} />
-            )}
-            <Moral pt={pt} text={
-              pt ? "Você não pode aprender de forma estruturada com comportamento aleatório. Se a hesitação ou perseguição funcionar com frequência, considere testá-la como variante de um setup."
-                 : "You can't learn in a structured way from random behavior. If hesitation or chasing works consistently, consider testing it as a variant of a setup."
-            } />
-          </Card>
-        </Section>
-      )}
-
-      {/* ── Stop outcomes ── */}
-      {d.stopTrades.length > 0 && (
-        <Section title={pt ? "Stops" : "Stops"}>
-          <Card>
-            {d.stopChanged.length > 0 && (
-              <>
-                <p className="text-xs text-slate-600 uppercase tracking-wider mb-2">{pt ? "Alterado" : "Changed"}</p>
-                {d.stopChangedWorse.length > 0 && (
-                  <div className="flex justify-between py-2 border-b border-slate-800">
-                    <span className="text-sm text-slate-400">{pt ? "→ Perda maior" : "→ Worse loss"}</span>
-                    <span className="text-sm text-red-400 font-medium">{d.stopChangedWorse.length}×</span>
-                  </div>
-                )}
-                {d.stopChangedSmaller.length > 0 && (
-                  <div className="flex justify-between py-2 border-b border-slate-800">
-                    <span className="text-sm text-slate-400">{pt ? "→ Perda menor" : "→ Smaller loss"}</span>
-                    <span className="text-sm text-green-400 font-medium">{d.stopChangedSmaller.length}×</span>
-                  </div>
-                )}
-                {d.stopChangedProfit.length > 0 && (
-                  <div className="flex justify-between py-2 border-b border-slate-800">
-                    <span className="text-sm text-slate-400">{pt ? "→ Virou lucro" : "→ Turned to profit"}</span>
-                    <span className="text-sm text-green-400 font-medium">{d.stopChangedProfit.length}×</span>
-                  </div>
-                )}
-                {d.stopChanged.length >= 3 && (() => {
-                  const worse  = d.stopChangedWorse.length;
-                  const better = d.stopChangedSmaller.length + d.stopChangedProfit.length;
-                  const costingMore = worse > better;
-                  return (
-                    <Moral pt={pt} highlight={!costingMore} text={
-                      costingMore
-                        ? (pt
-                            ? `Mexer no stop está valendo a pena? Em ${d.stopChanged.length} alterações, ${worse} pioraram o resultado vs ${better} que melhoraram. O dado é claro: respeite seu ponto de invalidação.`
-                            : `Is moving your stop paying off? Out of ${d.stopChanged.length} changes, ${worse} made things worse vs ${better} that improved. The data is clear: respect your invalidation point.`)
-                        : (pt
-                            ? `Em ${d.stopChanged.length} alterações de stop, ${better} melhoraram o resultado. Atenção: isso pode criar um viés perigoso — certifique-se de que é julgamento, não esperança.`
-                            : `Out of ${d.stopChanged.length} stop changes, ${better} improved the result. Watch out: this can build dangerous confirmation bias — make sure it's judgment, not hope.`)
-                    } />
-                  );
-                })()}
-              </>
-            )}
-
-            {d.stopRespected.length > 0 && (
-              <>
-                <p className="text-xs text-slate-600 uppercase tracking-wider mt-4 mb-2">{pt ? "Respeitado" : "Respected"}</p>
-                {d.stopProtected.length > 0 && (
-                  <div className="flex justify-between py-2 border-b border-slate-800">
-                    <span className="text-sm text-slate-400">{pt ? "→ Protegeu de perda pior" : "→ Protected from worse loss"}</span>
-                    <span className="text-sm text-green-400 font-medium">{d.stopProtected.length}×</span>
-                  </div>
-                )}
-                {d.stopReversal.length > 0 && (
-                  <div className="flex justify-between py-2 border-b border-slate-800">
-                    <span className="text-sm text-slate-400">{pt ? "→ Preço reverteu (doloroso)" : "→ Price reversed (painful)"}</span>
-                    <span className="text-sm text-amber-400 font-medium">{d.stopReversal.length}×</span>
-                  </div>
-                )}
-                {d.stopRespected.length >= 3 && (() => {
-                  const total       = d.stopRespected.length;
-                  const pctProtected = Math.round((d.stopProtected.length / total) * 100);
-                  const pctReversal  = Math.round((d.stopReversal.length  / total) * 100);
-                  const moreProtected = d.stopProtected.length >= d.stopReversal.length;
-                  return (
-                    <Moral pt={pt}
-                      highlight={moreProtected}
-                      text={
-                        moreProtected
-                          ? (pt
-                              ? `Seu stop protegeu de perda pior em ${d.stopProtected.length} de ${total} vezes (${pctProtected}%). Ver o preço reverter dói — mas isso aconteceu em apenas ${pctReversal}% das vezes. Isso é bom gerenciamento de risco.`
-                              : `Your stop protected you from a worse loss ${d.stopProtected.length} out of ${total} times (${pctProtected}%). Watching price reverse hurts — but that only happened ${pctReversal}% of the time. That's good risk management.`)
-                          : (pt
-                              ? `O preço reverteu depois do seu stop em ${d.stopReversal.length} de ${total} vezes (${pctReversal}%). É doloroso — mas mover o stop ajudou mais do que custou? Compare com seus dados acima.`
-                              : `Price reversed after your stop ${d.stopReversal.length} out of ${total} times (${pctReversal}%). Painful — but did moving the stop help more than it hurt? Compare with your data above.`)
-                      }
-                    />
-                  );
-                })()}
-              </>
-            )}
-
-            {d.stopPanic.length > 0 && (
-              <div className="flex justify-between py-2 mt-3 border-t border-slate-800">
-                <span className="text-sm text-slate-400">{pt ? "Saída por pânico" : "Panic exits"}</span>
-                <span className="text-sm text-red-400 font-medium">{d.stopPanic.length}×</span>
-              </div>
-            )}
-          </Card>
-        </Section>
-      )}
-
-      {/* ── Target optimization ── */}
-      {d.targetTrades.length > 0 && (
-        <Section title={pt ? "Otimização de alvos" : "Target optimization"}>
-          <Card>
-            {d.earlyExits.length > 0 && (
-              <>
-                <div className="flex justify-between py-2 border-b border-slate-800">
-                  <span className="text-sm text-slate-400">{pt ? "Saída prematura (total)" : "Early exits (total)"}</span>
-                  <span className="text-sm text-slate-300 font-medium">{d.earlyExits.length}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-slate-800">
-                  <span className="text-sm text-slate-400">{pt ? "↳ Alvo foi atingido depois" : "↳ Target was hit after"}</span>
-                  <span className="text-sm text-amber-400 font-medium">{d.earlyExitHit.length}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-slate-800">
-                  <span className="text-sm text-slate-400">{pt ? "↳ Alvo não foi atingido" : "↳ Target not hit"}</span>
-                  <span className="text-sm text-slate-300 font-medium">{d.earlyExitNoHit.length}</span>
-                </div>
-              </>
-            )}
-            {d.lastKeptGoing.length > 0 && (
-              <div className="flex justify-between py-2 border-b border-slate-800">
-                <span className="text-sm text-slate-400">{pt ? "Último alvo — preço continuou depois" : "Last target — price kept going"}</span>
-                <span className="text-sm text-slate-300 font-medium">{d.lastKeptGoing.length}</span>
-              </div>
-            )}
-            {d.lastOptimal.length > 0 && (
-              <div className="flex justify-between py-2">
-                <span className="text-sm text-slate-400">{pt ? "Último alvo — saída ótima" : "Last target — optimal exit"}</span>
-                <span className="text-sm text-green-400 font-medium">{d.lastOptimal.length}</span>
-              </div>
-            )}
-
-            {d.earlyExits.length >= 3 && (() => {
-              const hitPct     = Math.round((d.earlyExitHit.length / d.earlyExits.length) * 100);
-              const costingMoney = d.earlyExitHit.length > d.earlyExits.length / 2;
-              return (
-                <Moral pt={pt}
-                  highlight={costingMoney}
-                  text={
-                    costingMoney
-                      ? (pt
-                          ? `Você saiu antes do alvo ${d.earlyExits.length} vezes — e o alvo foi atingido depois em ${hitPct}% delas. Isso está custando dinheiro. Seu alvo original pode estar mais certo do que você imagina.`
-                          : `You exited early ${d.earlyExits.length} times — and the target was hit after in ${hitPct}% of those. That's costing you money. Your original target may be more right than you think.`)
-                      : (pt
-                          ? `Seu alvo foi atingido depois da sua saída em apenas ${hitPct}% das vezes. Suas saídas antecipadas podem estar corretas — considere tornar esse ponto o seu alvo real.`
-                          : `Your target was hit after your exit in only ${hitPct}% of cases. Your early exits may be right — consider making that level your actual target.`)
-                  }
-                />
-              );
-            })()}
-            {d.lastKeptGoing.length >= 3 && d.targetTrades.length >= 5 && (() => {
-              const keptPct  = Math.round((d.lastKeptGoing.length / d.targetTrades.length) * 100);
-              const frequent = d.lastKeptGoing.length > d.targetTrades.length * 0.4;
-              return (
-                <Moral pt={pt}
-                  highlight={frequent}
-                  text={
-                    frequent
-                      ? (pt
-                          ? `O preço continuou depois do seu último alvo em ${keptPct}% das operações. Considere adicionar um runner ao seu plano para capturar mais do movimento total.`
-                          : `Price kept going after your last target in ${keptPct}% of trades. Consider adding a runner to capture more of the total move.`)
-                      : (pt
-                          ? `O preço raramente continua depois do seu último alvo (${keptPct}%). Boas notícias — seu sizing está provavelmente bem calibrado. A "taxa pirata da ganância" não está custando muito.`
-                          : `Price rarely keeps going after your last target (${keptPct}%). Good news — your sizing is probably well calibrated. The "greedy pirate fee" isn't costing you much.`)
-                  }
-                />
-              );
-            })()}
-          </Card>
-        </Section>
-      )}
-
-      {/* ── Other issues ── */}
-      {d.otherIssuesTrades.length > 0 && (
-        <Section title={pt ? "Outros problemas" : "Other issues"}>
-          <Card>
-            {[
-              { key: "revengeT",     split: "revengeSplit",     en: "Revenge",     pt: "Vingança" },
-              { key: "overtradingT", split: "overtradingSplit", en: "Overtrading", pt: "Excesso de operações" },
-              { key: "oversizingT",  split: "oversizingSplit",  en: "Oversizing",  pt: "Tamanho excessivo" },
-            ].map(({ key, split, en, pt: ptLabel }) => {
-              const arr = d[key];
-              if (!arr.length) return null;
-              const s = d[split];
-              return (
-                <div key={key} className="border-b border-slate-800 last:border-0">
-                  <div className="flex justify-between py-2.5">
-                    <span className="text-sm text-slate-300">{pt ? ptLabel : en}</span>
-                    <span className="text-sm text-red-400 font-medium">{arr.length}×</span>
-                  </div>
-                  {(s.trusted.length > 0 || s.random.length > 0) && (
-                    <div className="mb-2 pl-4 space-y-1">
-                      {s.trusted.length > 0 && (
-                        <div className="flex items-center justify-between py-1">
-                          <span className="text-xs text-slate-500">{pt ? "↳ Setup testado" : "↳ Trusted setup"}</span>
-                          <span className="text-xs text-slate-400 tabular-nums">
-                            {d.wins(s.trusted)}W · {d.losses(s.trusted)}L · {s.trusted.length} ({d.wr(s.trusted)}%)
-                          </span>
-                        </div>
-                      )}
-                      {s.random.length > 0 && (
-                        <div className="flex items-center justify-between py-1">
-                          <span className="text-xs text-amber-700">{pt ? "↳ Aleatória" : "↳ Random"}</span>
-                          <span className="text-xs text-amber-700">{s.random.length}× — {pt ? "sem aprendizado" : "no learning"}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {fullTrades.length >= 3 && d.wr(fullTrades) !== null && (
-              <Moral pt={pt} highlight text={
-                pt ? `Seu setup testado tem ${d.wr(fullTrades)}% de acerto (${fullTrades.length} operações). Não é esse o caminho mais rápido para recuperar o dinheiro?`
-                   : `Your trusted setup has a ${d.wr(fullTrades)}% win rate (${fullTrades.length} trades). Isn't that your fastest way to recover?`
-              } />
-            )}
-          </Card>
-        </Section>
-      )}
-
-      {/* ── Universal reminder ── */}
-      <div className="mt-8 p-4 rounded-xl border border-slate-700 bg-slate-900/50">
-        <p className="text-xs text-slate-500 leading-relaxed">{pt ? UNIVERSAL_REMINDER.pt : UNIVERSAL_REMINDER.en}</p>
-      </div>
-
     </div>
   );
 }
 
-// ── AI report ─────────────────────────────────────────────────────────────────
+// ── Tab 2: Behavioural ────────────────────────────────────────────────────────
 
-function AIReport({ token, lang, totalTrades }) {
-  const pt = lang === "pt";
-  const [report, setReport] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+function BehaviouralTab({ d, pt }) {
+  const { wins, losses, wr } = d;
 
-  async function fetchReport() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/journal/reports/ai", {
-        headers: { Authorization: `Bearer ${token}`, "x-lang": lang },
-      });
-      const data = await res.json();
-      if (data.error === "insufficient_data") { setError("insufficient_data"); }
-      else if (data.error) { setError("generic"); }
-      else { setReport(data.report); }
-    } catch { setError("generic"); }
-    finally { setLoading(false); }
-  }
-
-  if (totalTrades < 10) {
+  if (d.v2Total === 0) {
     return (
       <div className="text-center py-16 px-6">
-        <p className="text-3xl mb-3">🤖</p>
-        <p className="text-slate-300 font-medium mb-2">{pt ? "Análise IA disponível em breve" : "AI analysis coming soon"}</p>
-        <p className="text-sm text-slate-500 mb-4">
-          {pt ? `${totalTrades}/10 operações. São necessárias 10 para ativar a análise por IA.` : `${totalTrades}/10 trades. 10 needed to activate AI analysis.`}
+        <p className="text-slate-400 text-sm">
+          {pt ? "Nenhum dado disponível. Registre uma operação para ver a análise comportamental." : "No data yet. Log a trade to see behavioral analysis."}
         </p>
-        <div className="w-48 mx-auto h-1.5 bg-slate-800 rounded-full overflow-hidden">
-          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(100, (totalTrades/10)*100)}%` }} />
-        </div>
       </div>
     );
   }
 
-  if (!report && !loading) {
-    return (
-      <div className="text-center py-16 px-6">
-        <p className="text-3xl mb-3">🤖</p>
-        <p className="text-slate-300 font-medium mb-2">{pt ? "Síntese comportamental por IA" : "AI behavioral synthesis"}</p>
-        <p className="text-sm text-slate-500 mb-6 max-w-xs mx-auto">
-          {pt ? "O SmartLog analisa seus padrões e gera uma síntese baseada nos seus dados e nos princípios de trading disciplinado."
-               : "SmartLog analyzes your patterns and generates a synthesis based on your data and disciplined trading principles."}
-        </p>
-        <button onClick={fetchReport} className="px-5 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium transition-colors">
-          {pt ? "Gerar análise" : "Generate analysis"}
-        </button>
-      </div>
-    );
-  }
-
-  if (loading) return <div className="py-16 text-center"><LoadingSpinner /><p className="text-xs text-slate-500 mt-4">{pt ? "Analisando seus padrões…" : "Analyzing your patterns…"}</p></div>;
-
-  if (error) return (
-    <div className="text-center py-12">
-      <p className="text-sm text-slate-400 mb-4">{pt ? "Erro ao gerar análise." : "Error generating analysis."}</p>
-      <button onClick={fetchReport} className="text-sm text-blue-400 hover:text-blue-300">{pt ? "Tentar novamente" : "Try again"}</button>
-    </div>
-  );
+  const stopCount  = d.changedStop.length + d.respStop.length + d.trailing.length + d.panic.length;
+  const targetCount= d.earlyExit.length + d.tgtNotHit.length + d.lastTarget.length + d.multiTarget.length;
+  const issueCount = d.revengeT.length + d.overtradingT.length + d.oversizingT.length;
 
   return (
-    <div className="space-y-6 pb-8">
-      <div className="p-5 rounded-xl bg-slate-900 border border-slate-800">
-        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{report}</p>
+    <div className="pb-8">
+      <div className="space-y-2">
+
+        {/* FOMO / Early entry */}
+        <BehSection title={pt ? "Entrada antecipada (FOMO)" : "Early entry (FOMO)"} count={d.early.length}>
+          <CountRow label={pt ? "Entradas antecipadas" : "Early entries"} count={d.early.length} />
+          {d.earlyLevelMet.length > 0 && (
+            <CountRow label={pt ? "↳ Nível atingido depois" : "↳ Level reached after"} count={d.earlyLevelMet.length} />
+          )}
+          {d.earlyLevelNotMet.length > 0 && (
+            <CountRow label={pt ? "↳ Nível NÃO atingido" : "↳ Level NOT reached"} count={d.earlyLevelNotMet.length} />
+          )}
+          <CountRow
+            label={pt ? "Oportunidades realmente perdidas" : "Truly missed opportunities"}
+            note={pt ? "(antecipada + nível não atingido + lucro)" : "(early + level not met + profit)"}
+            count={d.trueMissedOpps.length}
+            countColor={d.trueMissedOpps.length === 0 ? "text-green-400" : "text-amber-400"}
+          />
+          {d.early.length >= 3 && (() => {
+            const n = d.early.length;
+            const earlyWR   = wr(d.early);
+            const missedPct = Math.round((d.trueMissedOpps.length / n) * 100);
+            const payingOff = earlyWR !== null && earlyWR >= 50;
+            const sampleNote = n < 10
+              ? (pt ? " — amostra pequena" : " — small sample")
+              : n < 20 ? (pt ? " — consolidando" : " — consolidating")
+              : (pt ? " — dado confiável" : " — reliable data");
+            return (
+              <>
+                <Moral highlight={d.trueMissedOpps.length === 0} text={
+                  d.trueMissedOpps.length === 0
+                    ? (pt
+                        ? `Zero oportunidades verdadeiramente perdidas em ${n} entradas antecipadas${sampleNote}.`
+                        : `Zero truly missed opportunities out of ${n} early entries${sampleNote}.`)
+                    : (pt
+                        ? `${d.trueMissedOpps.length} oportunidade${d.trueMissedOpps.length !== 1 ? "s" : ""} perdida${d.trueMissedOpps.length !== 1 ? "s" : ""} em ${n} entradas antecipadas (${missedPct}%)${sampleNote}.`
+                        : `${d.trueMissedOpps.length} truly missed opportunit${d.trueMissedOpps.length !== 1 ? "ies" : "y"} out of ${n} early entries (${missedPct}%)${sampleNote}.`)
+                } />
+                {payingOff && (
+                  <Moral highlight text={
+                    pt
+                      ? `${earlyWR}% de acerto nas antecipadas. Considere transformar em variante oficial de um setup — para aprender de forma estruturada.`
+                      : `${earlyWR}% win rate on early entries. Consider making it an official setup variant — so you can learn from it in a structured way.`
+                  } />
+                )}
+                {!payingOff && n >= 5 && (
+                  <Moral text={
+                    pt
+                      ? `Se FOMO é inevitável, entre com tamanho reduzido (taxa pirata do FOMO): você participa do trade, pega um pedaço quando funciona, e não destrói seu R:R quando não funciona.`
+                      : `If FOMO is unavoidable, enter with reduced size (FOMO pirate fee): you're in the trade, get a piece when it works, and it doesn't hurt your R:R when it doesn't.`
+                  } />
+                )}
+              </>
+            );
+          })()}
+        </BehSection>
+
+        {/* Hesitation & Chasing */}
+        {(d.hesitation.length + d.chase.length) > 0 && (
+          <BehSection
+            title={pt ? "Hesitação e perseguição" : "Hesitation & chasing"}
+            count={d.hesitation.length + d.chase.length}
+          >
+            {d.hesitBetter.length > 0 && (
+              <StatRow label={pt ? "Hesitação — preço melhor" : "Hesitation — better price"}
+                wins={wins(d.hesitBetter)} losses={losses(d.hesitBetter)} total={d.hesitBetter.length} pt={pt} />
+            )}
+            {d.hesitWorse.length > 0 && (
+              <StatRow label={pt ? "Hesitação — preço pior" : "Hesitation — worse price"}
+                wins={wins(d.hesitWorse)} losses={losses(d.hesitWorse)} total={d.hesitWorse.length} pt={pt} />
+            )}
+            {d.chaseProfit.length > 0 && (
+              <StatRow label={pt ? "Perseguiu — lucro" : "Chased — profit"}
+                wins={wins(d.chaseProfit)} losses={losses(d.chaseProfit)} total={d.chaseProfit.length} pt={pt} />
+            )}
+            {d.chaseLoss.length > 0 && (
+              <StatRow label={pt ? "Perseguiu — perda" : "Chased — loss"}
+                wins={wins(d.chaseLoss)} losses={losses(d.chaseLoss)} total={d.chaseLoss.length} pt={pt} />
+            )}
+            <Moral text={
+              pt
+                ? "Comportamento inconsistente não permite aprendizado estruturado. Se funcionar com frequência, considere transformar em um setup."
+                : "Inconsistent behavior prevents structured learning. If it works consistently, consider making it a setup."
+            } />
+          </BehSection>
+        )}
+
+        {/* Stop optimization */}
+        {stopCount > 0 && (
+          <BehSection title={pt ? "Otimização de stop" : "Stop optimization"} count={stopCount}>
+            {d.changedStop.length > 0 && (
+              <>
+                <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-1">{pt ? "Stop alterado" : "Changed stop"}</p>
+                {d.changedWorse.length > 0 && (
+                  <CountRow label={pt ? "→ Resultado pior" : "→ Worse result"} count={d.changedWorse.length} countColor="text-red-400" />
+                )}
+                {d.changedBetter.length > 0 && (
+                  <CountRow label={pt ? "→ Resultado melhor" : "→ Better result"} count={d.changedBetter.length} countColor="text-green-400" />
+                )}
+                {d.changedStop.length >= 3 && (() => {
+                  const bad = d.changedWorse.length, good = d.changedBetter.length;
+                  return (
+                    <Moral highlight={good > bad} text={
+                      good > bad
+                        ? (pt
+                            ? `Em ${d.changedStop.length} alterações de stop, ${good} melhoraram o resultado. Atenção: isso pode criar viés de confirmação — certifique-se que é julgamento, não esperança.`
+                            : `Out of ${d.changedStop.length} stop changes, ${good} improved the result. Watch out: this can build dangerous confirmation bias — make sure it's judgment, not hope.`)
+                        : (pt
+                            ? `Em ${d.changedStop.length} alterações de stop, ${bad} pioraram o resultado. O dado é claro: respeite seu ponto de invalidação.`
+                            : `Out of ${d.changedStop.length} stop changes, ${bad} made things worse. The data is clear: respect your invalidation point.`)
+                    } />
+                  );
+                })()}
+              </>
+            )}
+
+            {d.respStop.length > 0 && (
+              <>
+                <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-3">{pt ? "Stop respeitado" : "Respected stop"}</p>
+                {d.respProtect.length > 0 && (
+                  <CountRow label={pt ? "→ Protegeu de perda pior" : "→ Protected from worse loss"} count={d.respProtect.length} countColor="text-green-400" />
+                )}
+                {d.respReverse.length > 0 && (
+                  <CountRow label={pt ? "→ Preço reverteu (doloroso)" : "→ Price reversed (painful)"} count={d.respReverse.length} countColor="text-amber-400" />
+                )}
+                {d.respStop.length >= 3 && (() => {
+                  const pct = Math.round((d.respProtect.length / d.respStop.length) * 100);
+                  const mostly = d.respProtect.length >= d.respReverse.length;
+                  return (
+                    <Moral highlight={mostly} text={
+                      mostly
+                        ? (pt
+                            ? `Seu stop protegeu de perda pior em ${d.respProtect.length} de ${d.respStop.length} vezes (${pct}%). Ver o preço reverter dói — mas aconteceu em apenas ${100 - pct}% das vezes. Bom gerenciamento de risco.`
+                            : `Your stop protected you from a worse loss ${d.respProtect.length} of ${d.respStop.length} times (${pct}%). Watching price reverse hurts — but that happened only ${100 - pct}% of the time. Good risk management.`)
+                        : (pt
+                            ? `O preço reverteu depois do stop em ${d.respReverse.length} de ${d.respStop.length} vezes. Doloroso — mas o stop impediu uma perda ainda pior?`
+                            : `Price reversed after the stop ${d.respReverse.length} of ${d.respStop.length} times. Painful — but did the stop prevent an even bigger loss?`)
+                    } />
+                  );
+                })()}
+              </>
+            )}
+
+            {d.trailing.length > 0 && (
+              <>
+                <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-3">{pt ? "Stop móvel (trailing)" : "Trailing stop"}</p>
+                {d.trailProtect.length > 0 && (
+                  <CountRow label={pt ? "→ Protegeu — perda menor / lucro garantido" : "→ Protected — smaller loss / locked profit"} count={d.trailProtect.length} countColor="text-green-400" />
+                )}
+                {d.trailTight.length > 0 && (
+                  <CountRow label={pt ? "→ Curto demais — alvo atingido depois" : "→ Too tight — target hit after"} count={d.trailTight.length} countColor="text-amber-400" />
+                )}
+              </>
+            )}
+
+            {d.panic.length > 0 && (
+              <>
+                <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-3">{pt ? "Pânico" : "Panic"}</p>
+                <CountRow label={pt ? "Saída por pânico" : "Panic exit"} count={d.panic.length} countColor="text-red-400" />
+              </>
+            )}
+          </BehSection>
+        )}
+
+        {/* Target optimization */}
+        {targetCount > 0 && (
+          <BehSection title={pt ? "Otimização de alvos" : "Target optimization"} count={targetCount}>
+            {d.tgtNotHit.length > 0 && (
+              <>
+                <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-1">{pt ? "Alvo não atingido" : "Target not hit"}</p>
+                {d.tgtNeverOnside.length > 0 && (
+                  <CountRow label={pt ? "→ Nunca favorável" : "→ Never onside"} count={d.tgtNeverOnside.length} />
+                )}
+                {d.tgtOnsideBE.length > 0 && (
+                  <CountRow label={pt ? "→ Favorável → reverteu ao BE" : "→ Onside → reversed to BE"} count={d.tgtOnsideBE.length} countColor="text-amber-400" />
+                )}
+                {d.tgtOnsideLoss.length > 0 && (
+                  <CountRow label={pt ? "→ Favorável → reverteu à perda" : "→ Onside → reversed to loss"} count={d.tgtOnsideLoss.length} countColor="text-red-400" />
+                )}
+              </>
+            )}
+
+            {d.earlyExit.length > 0 && (
+              <>
+                <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-3">{pt ? "Saída prematura" : "Early exit"}</p>
+                {d.earlyExitHit.length > 0 && (
+                  <CountRow label={pt ? "→ Alvo foi atingido depois" : "→ Target was hit after"} count={d.earlyExitHit.length} countColor="text-amber-400" />
+                )}
+                {d.earlyExitNotHit.length > 0 && (
+                  <CountRow label={pt ? "→ Alvo NÃO foi atingido" : "→ Target NOT hit"} count={d.earlyExitNotHit.length} countColor="text-green-400" />
+                )}
+                {d.earlyExit.length >= 3 && (() => {
+                  const hitPct = Math.round((d.earlyExitHit.length / d.earlyExit.length) * 100);
+                  const costly = d.earlyExitHit.length > d.earlyExit.length / 2;
+                  return (
+                    <Moral highlight={costly} text={
+                      costly
+                        ? (pt
+                            ? `Você saiu antes do alvo ${d.earlyExit.length} vezes — e o alvo foi atingido depois em ${hitPct}% delas. Isso está custando dinheiro. Seu alvo original pode estar mais certo do que você imagina.`
+                            : `You exited early ${d.earlyExit.length} times — and the target was hit after in ${hitPct}% of those. That's costing you money. Your original target may be more right than you think.`)
+                        : (pt
+                            ? `Alvo atingido depois da sua saída em apenas ${hitPct}% dos casos. Suas saídas prematuras podem estar corretas — considere tornar esse ponto o seu alvo real.`
+                            : `Target hit after your exit in only ${hitPct}% of cases. Your early exits may be right — consider making that level your actual target.`)
+                    } />
+                  );
+                })()}
+              </>
+            )}
+
+            {d.lastTarget.length > 0 && (
+              <>
+                <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-3">{pt ? "Último alvo" : "Last target"}</p>
+                {d.lastOptimal.length > 0 && (
+                  <CountRow label={pt ? "→ Saída ótima" : "→ Optimal exit"} count={d.lastOptimal.length} countColor="text-green-400" />
+                )}
+                {d.lastKept.length > 0 && (
+                  <CountRow label={pt ? "→ Preço continuou — deixei dinheiro na mesa" : "→ Price kept going — left money on table"} count={d.lastKept.length} countColor="text-amber-400" />
+                )}
+                {d.lastDelayWorse.length > 0 && (
+                  <CountRow label={pt ? "→ Saída atrasada — resultado pior que o plano" : "→ Delayed exit — worse than plan"} count={d.lastDelayWorse.length} countColor="text-red-400" />
+                )}
+                {d.lastDelayBetter.length > 0 && (
+                  <CountRow label={pt ? "→ Saída atrasada — resultado melhor que o plano" : "→ Delayed exit — better than plan"} count={d.lastDelayBetter.length} countColor="text-green-400" />
+                )}
+                {d.lastKept.length >= 3 && d.lastTarget.length >= 5 && (() => {
+                  const keptPct = Math.round((d.lastKept.length / d.lastTarget.length) * 100);
+                  const frequent = keptPct > 40;
+                  return (
+                    <Moral highlight={frequent} text={
+                      frequent
+                        ? (pt
+                            ? `Preço continuou após o último alvo em ${keptPct}% das operações. Considere adicionar um runner ao seu plano para capturar mais do movimento.`
+                            : `Price kept going after your last target in ${keptPct}% of trades. Consider adding a runner to capture more of the move.`)
+                        : (pt
+                            ? `Preço raramente continuou após o último alvo (${keptPct}%). Bom sinal — seu sizing parece bem calibrado.`
+                            : `Price rarely kept going after your last target (${keptPct}%). Good sign — your sizing seems well calibrated.`)
+                    } />
+                  );
+                })()}
+              </>
+            )}
+
+            {d.multiTarget.length > 0 && (
+              <>
+                <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-3">{pt ? "Múltiplos alvos" : "Multiple targets"}</p>
+                {d.multiAll.length > 0 && (
+                  <CountRow label={pt ? "→ Todos os alvos atingidos" : "→ All targets hit"} count={d.multiAll.length} countColor="text-green-400" />
+                )}
+                {d.multiPartial.length > 0 && (
+                  <CountRow label={pt ? "→ Alvos parcialmente atingidos" : "→ Partial targets hit"} count={d.multiPartial.length} />
+                )}
+              </>
+            )}
+          </BehSection>
+        )}
+
+        {/* Revenge & excesses */}
+        {issueCount > 0 && (
+          <BehSection title={pt ? "Revenge e excessos" : "Revenge & excesses"} count={issueCount}>
+            {[
+              { label: pt ? "Vingança"              : "Revenge",     arr: d.revengeT,     split: d.revengeSplit     },
+              { label: pt ? "Excesso de operações"  : "Overtrading", arr: d.overtradingT, split: d.overtradingSplit },
+              { label: pt ? "Tamanho excessivo"     : "Oversizing",  arr: d.oversizingT,  split: d.oversizingSplit  },
+            ].filter(({ arr }) => arr.length > 0).map(({ label, arr, split }) => (
+              <div key={label} className="border-b border-slate-800 last:border-0 pb-2 mb-2 last:mb-0 last:pb-0">
+                <div className="flex justify-between py-1.5">
+                  <span className="text-sm text-slate-300">{label}</span>
+                  <span className="text-sm text-red-400 font-bold">{arr.length}×</span>
+                </div>
+                {(split.trusted.length > 0 || split.random.length > 0) && (
+                  <div className="pl-4 space-y-1">
+                    {split.trusted.length > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">{pt ? "↳ Setup testado" : "↳ Trusted setup"}</span>
+                        <span className="text-slate-400">
+                          {wins(split.trusted)}W · {losses(split.trusted)}L{wr(split.trusted) !== null ? ` · ${wr(split.trusted)}%` : ""}
+                        </span>
+                      </div>
+                    )}
+                    {split.random.length > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-amber-700">{pt ? "↳ Aleatória" : "↳ Random"}</span>
+                        <span className="text-amber-700">{split.random.length}× — {pt ? "sem aprendizado" : "no learning"}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+            {d.full.length >= 3 && wr(d.full) !== null && (
+              <Moral highlight text={
+                pt
+                  ? `Seu setup testado tem ${wr(d.full)}% de acerto (${d.full.length} operações). Esse é o caminho mais rápido para recuperar — não tentar "salvar" trades ruins.`
+                  : `Your trusted setup has a ${wr(d.full)}% win rate (${d.full.length} trades). That's your fastest way to recover — not trying to "save" bad trades.`
+              } />
+            )}
+          </BehSection>
+        )}
+
       </div>
-      <div className="flex justify-end">
-        <button onClick={fetchReport} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">↻ {pt ? "Regenerar" : "Regenerate"}</button>
-      </div>
-      <div className="p-4 rounded-xl border border-slate-700 bg-slate-900/50">
+
+      <div className="mt-6 p-4 rounded-xl border border-slate-700 bg-slate-900/50">
         <p className="text-xs text-slate-500 leading-relaxed">{pt ? UNIVERSAL_REMINDER.pt : UNIVERSAL_REMINDER.en}</p>
       </div>
+    </div>
+  );
+}
+
+// ── Tab 3: Setups ─────────────────────────────────────────────────────────────
+
+const VARIANT_BADGE = {
+  a: "bg-blue-900/60 text-blue-300",
+  b: "bg-purple-900/60 text-purple-300",
+  c: "bg-green-900/60 text-green-300",
+  d: "bg-amber-900/60 text-amber-300",
+  e: "bg-rose-900/60 text-rose-300",
+};
+
+function SetupCard({ data, pt, wins, losses, wr }) {
+  const { setup, trades, w, l, be, rate, freq, setupPnl, pnlCount, condStats } = data;
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+      <button onClick={() => setOpen(v => !v)} className="w-full px-4 py-4 text-left">
+        <div className="flex items-start justify-between">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-slate-200 leading-snug">{setup.name}</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {trades.length} {pt ? "op" : "trades"} · {freq}% {pt ? "do total" : "of all trades"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2.5 flex-shrink-0 ml-3">
+            <span className="text-xs text-slate-500 tabular-nums">{w}W · {l}L{be > 0 ? ` · ${be}BE` : ""}</span>
+            {rate !== null && (
+              <span className={`text-sm font-bold ${rate >= 50 ? "text-green-400" : "text-red-400"}`}>{rate}%</span>
+            )}
+            <span className="text-xs text-slate-600">{open ? "▲" : "▼"}</span>
+          </div>
+        </div>
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-800 px-4 pb-5">
+          {/* P&L */}
+          {pnlCount > 0 && (
+            <div className="flex justify-between py-3 border-b border-slate-800 mb-3">
+              <span className="text-xs text-slate-500">P&L ({pnlCount} {pt ? "op" : "trades"})</span>
+              <span className={`text-sm font-bold ${setupPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                {setupPnl >= 0 ? "+" : ""}{setupPnl.toFixed(2)}
+              </span>
+            </div>
+          )}
+
+          {/* Conditions */}
+          {condStats.length > 0 ? (
+            condStats.map(({ cond, trades: condTrades, varStats }) => {
+              const naCount = condTrades.length - varStats.reduce((s, v) => s + v.trades.length, 0);
+              return (
+                <div key={cond.id} className="mt-4 first:mt-2">
+                  <p className="text-xs text-slate-500 mb-2 leading-snug">{cond.text}</p>
+                  <div className="space-y-1.5">
+                    {varStats.map(({ variant, trades: vt, w: vw, l: vl, rate: vrate }) => (
+                      <div key={variant.id} className="flex items-center gap-2">
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${VARIANT_BADGE[variant.id?.toLowerCase()] || "bg-slate-800 text-slate-300"}`}>
+                          {variant.label || variant.id?.toUpperCase()}
+                        </span>
+                        {vt.length > 0 ? (
+                          <>
+                            <span className="text-xs text-slate-500 tabular-nums">{vt.length}× · {vw}W · {vl}L</span>
+                            {vrate !== null && (
+                              <span className={`text-xs font-bold ${vrate >= 50 ? "text-green-400" : "text-red-400"}`}>{vrate}%</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-xs text-slate-700">0×</span>
+                        )}
+                      </div>
+                    ))}
+                    {naCount > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-slate-800 text-slate-600">N/A</span>
+                        <span className="text-xs text-slate-700">{naCount}×</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <p className="text-xs text-slate-600 pt-3">{pt ? "Sem condições definidas neste setup." : "No conditions defined for this setup."}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SetupTab({ d, pt }) {
+  if (d.setupStats.length === 0) {
+    return (
+      <div className="text-center py-16 px-6">
+        <p className="text-slate-400 text-sm">
+          {pt ? "Nenhum setup com operações registradas ainda." : "No setups with logged trades yet."}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 pb-8">
+      {d.setupStats.map(data => (
+        <SetupCard key={data.setup.id} data={data} pt={pt} wins={d.wins} losses={d.losses} wr={d.wr} />
+      ))}
     </div>
   );
 }
@@ -691,12 +902,12 @@ function AIReport({ token, lang, totalTrades }) {
 
 export default function ReportsPage() {
   const router = useRouter();
-  const [lang] = useState(() => getLang());
-  const [token, setToken] = useState(null);
+  const [lang]   = useState(() => getLang());
+  const [token,  setToken]  = useState(null);
   const [trades, setTrades] = useState([]);
   const [setups, setSetups] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("behavioral");
+  const [tab, setTab] = useState("raw");
   const pt = lang === "pt";
 
   useEffect(() => {
@@ -706,7 +917,7 @@ export default function ReportsPage() {
       setToken(session.access_token);
       try {
         const [tradesRes, setupsRes] = await Promise.all([
-          fetch("/api/journal", { headers: { Authorization: `Bearer ${session.access_token}` } }),
+          fetch("/api/journal",        { headers: { Authorization: `Bearer ${session.access_token}` } }),
           fetch("/api/journal/setups", { headers: { Authorization: `Bearer ${session.access_token}` } }),
         ]);
         const tradesData = await tradesRes.json();
@@ -714,10 +925,18 @@ export default function ReportsPage() {
         setTrades(Array.isArray(tradesData) ? tradesData : (tradesData.entries || []));
         setSetups(Array.isArray(setupsData) ? setupsData : []);
       } catch { setTrades([]); }
-      finally { setLoading(false); }
+      finally  { setLoading(false); }
     }
     load();
   }, []);
+
+  const d = !loading ? computeData(trades, setups) : null;
+
+  const tabs = [
+    { id: "raw",         en: "Raw Data",    pt: "Dados brutos"    },
+    { id: "behavioural", en: "Behavioural", pt: "Comportamental"  },
+    { id: "setups",      en: "Setups",      pt: "Setups"          },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -731,25 +950,33 @@ export default function ReportsPage() {
         </div>
       </header>
 
-      <main className="max-w-xl mx-auto px-6 py-8">
-        <div className="flex gap-1 p-1 rounded-xl bg-slate-900 border border-slate-800 mb-8">
-          {[
-            { id: "behavioral", en: "Behavioral", pt: "Comportamental" },
-            { id: "ai",         en: "AI Summary", pt: "Síntese IA"     },
-          ].map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+      <main className="max-w-xl mx-auto px-6 py-6">
+        {/* Tab nav */}
+        <div className="flex gap-1 p-1 rounded-xl bg-slate-900 border border-slate-800 mb-6">
+          {tabs.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
                 tab === t.id ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
-              }`}>
+              }`}
+            >
               {pt ? t.pt : t.en}
             </button>
           ))}
         </div>
 
-        {loading ? <LoadingSpinner /> :
-          tab === "behavioral"
-            ? <BehavioralReport trades={trades} setups={setups} lang={lang} />
-            : <AIReport token={token} lang={lang} totalTrades={trades.length} />
+        {loading ? (
+          <LoadingSpinner />
+        ) : d.total === 0 ? (
+          <div className="text-center py-16 px-6">
+            <p className="text-3xl mb-3">📊</p>
+            <p className="text-slate-300 font-medium mb-2">{pt ? "Nenhuma operação registrada" : "No trades logged yet"}</p>
+            <p className="text-sm text-slate-500">{pt ? "Registre sua primeira operação para ver os relatórios." : "Log your first trade to see reports."}</p>
+          </div>
+        ) : tab === "raw"         ? <RawDataTab      d={d} pt={pt} />
+          : tab === "behavioural" ? <BehaviouralTab   d={d} pt={pt} />
+          :                         <SetupTab          d={d} pt={pt} />
         }
       </main>
     </div>
