@@ -171,10 +171,8 @@ export default function NewTradePage() {
   }
 
   function canAdvanceFromOutcome() {
-    if (Object.keys(tradeOutcomeSelections).length === 0) return false;
-    return Object.entries(tradeOutcomeSelections).every(([type, detail]) =>
-      type === "panic_exit" || detail !== null
-    );
+    // Continue as soon as at least one outcome is selected — sub-options are optional context
+    return Object.keys(tradeOutcomeSelections).length > 0;
   }
 
   // ── Conditions helpers ────────────────────────────────────────────────────

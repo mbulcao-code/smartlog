@@ -56,8 +56,9 @@ function SetupDetailContent() {
   const [editStopInitial, setEditStopInitial] = useState("");
   const [editStopRules, setEditStopRules] = useState([]);
   const [editProfitTargets, setEditProfitTargets] = useState([]);
-  const [lockedConditionIds, setLockedConditionIds] = useState(new Set());
-  const [lockedMessage, setLockedMessage] = useState(null);
+  // IDs of conditions that existed when we entered edit mode (texts are locked if hasTradeHistory)
+  const [originalConditionIds, setOriginalConditionIds] = useState(new Set());
+  const [showLockMsg, setShowLockMsg] = useState(null); // condId that triggered lock msg
   const [saving, setSaving] = useState(false);
 
   // Delete state
@@ -89,18 +90,18 @@ function SetupDetailContent() {
   }, [params.id]);
 
   function enterEditMode() {
+    const conditions = (setup.conditions || []).map((c) => ({
+      ...c,
+      variants: c.variants?.length > 0
+        ? c.variants.map((v) => ({ ...v }))
+        : [
+            { id: uid(), label: "A", description: c.variantA || "" },
+            { id: uid(), label: "B", description: c.variantB || "" },
+          ],
+    }));
     setEditName(setup.name);
-    setEditConditions(
-      (setup.conditions || []).map((c) => ({
-        ...c,
-        variants: c.variants?.length > 0
-          ? c.variants.map((v) => ({ ...v }))
-          : [
-              { id: uid(), label: "A", description: c.variantA || "" },
-              { id: uid(), label: "B", description: c.variantB || "" },
-            ],
-      }))
-    );
+    setEditConditions(conditions);
+    setOriginalConditionIds(new Set(conditions.map((c) => c.id)));
     const sc = setup.stop_config || {};
     setEditStopInitial(sc.initial || setup.stop_strategy || "");
     setEditStopRules(sc.rules || []);
@@ -110,12 +111,32 @@ function SetupDetailContent() {
         ? pc.targets.map((t) => ({ ...t, id: t.id || uid() }))
         : [{ id: uid(), size: "", description: "", isRunner: false }]
     );
-    setLockedConditionIds(new Set());
-    setLockedMessage(null);
+    setShowLockMsg(null);
     setEditing(true);
   }
 
-  // ── Condition editing helpers ─────────────────────────────────────────────
+  // ── Condition helpers ─────────────────────────────────────────────────────
+
+  function addCondition() {
+    const newId = uid();
+    setEditConditions((prev) => [
+      ...prev,
+      { id: newId, text: "", variants: [
+        { id: uid(), label: "A", description: "" },
+        { id: uid(), label: "B", description: "" },
+      ]},
+    ]);
+  }
+
+  function updateConditionText(condId, value) {
+    setEditConditions((prev) =>
+      prev.map((c) => (c.id === condId ? { ...c, text: value } : c))
+    );
+  }
+
+  function removeCondition(condId) {
+    setEditConditions((prev) => prev.filter((c) => c.id !== condId));
+  }
 
   function addVariantToCondition(condId) {
     setEditConditions((prev) =>
@@ -123,10 +144,7 @@ function SetupDetailContent() {
         if (c.id !== condId) return c;
         if (c.variants.length >= 5) return c;
         const nextLabel = VARIANT_LABELS[c.variants.length];
-        return {
-          ...c,
-          variants: [...c.variants, { id: uid(), label: nextLabel, description: "" }],
-        };
+        return { ...c, variants: [...c.variants, { id: uid(), label: nextLabel, description: "" }] };
       })
     );
   }
@@ -135,12 +153,7 @@ function SetupDetailContent() {
     setEditConditions((prev) =>
       prev.map((c) => {
         if (c.id !== condId) return c;
-        return {
-          ...c,
-          variants: c.variants.map((v) =>
-            v.id === variantId ? { ...v, description: value } : v
-          ),
-        };
+        return { ...c, variants: c.variants.map((v) => v.id === variantId ? { ...v, description: value } : v) };
       })
     );
   }
@@ -150,34 +163,33 @@ function SetupDetailContent() {
       prev.map((c) => {
         if (c.id !== condId) return c;
         const filtered = c.variants.filter((v) => v.id !== variantId);
-        // Re-label A, B, C…
-        return {
-          ...c,
-          variants: filtered.map((v, i) => ({ ...v, label: VARIANT_LABELS[i] })),
-        };
+        return { ...c, variants: filtered.map((v, i) => ({ ...v, label: VARIANT_LABELS[i] })) };
       })
     );
   }
 
-  function tryEditConditionText(condId) {
-    setLockedConditionIds((prev) => new Set([...prev, condId]));
-    setLockedMessage(condId);
+  // Is this condition text editable? Yes if:
+  // - setup has no trade history, OR
+  // - condition was added new in this edit session (not in originalConditionIds)
+  function isConditionTextEditable(condId) {
+    if (!setup.hasTradeHistory) return true;
+    return !originalConditionIds.has(condId);
+  }
+
+  // Can this condition be deleted?
+  function isConditionDeletable(condId) {
+    if (!setup.hasTradeHistory) return true;
+    return !originalConditionIds.has(condId);
   }
 
   // ── Stop rule helpers ─────────────────────────────────────────────────────
 
   function updateStopRule(index, value) {
-    setEditStopRules((prev) => {
-      const next = [...prev];
-      next[index] = value;
-      return next;
-    });
+    setEditStopRules((prev) => { const next = [...prev]; next[index] = value; return next; });
   }
-
   function addStopRule() {
     if (editStopRules.length < 2) setEditStopRules((prev) => [...prev, ""]);
   }
-
   function removeStopRule(index) {
     setEditStopRules((prev) => prev.filter((_, i) => i !== index));
   }
@@ -185,25 +197,17 @@ function SetupDetailContent() {
   // ── Profit target helpers ─────────────────────────────────────────────────
 
   function updateTarget(id, field, value) {
-    setEditProfitTargets((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, [field]: value } : t))
-    );
+    setEditProfitTargets((prev) => prev.map((t) => t.id === id ? { ...t, [field]: value } : t));
   }
-
   function addTarget() {
-    if (editProfitTargets.length < 3) {
-      setEditProfitTargets((prev) => [
-        ...prev,
-        { id: uid(), size: "", description: "", isRunner: false },
-      ]);
-    }
+    if (editProfitTargets.length < 3)
+      setEditProfitTargets((prev) => [...prev, { id: uid(), size: "", description: "", isRunner: false }]);
   }
-
   function removeTarget(id) {
     setEditProfitTargets((prev) => prev.filter((t) => t.id !== id));
   }
 
-  // ── Save edit ─────────────────────────────────────────────────────────────
+  // ── Save ──────────────────────────────────────────────────────────────────
 
   async function handleSave() {
     if (saving) return;
@@ -211,36 +215,31 @@ function SetupDetailContent() {
     try {
       const res = await fetch(`/api/journal/setups/${params.id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           name: editName,
           conditions: editConditions,
-          stop_config: {
-            initial: editStopInitial.trim(),
-            rules: editStopRules.filter(Boolean),
-          },
+          stop_config: { initial: editStopInitial.trim(), rules: editStopRules.filter(Boolean) },
           profit_config: {
             targets: editProfitTargets.map((t, i) => ({
-              label: `T${i + 1}`,
-              size: t.size,
-              description: t.description,
-              isRunner: t.isRunner,
+              label: `T${i + 1}`, size: t.size, description: t.description, isRunner: t.isRunner,
             })),
           },
         }),
       });
       const data = await res.json();
       if (data.error === "condition_text_locked") {
-        setLockedConditionIds((prev) => new Set([...prev, data.lockedConditionId]));
-        setLockedMessage(data.lockedConditionId);
+        setShowLockMsg(data.lockedConditionId);
         setSaving(false);
         return;
       }
       if (data.error) throw new Error(data.error);
-      setSetup(data.setup);
+      // Refresh setup with updated tradeCount
+      const refreshRes = await fetch(`/api/journal/setups/${params.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const refreshed = await refreshRes.json();
+      setSetup(refreshed);
       setEditing(false);
     } catch (e) {
       alert(pt ? "Erro ao salvar. Tente novamente." : "Failed to save. Try again.");
@@ -296,7 +295,7 @@ function SetupDetailContent() {
             <button onClick={() => router.push("/journal")} className="text-slate-400 hover:text-white text-sm transition-colors">
               ← {pt ? "Diário" : "Journal"}
             </button>
-            <span className="text-sm font-medium text-slate-300">{pt ? "Setup" : "Setup"}</span>
+            <span className="text-sm font-medium text-slate-300">Setup</span>
             <button
               onClick={enterEditMode}
               className="text-xs px-3 py-1.5 rounded-full border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white transition-colors"
@@ -308,8 +307,17 @@ function SetupDetailContent() {
 
         <main className="max-w-xl mx-auto px-6 py-8">
 
-          {/* Name */}
-          <h1 className="text-2xl font-bold text-white mb-8">{setup.name}</h1>
+          {/* Name + trade count */}
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-white">{setup.name}</h1>
+            {setup.tradeCount > 0 && (
+              <p className="text-xs text-slate-500 mt-1">
+                {pt
+                  ? `Usado em ${setup.tradeCount} operação${setup.tradeCount !== 1 ? "ões" : ""}`
+                  : `Used in ${setup.tradeCount} trade${setup.tradeCount !== 1 ? "s" : ""}`}
+              </p>
+            )}
+          </div>
 
           {/* Conditions */}
           {setup.conditions?.length > 0 && (
@@ -349,9 +357,7 @@ function SetupDetailContent() {
           {/* Stop strategy */}
           {(stopConfig.initial || setup.stop_strategy) && (
             <div className="mb-6">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">
-                {pt ? "Stop" : "Stop"}
-              </p>
+              <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">Stop</p>
               <div className="p-4 rounded-xl border border-slate-800 bg-slate-900">
                 <p className="text-sm text-slate-200">{stopConfig.initial || setup.stop_strategy}</p>
                 {stopConfig.rules?.map((rule, i) => (
@@ -411,9 +417,13 @@ function SetupDetailContent() {
                 {pt ? "Excluir setup?" : "Delete setup?"}
               </h3>
               <p className="text-sm text-slate-400 mb-6">
-                {pt
-                  ? "As operações já registradas com este setup não serão apagadas, mas perderão o vínculo com ele."
-                  : "Trades already logged with this setup won't be deleted, but they'll lose their link to it."}
+                {setup.tradeCount > 0
+                  ? (pt
+                      ? `As ${setup.tradeCount} operações registradas com este setup não serão apagadas, mas perderão o vínculo.`
+                      : `The ${setup.tradeCount} trades logged with this setup won't be deleted, but they'll lose their link to it.`)
+                  : (pt
+                      ? "Esta ação não pode ser desfeita."
+                      : "This action cannot be undone.")}
               </p>
               <div className="flex gap-3">
                 <button
@@ -444,7 +454,7 @@ function SetupDetailContent() {
       <header className="px-6 py-5 border-b border-slate-800">
         <div className="max-w-xl mx-auto flex items-center justify-between">
           <button
-            onClick={() => { setEditing(false); setLockedMessage(null); }}
+            onClick={() => { setEditing(false); setShowLockMsg(null); }}
             className="text-slate-400 hover:text-white text-sm transition-colors"
           >
             {pt ? "Cancelar" : "Cancel"}
@@ -462,6 +472,17 @@ function SetupDetailContent() {
 
       <main className="max-w-xl mx-auto px-6 py-8">
 
+        {/* Trade history notice */}
+        {setup.hasTradeHistory && (
+          <div className="mb-6 p-3 rounded-xl border border-amber-500/20 bg-amber-950/10">
+            <p className="text-xs text-amber-400/80 leading-relaxed">
+              {pt
+                ? `Este setup tem ${setup.tradeCount} operação${setup.tradeCount !== 1 ? "ões" : ""} registrada${setup.tradeCount !== 1 ? "s" : ""}. Os textos das condições existentes estão bloqueados para preservar o histórico. Você pode editar variantes, adicionar novas condições e editar stop/alvos.`
+                : `This setup has ${setup.tradeCount} trade${setup.tradeCount !== 1 ? "s" : ""} logged. Existing condition texts are locked to preserve history. You can edit variants, add new conditions, and edit stop/targets.`}
+            </p>
+          </div>
+        )}
+
         {/* Name */}
         <div className="mb-6">
           <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">
@@ -475,77 +496,114 @@ function SetupDetailContent() {
           />
         </div>
 
-        {/* Conditions — text locked, variants editable */}
+        {/* Conditions */}
         <div className="mb-6">
           <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">
             {pt ? "Condições" : "Conditions"}
           </p>
 
           <div className="flex flex-col gap-5">
-            {editConditions.map((cond) => (
-              <div key={cond.id} className="p-4 rounded-xl border border-slate-800 bg-slate-900">
+            {editConditions.map((cond) => {
+              const textEditable = isConditionTextEditable(cond.id);
+              const deletable    = isConditionDeletable(cond.id);
+              const isLocked     = !textEditable;
 
-                {/* Condition text — locked */}
-                <div className="flex items-start gap-2 mb-3">
-                  <p className="text-sm text-slate-300 flex-1 leading-snug">{cond.text}</p>
-                  <button
-                    onClick={() => tryEditConditionText(cond.id)}
-                    className="flex-shrink-0 text-slate-600 hover:text-slate-400 transition-colors"
-                    title={pt ? "Condição bloqueada" : "Condition locked"}
-                  >
-                    🔒
-                  </button>
-                </div>
+              return (
+                <div key={cond.id} className={`p-4 rounded-xl border bg-slate-900 ${isLocked ? "border-slate-800" : "border-blue-500/20"}`}>
 
-                {/* Locked message */}
-                {lockedMessage === cond.id && (
-                  <div className="mb-3 p-3 rounded-lg bg-amber-950/30 border border-amber-500/20">
-                    <p className="text-xs text-amber-400 leading-relaxed">
-                      {pt
-                        ? "Comprometer-se com as condições tempo suficiente é essencial para aprendizado significativo. Você pode adicionar variantes, mas para alterar as condições, crie um novo setup com outro nome."
-                        : "Committing to your conditions long enough is essential for meaningful learning. You can add variants, but to change conditions, create a new setup under a different name."}
-                    </p>
+                  {/* Condition text */}
+                  <div className="flex items-start gap-2 mb-3">
+                    {textEditable ? (
+                      <textarea
+                        value={cond.text}
+                        onChange={(e) => updateConditionText(cond.id, e.target.value)}
+                        placeholder={pt ? "Descreva a condição..." : "Describe the condition..."}
+                        rows={2}
+                        className="flex-1 px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none text-sm resize-none"
+                      />
+                    ) : (
+                      <p className="text-sm text-slate-300 flex-1 leading-snug">{cond.text}</p>
+                    )}
+                    <div className="flex flex-col gap-1 flex-shrink-0">
+                      {isLocked && (
+                        <button
+                          onClick={() => setShowLockMsg(showLockMsg === cond.id ? null : cond.id)}
+                          className="text-slate-600 hover:text-amber-400 transition-colors text-base leading-none"
+                          title={pt ? "Condição bloqueada" : "Condition locked"}
+                        >
+                          🔒
+                        </button>
+                      )}
+                      {deletable && (
+                        <button
+                          onClick={() => removeCondition(cond.id)}
+                          className="text-slate-600 hover:text-red-400 transition-colors text-sm leading-none"
+                          title={pt ? "Remover condição" : "Remove condition"}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
                   </div>
-                )}
 
-                {/* Variants */}
-                <div className="flex flex-col gap-2">
-                  {cond.variants.map((v) => {
-                    const col = VARIANT_COLORS[v.label] || VARIANT_COLORS.A;
-                    return (
-                      <div key={v.id} className="flex items-center gap-2">
-                        <span className={`text-xs font-bold w-5 flex-shrink-0 ${col.text}`}>{v.label}</span>
-                        <input
-                          type="text"
-                          value={v.description}
-                          onChange={(e) => updateVariantDescription(cond.id, v.id, e.target.value)}
-                          placeholder={pt ? "Descrição..." : "Description..."}
-                          className="flex-1 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none text-xs"
-                        />
-                        {cond.variants.length > 2 && (
-                          <button
-                            onClick={() => removeVariant(cond.id, v.id)}
-                            className="text-slate-600 hover:text-red-400 transition-colors text-sm"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {/* Lock message */}
+                  {showLockMsg === cond.id && (
+                    <div className="mb-3 p-3 rounded-lg bg-amber-950/30 border border-amber-500/20">
+                      <p className="text-xs text-amber-400 leading-relaxed">
+                        {pt
+                          ? "Manter as condições estáveis por tempo suficiente é essencial para aprendizado real. Para alterar o texto, crie um novo setup. Você pode adicionar novas variantes ou condições."
+                          : "Keeping conditions stable long enough is essential for real learning. To change the text, create a new setup. You can add new variants or conditions."}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Variants */}
+                  <div className="flex flex-col gap-2">
+                    {cond.variants.map((v) => {
+                      const col = VARIANT_COLORS[v.label] || VARIANT_COLORS.A;
+                      return (
+                        <div key={v.id} className="flex items-center gap-2">
+                          <span className={`text-xs font-bold w-5 flex-shrink-0 ${col.text}`}>{v.label}</span>
+                          <input
+                            type="text"
+                            value={v.description}
+                            onChange={(e) => updateVariantDescription(cond.id, v.id, e.target.value)}
+                            placeholder={pt ? "Descrição..." : "Description..."}
+                            className="flex-1 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none text-xs"
+                          />
+                          {cond.variants.length > 2 && (
+                            <button
+                              onClick={() => removeVariant(cond.id, v.id)}
+                              className="text-slate-600 hover:text-red-400 transition-colors text-sm"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {cond.variants.length < 5 && (
+                    <button
+                      onClick={() => addVariantToCondition(cond.id)}
+                      className="mt-2 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                      + {pt ? "Adicionar variante" : "Add variant"}
+                    </button>
+                  )}
                 </div>
-
-                {cond.variants.length < 5 && (
-                  <button
-                    onClick={() => addVariantToCondition(cond.id)}
-                    className="mt-2 text-xs text-blue-400 hover:text-blue-300 transition-colors"
-                  >
-                    + {pt ? "Adicionar variante" : "Add variant"}
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
+
+          {/* Add new condition */}
+          <button
+            onClick={addCondition}
+            className="mt-3 w-full py-2.5 rounded-xl border border-dashed border-slate-700 hover:border-blue-500 text-slate-500 hover:text-blue-400 text-sm transition-colors"
+          >
+            + {pt ? "Adicionar condição" : "Add condition"}
+          </button>
         </div>
 
         {/* Stop strategy */}

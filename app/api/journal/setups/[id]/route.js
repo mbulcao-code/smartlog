@@ -22,16 +22,23 @@ export async function GET(request, context) {
     const { user, error: authError } = await authenticate(request);
     if (authError) return Response.json({ error: authError }, { status: 401 });
 
-    const { data, error } = await supabase
-      .from("journal_setups")
-      .select("*")
-      .eq("id", id)
-      .eq("user_id", user.id)
-      .single();
+    const [{ data, error }, { count }] = await Promise.all([
+      supabase
+        .from("journal_setups")
+        .select("*")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .single(),
+      supabase
+        .from("trade_journal")
+        .select("id", { count: "exact", head: true })
+        .eq("setup_id", id)
+        .eq("user_id", user.id),
+    ]);
 
     if (error) throw error;
     if (!data) return Response.json({ error: "Not found" }, { status: 404 });
-    return Response.json(data);
+    return Response.json({ ...data, tradeCount: count || 0, hasTradeHistory: (count || 0) > 0 });
   } catch (err) {
     console.error("Setup GET error:", err);
     return Response.json({ error: err.message }, { status: 500 });

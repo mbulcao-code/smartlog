@@ -459,10 +459,8 @@ function TradeDetailContent() {
     if (!editEntryCategory) return false;
     if (editEntryCategory === "early" && editLevelMetAfter === null) return false;
     if (editEntryCategory === "late" && !editEntryType) return false;
-    if (Object.keys(editOutcomeSelections).length === 0) return false;
-    return Object.entries(editOutcomeSelections).every(([type, detail]) =>
-      type === "panic_exit" || type === "no_stop" || detail !== null
-    );
+    // At least one outcome selected — sub-options are optional context
+    return Object.keys(editOutcomeSelections).length > 0;
   }
 
   function saveNotes() {
