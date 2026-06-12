@@ -53,6 +53,8 @@ export async function POST(request) {
       pain_types, behaviors, after_trade,
       // New v2 field
       pnl,
+      // New v3 fields
+      live_paper, instrument_type,
     } = body;
 
     if (!outcome) {
@@ -88,7 +90,9 @@ export async function POST(request) {
         exit_price:     exit_price ?? null,
         conditions_met: conditions_met || [],
         variant_used:   variant_used || null,
-        pnl:            pnl !== undefined && pnl !== "" ? parseFloat(pnl) : null,
+        pnl:             pnl !== undefined && pnl !== "" ? parseFloat(pnl) : null,
+        live_paper:      live_paper      || null,
+        instrument_type: instrument_type || null,
       })
       .select()
       .single();

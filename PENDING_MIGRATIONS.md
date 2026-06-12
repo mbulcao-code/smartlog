@@ -11,6 +11,10 @@ ALTER TABLE trade_journal ADD COLUMN IF NOT EXISTS pnl NUMERIC;
 -- Trade journal: multi-select outcomes array (May 25)
 ALTER TABLE trade_journal ADD COLUMN IF NOT EXISTS trade_outcomes JSONB DEFAULT '[]'::jsonb;
 
+-- Trade journal: live/paper flag + instrument type (June 12)
+ALTER TABLE trade_journal ADD COLUMN IF NOT EXISTS live_paper TEXT;
+ALTER TABLE trade_journal ADD COLUMN IF NOT EXISTS instrument_type TEXT;
+
 -- Journal setups: structured stop + profit configs (May 23)
 ALTER TABLE journal_setups ADD COLUMN IF NOT EXISTS stop_config JSONB DEFAULT '{}'::jsonb;
 ALTER TABLE journal_setups ADD COLUMN IF NOT EXISTS profit_config JSONB DEFAULT '{}'::jsonb;

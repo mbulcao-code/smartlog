@@ -242,10 +242,12 @@ function TradeDetailContent() {
   const [saving, setSaving] = useState(false);
 
   // ── Trade info edit state ─────────────────────────────────────────────────
-  const [editSetupId,    setEditSetupId]    = useState(null);
-  const [editDirection,  setEditDirection]  = useState(null);
-  const [editTradeDate,  setEditTradeDate]  = useState("");
-  const [editInstrument, setEditInstrument] = useState("");
+  const [editSetupId,        setEditSetupId]        = useState(null);
+  const [editDirection,      setEditDirection]      = useState(null);
+  const [editTradeDate,      setEditTradeDate]      = useState("");
+  const [editInstrument,     setEditInstrument]     = useState("");
+  const [editLivePaper,      setEditLivePaper]      = useState(null);
+  const [editInstrumentType, setEditInstrumentType] = useState(null);
 
   // ── Outcome + P&L edit state ──────────────────────────────────────────────
   const [editOutcome, setEditOutcome] = useState(null);
@@ -365,6 +367,8 @@ function TradeDetailContent() {
     setEditDirection(entry.direction || null);
     setEditTradeDate(entry.trade_date || "");
     setEditInstrument(entry.instrument || "");
+    setEditLivePaper(entry.live_paper || null);
+    setEditInstrumentType(entry.instrument_type || null);
     setActiveModal("trade_info");
   }
 
@@ -418,10 +422,12 @@ function TradeDetailContent() {
 
   function saveTradeInfo() {
     saveField({
-      setup_id:   editSetupId,
-      direction:  editDirection,
-      trade_date: editTradeDate || null,
-      instrument: editInstrument,
+      setup_id:        editSetupId,
+      direction:       editDirection,
+      trade_date:      editTradeDate || null,
+      instrument:      editInstrument,
+      live_paper:      editLivePaper      || null,
+      instrument_type: editInstrumentType || null,
     });
   }
 
@@ -644,6 +650,27 @@ function TradeDetailContent() {
               <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
                 <span className="text-xs text-slate-500">{pt ? "Ativo" : "Instrument"}</span>
                 <span className="text-sm text-slate-200">{entry.instrument}</span>
+              </div>
+            )}
+            {/* Instrument type */}
+            {entry.instrument_type && (
+              <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+                <span className="text-xs text-slate-500">{pt ? "Tipo" : "Type"}</span>
+                <span className="text-sm text-slate-300 capitalize">
+                  {entry.instrument_type === "options" ? (pt ? "Opções" : "Options")
+                    : entry.instrument_type === "futures" ? (pt ? "Futuros" : "Futures")
+                    : entry.instrument_type === "other" ? (pt ? "Outro" : "Other")
+                    : "Spot"}
+                </span>
+              </div>
+            )}
+            {/* Live / Paper */}
+            {entry.live_paper && (
+              <div className="flex items-baseline justify-between py-2 border-b border-slate-800">
+                <span className="text-xs text-slate-500">Live / Paper</span>
+                <span className={`text-sm font-medium ${entry.live_paper === "live" ? "text-green-400" : "text-slate-400"}`}>
+                  {entry.live_paper === "live" ? "🟢 Live" : "📄 Paper"}
+                </span>
               </div>
             )}
             {/* Date */}
@@ -1021,7 +1048,38 @@ function TradeDetailContent() {
         <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Ativo (opcional)" : "Instrument (optional)"}</p>
         <input type="text" value={editInstrument} onChange={e => setEditInstrument(e.target.value)}
           placeholder={pt ? "ex: NQ, ES, PETR4" : "e.g. NQ, ES, AAPL"}
-          className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none text-sm" />
+          className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none text-sm mb-4" />
+
+        {/* Live / Paper */}
+        <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Live / Paper — {pt ? "opcional" : "optional"}</p>
+        <div className="flex gap-2 mb-4">
+          {[{ v: "live", l: "🟢 Live" }, { v: "paper", l: "📄 Paper" }].map(o => (
+            <button key={o.v} onClick={() => setEditLivePaper(editLivePaper === o.v ? null : o.v)}
+              className={`flex-1 py-2.5 rounded-xl border text-sm transition-colors ${
+                editLivePaper === o.v
+                  ? "border-blue-500 bg-blue-950/30 text-blue-200"
+                  : "border-slate-700 text-slate-400 hover:border-slate-500"
+              }`}>{o.l}</button>
+          ))}
+        </div>
+
+        {/* Instrument type */}
+        <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{pt ? "Tipo (opcional)" : "Type (optional)"}</p>
+        <div className="grid grid-cols-4 gap-1.5">
+          {[
+            { v: "spot",    l: "Spot" },
+            { v: "options", l: pt ? "Opções" : "Options" },
+            { v: "futures", l: pt ? "Futuros" : "Futures" },
+            { v: "other",   l: pt ? "Outro" : "Other" },
+          ].map(o => (
+            <button key={o.v} onClick={() => setEditInstrumentType(editInstrumentType === o.v ? null : o.v)}
+              className={`py-2 rounded-xl border text-xs transition-colors ${
+                editInstrumentType === o.v
+                  ? "border-blue-500 bg-blue-950/30 text-blue-200"
+                  : "border-slate-700 text-slate-400 hover:border-slate-500"
+              }`}>{o.l}</button>
+          ))}
+        </div>
 
         <SaveBtn onSave={saveTradeInfo} saving={saving} disabled={!editDirection} pt={pt} />
       </BottomSheet>

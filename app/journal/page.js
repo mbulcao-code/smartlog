@@ -150,6 +150,8 @@ function JournalContent() {
   const [setupCreated, setSetupCreated] = useState(false);
   const [setupDeleted, setSetupDeleted] = useState(false);
   const [tradeLogged, setTradeLogged] = useState(false);
+  const [deletingSetupId, setDeletingSetupId] = useState(null);
+  const [confirmDeleteSetupId, setConfirmDeleteSetupId] = useState(null);
 
   const pt = lang === "pt";
 
@@ -217,6 +219,29 @@ function JournalContent() {
       setSetups(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Setups load error:", e);
+    }
+  }
+
+  // ── Setup delete ──────────────────────────────────────────────────────────
+
+  async function handleDeleteSetup(setupId) {
+    if (deletingSetupId) return;
+    setDeletingSetupId(setupId);
+    try {
+      const res = await fetch(`/api/journal/setups/${setupId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setSetups((prev) => prev.filter((s) => s.id !== setupId));
+      setSetupDeleted(true);
+      setTimeout(() => setSetupDeleted(false), 4000);
+    } catch (e) {
+      alert(pt ? "Erro ao excluir setup." : "Failed to delete setup.");
+    } finally {
+      setDeletingSetupId(null);
+      setConfirmDeleteSetupId(null);
     }
   }
 
@@ -315,31 +340,62 @@ function JournalContent() {
           ) : (
             <div className="flex flex-col gap-2">
               {setups.map((setup) => (
-                <div
-                  key={setup.id}
-                  onClick={() => router.push(`/journal/setups/${setup.id}`)}
-                  className="flex items-center justify-between px-4 py-3 rounded-xl border border-slate-800 bg-slate-900 cursor-pointer hover:border-slate-700 hover:bg-slate-800/60 transition-colors"
-                >
-                  <div>
-                    <p className="text-sm text-slate-200 font-medium">{setup.name}</p>
-                    {setup.conditions?.length > 0 && (
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {setup.conditions.length} {pt ? "condições" : "conditions"}
-                        {setup.stop_config?.initial || setup.stop_strategy
-                          ? ` · ${pt ? "saídas definidas" : "exits defined"}`
-                          : ""}
+                <div key={setup.id}>
+                  {/* Confirm delete inline */}
+                  {confirmDeleteSetupId === setup.id ? (
+                    <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-red-800/50 bg-red-950/20">
+                      <p className="text-xs text-red-300">
+                        {pt ? "Excluir setup?" : "Delete setup?"}
                       </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-slate-700 text-xs">
-                      {new Date(setup.created_at).toLocaleDateString(
-                        pt ? "pt-BR" : "en-GB",
-                        { day: "2-digit", month: "short" }
-                      )}
-                    </span>
-                    <span className="text-slate-600 text-xs">→</span>
-                  </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setConfirmDeleteSetupId(null)}
+                          className="text-xs text-slate-500 hover:text-white transition-colors"
+                        >
+                          {pt ? "Cancelar" : "Cancel"}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSetup(setup.id)}
+                          disabled={deletingSetupId === setup.id}
+                          className="text-xs text-red-400 hover:text-red-300 font-medium disabled:opacity-50 transition-colors"
+                        >
+                          {deletingSetupId === setup.id ? "..." : (pt ? "Excluir" : "Delete")}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => router.push(`/journal/setups/${setup.id}`)}
+                      className="flex items-center justify-between px-4 py-3 rounded-xl border border-slate-800 bg-slate-900 cursor-pointer hover:border-slate-700 hover:bg-slate-800/60 transition-colors"
+                    >
+                      <div>
+                        <p className="text-sm text-slate-200 font-medium">{setup.name}</p>
+                        {setup.conditions?.length > 0 && (
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {setup.conditions.length} {pt ? "condições" : "conditions"}
+                            {setup.stop_config?.initial || setup.stop_strategy
+                              ? ` · ${pt ? "saídas definidas" : "exits defined"}`
+                              : ""}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-slate-700 text-xs">
+                          {new Date(setup.created_at).toLocaleDateString(
+                            pt ? "pt-BR" : "en-GB",
+                            { day: "2-digit", month: "short" }
+                          )}
+                        </span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setConfirmDeleteSetupId(setup.id); }}
+                          className="text-slate-700 hover:text-red-400 text-xs px-1 transition-colors"
+                          title={pt ? "Excluir" : "Delete"}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
               <button

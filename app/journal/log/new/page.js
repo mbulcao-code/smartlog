@@ -82,13 +82,15 @@ export default function NewTradePage() {
   const [conditionsMet, setConditionsMet] = useState({});
 
   // Step 2
-  const [instrument, setInstrument]   = useState("");
-  const [direction, setDirection]     = useState(null);
-  const [tradeDate, setTradeDate]     = useState(() => new Date().toISOString().split("T")[0]);
-  const [entryPrice, setEntryPrice]   = useState("");
-  const [exitPrice, setExitPrice]     = useState("");
-  const [pnl, setPnl]                 = useState("");
-  const [outcome, setOutcome]         = useState(null);
+  const [instrument, setInstrument]         = useState("");
+  const [direction, setDirection]           = useState(null);
+  const [tradeDate, setTradeDate]           = useState(() => new Date().toISOString().split("T")[0]);
+  const [entryPrice, setEntryPrice]         = useState("");
+  const [exitPrice, setExitPrice]           = useState("");
+  const [pnl, setPnl]                       = useState("");
+  const [outcome, setOutcome]               = useState(null);
+  const [livePaper, setLivePaper]           = useState(null); // "live" | "paper"
+  const [instrumentType, setInstrumentType] = useState(null); // "spot" | "options" | "futures" | "other"
 
   // Step 3 — entry type
   const [entryCategory, setEntryCategory] = useState(null);
@@ -236,13 +238,15 @@ export default function NewTradePage() {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          setup_id:    selectedSetup?.id || null,
-          instrument:  instrument.trim() || null,
+          setup_id:        selectedSetup?.id || null,
+          instrument:      instrument.trim() || null,
           direction,
-          trade_date:  tradeDate,
-          entry_price: entryPrice ? parseFloat(entryPrice) : null,
-          exit_price:  exitPrice  ? parseFloat(exitPrice)  : null,
-          pnl:         pnl        ? pnl : null,
+          trade_date:      tradeDate,
+          entry_price:     entryPrice ? parseFloat(entryPrice) : null,
+          exit_price:      exitPrice  ? parseFloat(exitPrice)  : null,
+          pnl:             pnl        ? pnl : null,
+          live_paper:      livePaper      || null,
+          instrument_type: instrumentType || null,
           conditions_met: buildConditionsMetArray(),
           after_trade: {
             entry_type:           entryType,
@@ -422,6 +426,42 @@ export default function NewTradePage() {
               <input type="text" placeholder={pt ? "ex: EURUSD, NQ, AAPL…" : "e.g. EURUSD, NQ, AAPL…"}
                 value={instrument} onChange={e => setInstrument(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-200 text-sm placeholder-slate-600 focus:outline-none focus:border-slate-500" />
+            </div>
+
+            <div>
+              <p className="text-xs text-slate-500 mb-2">{pt ? "Live / Paper (opcional)" : "Live / Paper (optional)"}</p>
+              <div className="flex gap-2">
+                {[
+                  { v: "live",  l: pt ? "🟢 Live" : "🟢 Live" },
+                  { v: "paper", l: pt ? "📄 Paper" : "📄 Paper" },
+                ].map(o => (
+                  <button key={o.v} onClick={() => setLivePaper(livePaper === o.v ? null : o.v)}
+                    className={`flex-1 py-2.5 rounded-xl border text-sm transition-colors ${
+                      livePaper === o.v
+                        ? "border-blue-500 bg-blue-950/30 text-blue-200"
+                        : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-500"
+                    }`}>{o.l}</button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs text-slate-500 mb-2">{pt ? "Tipo de instrumento (opcional)" : "Instrument type (optional)"}</p>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { v: "spot",    l: "Spot" },
+                  { v: "options", l: pt ? "Opções" : "Options" },
+                  { v: "futures", l: pt ? "Futuros" : "Futures" },
+                  { v: "other",   l: pt ? "Outro" : "Other" },
+                ].map(o => (
+                  <button key={o.v} onClick={() => setInstrumentType(instrumentType === o.v ? null : o.v)}
+                    className={`py-2.5 rounded-xl border text-xs transition-colors ${
+                      instrumentType === o.v
+                        ? "border-blue-500 bg-blue-950/30 text-blue-200"
+                        : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-500"
+                    }`}>{o.l}</button>
+                ))}
+              </div>
             </div>
 
             <div>
