@@ -475,9 +475,36 @@ function BehaviouralTab({ d, pt }) {
     );
   }
 
-  const stopCount  = d.changedStop.length + d.respStop.length + d.trailing.length + d.panic.length;
-  const targetCount= d.earlyExit.length + d.tgtNotHit.length + d.lastTarget.length + d.multiTarget.length;
-  const issueCount = d.revengeT.length + d.overtradingT.length + d.oversizingT.length;
+  const stopCount   = d.changedStop.length + d.respStop.length + d.trailing.length + d.panic.length;
+  const targetCount = d.earlyExit.length + d.tgtNotHit.length + d.lastTarget.length + d.multiTarget.length;
+  const issueCount  = d.revengeT.length + d.overtradingT.length + d.oversizingT.length;
+
+  function sampleTag(n) {
+    if (n < 5)  return pt ? "amostra muito pequena" : "very small sample";
+    if (n < 10) return pt ? "amostra pequena" : "small sample";
+    if (n < 20) return pt ? "amostra em construção" : "data building up";
+    return null;
+  }
+
+  function SampleNote({ n }) {
+    const tag = sampleTag(n);
+    if (!tag) return null;
+    return (
+      <p className="text-xs text-slate-600 leading-relaxed italic">
+        {pt
+          ? `Atenção: ${tag} (${n} operações). Continue registrando para insights mais confiáveis.`
+          : `Mind you, this is a ${tag} (${n} trades). Keep logging for more reliable insights.`}
+      </p>
+    );
+  }
+
+  function TooSmall() {
+    return (
+      <p className="text-xs text-slate-600 mt-2 pt-2 border-t border-slate-800 italic">
+        {pt ? "Amostra pequena demais para insights. Continue registrando." : "Sample too small for insights. Keep logging."}
+      </p>
+    );
+  }
 
   return (
     <div className="pb-8">
@@ -485,12 +512,18 @@ function BehaviouralTab({ d, pt }) {
 
         {/* FOMO / Early entry */}
         <BehSection title={pt ? "Entrada antecipada (FOMO)" : "Early entry (FOMO)"} count={d.early.length}>
-          <CountRow label={pt ? "Entradas antecipadas" : "Early entries"} count={d.early.length} />
+          <p className="text-xs text-slate-600 leading-relaxed mb-3 pb-3 border-b border-slate-800">
+            {pt
+              ? "O que rastreamos aqui: oportunidades verdadeiramente perdidas — entrada antecipada + nível NÃO atingido + trade lucrativo."
+              : "What we're tracking here: truly missed opportunities — early entry + level NOT reached + profitable trade."}
+          </p>
+
+          <StatRow label={pt ? "Entradas antecipadas" : "Early entries"} wins={wins(d.early)} losses={losses(d.early)} total={d.early.length} pt={pt} />
           {d.earlyLevelMet.length > 0 && (
-            <CountRow label={pt ? "↳ Nível atingido depois" : "↳ Level reached after"} count={d.earlyLevelMet.length} />
+            <StatRow label={pt ? "↳ Nível atingido depois" : "↳ Level reached after"} wins={wins(d.earlyLevelMet)} losses={losses(d.earlyLevelMet)} total={d.earlyLevelMet.length} pt={pt} />
           )}
           {d.earlyLevelNotMet.length > 0 && (
-            <CountRow label={pt ? "↳ Nível NÃO atingido" : "↳ Level NOT reached"} count={d.earlyLevelNotMet.length} />
+            <StatRow label={pt ? "↳ Nível NÃO atingido" : "↳ Level NOT reached"} wins={wins(d.earlyLevelNotMet)} losses={losses(d.earlyLevelNotMet)} total={d.earlyLevelNotMet.length} pt={pt} />
           )}
           <CountRow
             label={pt ? "Oportunidades realmente perdidas" : "Truly missed opportunities"}
@@ -498,43 +531,47 @@ function BehaviouralTab({ d, pt }) {
             count={d.trueMissedOpps.length}
             countColor={d.trueMissedOpps.length === 0 ? "text-green-400" : "text-amber-400"}
           />
-          {d.early.length >= 3 && (() => {
+
+          {d.early.length >= 3 ? (() => {
             const n = d.early.length;
-            const earlyWR   = wr(d.early);
+            const earlyWR = wr(d.early);
             const missedPct = Math.round((d.trueMissedOpps.length / n) * 100);
             const payingOff = earlyWR !== null && earlyWR >= 50;
-            const sampleNote = n < 10
-              ? (pt ? " — amostra pequena" : " — small sample")
-              : n < 20 ? (pt ? " — consolidando" : " — consolidating")
-              : (pt ? " — dado confiável" : " — reliable data");
+
+            const finding = d.trueMissedOpps.length === 0
+              ? (pt
+                  ? `Zero oportunidades verdadeiramente perdidas em ${n} entradas antecipadas.`
+                  : `Zero truly missed opportunities out of ${n} early entries.`)
+              : (pt
+                  ? `${d.trueMissedOpps.length} oportunidade${d.trueMissedOpps.length !== 1 ? "s" : ""} verdadeiramente perdida${d.trueMissedOpps.length !== 1 ? "s" : ""} em ${n} entradas antecipadas (${missedPct}%).`
+                  : `${d.trueMissedOpps.length} truly missed opportunit${d.trueMissedOpps.length !== 1 ? "ies" : "y"} out of ${n} early entries (${missedPct}%).`);
+
+            const moral = d.trueMissedOpps.length === 0
+              ? (pt
+                  ? "Por enquanto, suas entradas antecipadas não estão te fazendo perder movimentos reais."
+                  : "Right now, your early entries aren't making you miss real moves.")
+              : (pt
+                  ? "Suas entradas antecipadas estão te custando — você está perdendo movimentos que esperava pegar."
+                  : "Your early entries are costing you — you're missing moves you waited for.");
+
+            const extra = payingOff
+              ? (pt
+                  ? ` Taxa de acerto de ${earlyWR}% nas antecipadas — considere transformar em variante oficial de um setup.`
+                  : ` ${earlyWR}% win rate on early entries — consider making it an official setup variant.`)
+              : (!payingOff && n >= 5
+                  ? (pt
+                      ? ` Se FOMO é inevitável, entre com tamanho reduzido — a "taxa pirata do FOMO".`
+                      : ` If FOMO is unavoidable, enter with reduced size — the FOMO pirate fee.`)
+                  : "");
+
             return (
-              <>
-                <Moral highlight={d.trueMissedOpps.length === 0} text={
-                  d.trueMissedOpps.length === 0
-                    ? (pt
-                        ? `Zero oportunidades verdadeiramente perdidas em ${n} entradas antecipadas${sampleNote}.`
-                        : `Zero truly missed opportunities out of ${n} early entries${sampleNote}.`)
-                    : (pt
-                        ? `${d.trueMissedOpps.length} oportunidade${d.trueMissedOpps.length !== 1 ? "s" : ""} perdida${d.trueMissedOpps.length !== 1 ? "s" : ""} em ${n} entradas antecipadas (${missedPct}%)${sampleNote}.`
-                        : `${d.trueMissedOpps.length} truly missed opportunit${d.trueMissedOpps.length !== 1 ? "ies" : "y"} out of ${n} early entries (${missedPct}%)${sampleNote}.`)
-                } />
-                {payingOff && (
-                  <Moral highlight text={
-                    pt
-                      ? `${earlyWR}% de acerto nas antecipadas. Considere transformar em variante oficial de um setup — para aprender de forma estruturada.`
-                      : `${earlyWR}% win rate on early entries. Consider making it an official setup variant — so you can learn from it in a structured way.`
-                  } />
-                )}
-                {!payingOff && n >= 5 && (
-                  <Moral text={
-                    pt
-                      ? `Se FOMO é inevitável, entre com tamanho reduzido (taxa pirata do FOMO): você participa do trade, pega um pedaço quando funciona, e não destrói seu R:R quando não funciona.`
-                      : `If FOMO is unavoidable, enter with reduced size (FOMO pirate fee): you're in the trade, get a piece when it works, and it doesn't hurt your R:R when it doesn't.`
-                  } />
-                )}
-              </>
+              <div className="mt-3 pt-3 border-t border-slate-800 space-y-2">
+                <p className={`text-xs leading-relaxed font-medium ${d.trueMissedOpps.length === 0 ? "text-blue-300" : "text-amber-300"}`}>{finding}</p>
+                <p className="text-xs text-slate-400 leading-relaxed">{moral}{extra}</p>
+                <SampleNote n={n} />
+              </div>
             );
-          })()}
+          })() : d.early.length > 0 ? <TooSmall /> : null}
         </BehSection>
 
         {/* Hesitation & Chasing */}
@@ -559,11 +596,16 @@ function BehaviouralTab({ d, pt }) {
               <StatRow label={pt ? "Perseguiu — perda" : "Chased — loss"}
                 wins={wins(d.chaseLoss)} losses={losses(d.chaseLoss)} total={d.chaseLoss.length} pt={pt} />
             )}
-            <Moral text={
-              pt
-                ? "Comportamento inconsistente não permite aprendizado estruturado. Se funcionar com frequência, considere transformar em um setup."
-                : "Inconsistent behavior prevents structured learning. If it works consistently, consider making it a setup."
-            } />
+            {(d.hesitation.length + d.chase.length) >= 3 ? (
+              <div className="mt-3 pt-3 border-t border-slate-800 space-y-2">
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  {pt
+                    ? "Comportamento inconsistente não permite aprendizado estruturado. Se funcionar com frequência, considere transformar em um setup."
+                    : "Inconsistent behavior prevents structured learning. If it works consistently, consider making it a setup."}
+                </p>
+                <SampleNote n={d.hesitation.length + d.chase.length} />
+              </div>
+            ) : <TooSmall />}
           </BehSection>
         )}
 
@@ -574,25 +616,37 @@ function BehaviouralTab({ d, pt }) {
               <>
                 <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-1">{pt ? "Stop alterado" : "Changed stop"}</p>
                 {d.changedWorse.length > 0 && (
-                  <CountRow label={pt ? "→ Resultado pior" : "→ Worse result"} count={d.changedWorse.length} countColor="text-red-400" />
+                  <StatRow label={pt ? "→ Resultado pior" : "→ Worse result"} wins={wins(d.changedWorse)} losses={losses(d.changedWorse)} total={d.changedWorse.length} pt={pt} />
                 )}
                 {d.changedBetter.length > 0 && (
-                  <CountRow label={pt ? "→ Resultado melhor" : "→ Better result"} count={d.changedBetter.length} countColor="text-green-400" />
+                  <StatRow label={pt ? "→ Resultado melhor" : "→ Better result"} wins={wins(d.changedBetter)} losses={losses(d.changedBetter)} total={d.changedBetter.length} pt={pt} />
                 )}
-                {d.changedStop.length >= 3 && (() => {
+                {d.changedStop.length >= 3 ? (() => {
                   const bad = d.changedWorse.length, good = d.changedBetter.length;
                   return (
-                    <Moral highlight={good > bad} text={
-                      good > bad
-                        ? (pt
-                            ? `Em ${d.changedStop.length} alterações de stop, ${good} melhoraram o resultado. Atenção: isso pode criar viés de confirmação — certifique-se que é julgamento, não esperança.`
-                            : `Out of ${d.changedStop.length} stop changes, ${good} improved the result. Watch out: this can build dangerous confirmation bias — make sure it's judgment, not hope.`)
-                        : (pt
-                            ? `Em ${d.changedStop.length} alterações de stop, ${bad} pioraram o resultado. O dado é claro: respeite seu ponto de invalidação.`
-                            : `Out of ${d.changedStop.length} stop changes, ${bad} made things worse. The data is clear: respect your invalidation point.`)
-                    } />
+                    <div className="mt-2 space-y-1.5">
+                      <p className={`text-xs leading-relaxed font-medium ${good > bad ? "text-blue-300" : "text-amber-300"}`}>
+                        {good > bad
+                          ? (pt
+                              ? `Em ${d.changedStop.length} alterações de stop, ${good} melhoraram o resultado.`
+                              : `Out of ${d.changedStop.length} stop changes, ${good} improved the result.`)
+                          : (pt
+                              ? `Em ${d.changedStop.length} alterações de stop, ${bad} pioraram o resultado.`
+                              : `Out of ${d.changedStop.length} stop changes, ${bad} made things worse.`)}
+                      </p>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        {good > bad
+                          ? (pt
+                              ? "Cuidado: isso pode criar viés de confirmação perigoso — certifique-se que é julgamento, não esperança."
+                              : "Watch out: this can build dangerous confirmation bias — make sure it's judgment, not hope.")
+                          : (pt
+                              ? "O dado é claro: respeite seu ponto de invalidação."
+                              : "The data is clear: respect your invalidation point.")}
+                      </p>
+                      <SampleNote n={d.changedStop.length} />
+                    </div>
                   );
-                })()}
+                })() : <TooSmall />}
               </>
             )}
 
@@ -600,26 +654,38 @@ function BehaviouralTab({ d, pt }) {
               <>
                 <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-3">{pt ? "Stop respeitado" : "Respected stop"}</p>
                 {d.respProtect.length > 0 && (
-                  <CountRow label={pt ? "→ Protegeu de perda pior" : "→ Protected from worse loss"} count={d.respProtect.length} countColor="text-green-400" />
+                  <StatRow label={pt ? "→ Protegeu de perda pior" : "→ Protected from worse loss"} wins={wins(d.respProtect)} losses={losses(d.respProtect)} total={d.respProtect.length} pt={pt} />
                 )}
                 {d.respReverse.length > 0 && (
-                  <CountRow label={pt ? "→ Preço reverteu (doloroso)" : "→ Price reversed (painful)"} count={d.respReverse.length} countColor="text-amber-400" />
+                  <StatRow label={pt ? "→ Preço reverteu (doloroso)" : "→ Price reversed (painful)"} wins={wins(d.respReverse)} losses={losses(d.respReverse)} total={d.respReverse.length} pt={pt} />
                 )}
-                {d.respStop.length >= 3 && (() => {
+                {d.respStop.length >= 3 ? (() => {
                   const pct = Math.round((d.respProtect.length / d.respStop.length) * 100);
                   const mostly = d.respProtect.length >= d.respReverse.length;
                   return (
-                    <Moral highlight={mostly} text={
-                      mostly
-                        ? (pt
-                            ? `Seu stop protegeu de perda pior em ${d.respProtect.length} de ${d.respStop.length} vezes (${pct}%). Ver o preço reverter dói — mas aconteceu em apenas ${100 - pct}% das vezes. Bom gerenciamento de risco.`
-                            : `Your stop protected you from a worse loss ${d.respProtect.length} of ${d.respStop.length} times (${pct}%). Watching price reverse hurts — but that happened only ${100 - pct}% of the time. Good risk management.`)
-                        : (pt
-                            ? `O preço reverteu depois do stop em ${d.respReverse.length} de ${d.respStop.length} vezes. Doloroso — mas o stop impediu uma perda ainda pior?`
-                            : `Price reversed after the stop ${d.respReverse.length} of ${d.respStop.length} times. Painful — but did the stop prevent an even bigger loss?`)
-                    } />
+                    <div className="mt-2 space-y-1.5">
+                      <p className={`text-xs leading-relaxed font-medium ${mostly ? "text-blue-300" : "text-slate-400"}`}>
+                        {mostly
+                          ? (pt
+                              ? `Seu stop protegeu de perda pior em ${d.respProtect.length} de ${d.respStop.length} vezes (${pct}%).`
+                              : `Your stop protected you from a worse loss ${d.respProtect.length} of ${d.respStop.length} times (${pct}%).`)
+                          : (pt
+                              ? `O preço reverteu depois do stop em ${d.respReverse.length} de ${d.respStop.length} vezes.`
+                              : `Price reversed after the stop ${d.respReverse.length} of ${d.respStop.length} times.`)}
+                      </p>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        {mostly
+                          ? (pt
+                              ? `Ver o preço reverter dói — mas aconteceu em apenas ${100 - pct}% das vezes. Bom gerenciamento de risco.`
+                              : `Watching price reverse hurts — but that happened only ${100 - pct}% of the time. Good risk management.`)
+                          : (pt
+                              ? "Doloroso — mas o stop impediu uma perda ainda maior?"
+                              : "Painful — but did the stop prevent an even bigger loss?")}
+                      </p>
+                      <SampleNote n={d.respStop.length} />
+                    </div>
                   );
-                })()}
+                })() : <TooSmall />}
               </>
             )}
 
@@ -627,18 +693,26 @@ function BehaviouralTab({ d, pt }) {
               <>
                 <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-3">{pt ? "Stop móvel (trailing)" : "Trailing stop"}</p>
                 {d.trailProtect.length > 0 && (
-                  <CountRow label={pt ? "→ Protegeu — perda menor / lucro garantido" : "→ Protected — smaller loss / locked profit"} count={d.trailProtect.length} countColor="text-green-400" />
+                  <StatRow label={pt ? "→ Protegeu — perda menor / lucro garantido" : "→ Protected — smaller loss / locked profit"} wins={wins(d.trailProtect)} losses={losses(d.trailProtect)} total={d.trailProtect.length} pt={pt} />
                 )}
                 {d.trailTight.length > 0 && (
-                  <CountRow label={pt ? "→ Curto demais — alvo atingido depois" : "→ Too tight — target hit after"} count={d.trailTight.length} countColor="text-amber-400" />
+                  <StatRow label={pt ? "→ Curto demais — alvo atingido depois" : "→ Too tight — target hit after"} wins={wins(d.trailTight)} losses={losses(d.trailTight)} total={d.trailTight.length} pt={pt} />
                 )}
+                {d.trailing.length < 3 && <TooSmall />}
               </>
             )}
 
             {d.panic.length > 0 && (
               <>
                 <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-3">{pt ? "Pânico" : "Panic"}</p>
-                <CountRow label={pt ? "Saída por pânico" : "Panic exit"} count={d.panic.length} countColor="text-red-400" />
+                <StatRow label={pt ? "Saída por pânico" : "Panic exit"} wins={wins(d.panic)} losses={losses(d.panic)} total={d.panic.length} pt={pt} />
+                {d.panic.length >= 2 && (
+                  <p className="text-xs text-amber-400 leading-relaxed mt-2">
+                    {pt
+                      ? `${d.panic.length} saída${d.panic.length !== 1 ? "s" : ""} por pânico registrada${d.panic.length !== 1 ? "s" : ""}. Saídas por pânico nunca fazem parte de um plano — e nunca ensinam nada.`
+                      : `${d.panic.length} panic exit${d.panic.length !== 1 ? "s" : ""} logged. Panic exits are never part of a plan — and they never teach you anything.`}
+                  </p>
+                )}
               </>
             )}
           </BehSection>
@@ -651,14 +725,43 @@ function BehaviouralTab({ d, pt }) {
               <>
                 <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-1">{pt ? "Alvo não atingido" : "Target not hit"}</p>
                 {d.tgtNeverOnside.length > 0 && (
-                  <CountRow label={pt ? "→ Nunca favorável" : "→ Never onside"} count={d.tgtNeverOnside.length} />
+                  <StatRow label={pt ? "→ Nunca favorável" : "→ Never onside"} wins={wins(d.tgtNeverOnside)} losses={losses(d.tgtNeverOnside)} total={d.tgtNeverOnside.length} pt={pt} />
                 )}
                 {d.tgtOnsideBE.length > 0 && (
-                  <CountRow label={pt ? "→ Favorável → reverteu ao BE" : "→ Onside → reversed to BE"} count={d.tgtOnsideBE.length} countColor="text-amber-400" />
+                  <StatRow label={pt ? "→ Favorável → reverteu ao BE" : "→ Onside → reversed to BE"} wins={wins(d.tgtOnsideBE)} losses={losses(d.tgtOnsideBE)} total={d.tgtOnsideBE.length} pt={pt} />
                 )}
                 {d.tgtOnsideLoss.length > 0 && (
-                  <CountRow label={pt ? "→ Favorável → reverteu à perda" : "→ Onside → reversed to loss"} count={d.tgtOnsideLoss.length} countColor="text-red-400" />
+                  <StatRow label={pt ? "→ Favorável → reverteu à perda" : "→ Onside → reversed to loss"} wins={wins(d.tgtOnsideLoss)} losses={losses(d.tgtOnsideLoss)} total={d.tgtOnsideLoss.length} pt={pt} />
                 )}
+                {d.tgtNotHit.length >= 3 ? (() => {
+                  const gaveBack = d.tgtOnsideBE.length + d.tgtOnsideLoss.length;
+                  const neverThere = d.tgtNeverOnside.length;
+                  const gaveBackPct = Math.round((gaveBack / d.tgtNotHit.length) * 100);
+                  const setupIssue = neverThere >= gaveBack;
+                  return (
+                    <div className="mt-2 space-y-1.5">
+                      <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                        {setupIssue
+                          ? (pt
+                              ? `A maioria (${neverThere}×) nunca foi favorável.`
+                              : `Most (${neverThere}×) never went onside.`)
+                          : (pt
+                              ? `Você estava favorável mas devolveu em ${gaveBackPct}% dos casos.`
+                              : `You were onside but gave it back in ${gaveBackPct}% of cases.`)}
+                      </p>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        {setupIssue
+                          ? (pt
+                              ? "O setup pode ser a questão — não apenas o gerenciamento."
+                              : "The setup itself may be the question — not just your management.")
+                          : (pt
+                              ? "Seu gerenciamento depois de estar favorável está te custando dinheiro."
+                              : "Your management after going onside is costing you money.")}
+                      </p>
+                      <SampleNote n={d.tgtNotHit.length} />
+                    </div>
+                  );
+                })() : <TooSmall />}
               </>
             )}
 
@@ -666,26 +769,38 @@ function BehaviouralTab({ d, pt }) {
               <>
                 <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-3">{pt ? "Saída prematura" : "Early exit"}</p>
                 {d.earlyExitHit.length > 0 && (
-                  <CountRow label={pt ? "→ Alvo foi atingido depois" : "→ Target was hit after"} count={d.earlyExitHit.length} countColor="text-amber-400" />
+                  <StatRow label={pt ? "→ Alvo foi atingido depois" : "→ Target was hit after"} wins={wins(d.earlyExitHit)} losses={losses(d.earlyExitHit)} total={d.earlyExitHit.length} pt={pt} />
                 )}
                 {d.earlyExitNotHit.length > 0 && (
-                  <CountRow label={pt ? "→ Alvo NÃO foi atingido" : "→ Target NOT hit"} count={d.earlyExitNotHit.length} countColor="text-green-400" />
+                  <StatRow label={pt ? "→ Alvo NÃO foi atingido" : "→ Target NOT hit"} wins={wins(d.earlyExitNotHit)} losses={losses(d.earlyExitNotHit)} total={d.earlyExitNotHit.length} pt={pt} />
                 )}
-                {d.earlyExit.length >= 3 && (() => {
+                {d.earlyExit.length >= 3 ? (() => {
                   const hitPct = Math.round((d.earlyExitHit.length / d.earlyExit.length) * 100);
                   const costly = d.earlyExitHit.length > d.earlyExit.length / 2;
                   return (
-                    <Moral highlight={costly} text={
-                      costly
-                        ? (pt
-                            ? `Você saiu antes do alvo ${d.earlyExit.length} vezes — e o alvo foi atingido depois em ${hitPct}% delas. Isso está custando dinheiro. Seu alvo original pode estar mais certo do que você imagina.`
-                            : `You exited early ${d.earlyExit.length} times — and the target was hit after in ${hitPct}% of those. That's costing you money. Your original target may be more right than you think.`)
-                        : (pt
-                            ? `Alvo atingido depois da sua saída em apenas ${hitPct}% dos casos. Suas saídas prematuras podem estar corretas — considere tornar esse ponto o seu alvo real.`
-                            : `Target hit after your exit in only ${hitPct}% of cases. Your early exits may be right — consider making that level your actual target.`)
-                    } />
+                    <div className="mt-2 space-y-1.5">
+                      <p className={`text-xs leading-relaxed font-medium ${costly ? "text-amber-300" : "text-blue-300"}`}>
+                        {costly
+                          ? (pt
+                              ? `Você saiu antes do alvo ${d.earlyExit.length} vezes — e o alvo foi atingido depois em ${hitPct}% delas.`
+                              : `You exited early ${d.earlyExit.length} times — and the target was hit after in ${hitPct}% of those.`)
+                          : (pt
+                              ? `Alvo atingido depois da sua saída em apenas ${hitPct}% dos casos.`
+                              : `Target hit after your exit in only ${hitPct}% of cases.`)}
+                      </p>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        {costly
+                          ? (pt
+                              ? "Isso está te custando dinheiro. Seu alvo original pode estar mais certo do que você imagina."
+                              : "That's costing you money. Your original target may be more right than you think.")
+                          : (pt
+                              ? "Suas saídas prematuras podem estar corretas — considere tornar esse ponto seu alvo real."
+                              : "Your early exits may be right — consider making that level your actual target.")}
+                      </p>
+                      <SampleNote n={d.earlyExit.length} />
+                    </div>
                   );
-                })()}
+                })() : <TooSmall />}
               </>
             )}
 
@@ -693,32 +808,51 @@ function BehaviouralTab({ d, pt }) {
               <>
                 <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-3">{pt ? "Último alvo" : "Last target"}</p>
                 {d.lastOptimal.length > 0 && (
-                  <CountRow label={pt ? "→ Saída ótima" : "→ Optimal exit"} count={d.lastOptimal.length} countColor="text-green-400" />
+                  <StatRow label={pt ? "→ Saída ótima" : "→ Optimal exit"} wins={wins(d.lastOptimal)} losses={losses(d.lastOptimal)} total={d.lastOptimal.length} pt={pt} />
                 )}
                 {d.lastKept.length > 0 && (
-                  <CountRow label={pt ? "→ Preço continuou — deixei dinheiro na mesa" : "→ Price kept going — left money on table"} count={d.lastKept.length} countColor="text-amber-400" />
+                  <StatRow label={pt ? "→ Preço continuou — deixei dinheiro na mesa" : "→ Price kept going — left money on table"} wins={wins(d.lastKept)} losses={losses(d.lastKept)} total={d.lastKept.length} pt={pt} />
                 )}
                 {d.lastDelayWorse.length > 0 && (
-                  <CountRow label={pt ? "→ Saída atrasada — resultado pior que o plano" : "→ Delayed exit — worse than plan"} count={d.lastDelayWorse.length} countColor="text-red-400" />
+                  <StatRow label={pt ? "→ Saída atrasada — resultado pior que o plano" : "→ Delayed exit — worse than plan"} wins={wins(d.lastDelayWorse)} losses={losses(d.lastDelayWorse)} total={d.lastDelayWorse.length} pt={pt} />
                 )}
                 {d.lastDelayBetter.length > 0 && (
-                  <CountRow label={pt ? "→ Saída atrasada — resultado melhor que o plano" : "→ Delayed exit — better than plan"} count={d.lastDelayBetter.length} countColor="text-green-400" />
+                  <StatRow label={pt ? "→ Saída atrasada — resultado melhor que o plano" : "→ Delayed exit — better than plan"} wins={wins(d.lastDelayBetter)} losses={losses(d.lastDelayBetter)} total={d.lastDelayBetter.length} pt={pt} />
                 )}
-                {d.lastKept.length >= 3 && d.lastTarget.length >= 5 && (() => {
+                {d.lastTarget.length >= 3 ? (() => {
                   const keptPct = Math.round((d.lastKept.length / d.lastTarget.length) * 100);
-                  const frequent = keptPct > 40;
+                  const delayWorsePct = Math.round((d.lastDelayWorse.length / d.lastTarget.length) * 100);
+                  let finding, moral;
+                  if (d.lastDelayWorse.length >= 2 && d.lastDelayWorse.length >= d.lastKept.length) {
+                    finding = pt
+                      ? `Ficou além do plano ${d.lastDelayWorse.length} vezes — e o resultado foi pior (${delayWorsePct}% dos casos).`
+                      : `You stayed beyond plan ${d.lastDelayWorse.length} times — and it was worse (${delayWorsePct}% of cases).`;
+                    moral = pt
+                      ? "O dado sugere: quando você atinge seu último alvo, saia. A ganância extra tem um custo."
+                      : "The data suggests: when you hit your last target, exit. The extra greed has a cost.";
+                  } else if (keptPct > 40 && d.lastKept.length >= 2) {
+                    finding = pt
+                      ? `Preço continuou além do seu último alvo em ${keptPct}% das operações (${d.lastKept.length}×).`
+                      : `Price kept going past your last target in ${keptPct}% of trades (${d.lastKept.length}×).`;
+                    moral = pt
+                      ? "Considere adicionar um runner ao seu plano para capturar mais do movimento sem mudar sua estrutura."
+                      : "Consider adding a runner to your plan to capture more of the move without changing your structure.";
+                  } else {
+                    finding = pt
+                      ? `${d.lastOptimal.length}× saída ótima em ${d.lastTarget.length} operações.`
+                      : `${d.lastOptimal.length}× optimal exit out of ${d.lastTarget.length} trades.`;
+                    moral = pt
+                      ? "Seu gerenciamento no último alvo parece bem calibrado."
+                      : "Your last-target management looks well calibrated.";
+                  }
                   return (
-                    <Moral highlight={frequent} text={
-                      frequent
-                        ? (pt
-                            ? `Preço continuou após o último alvo em ${keptPct}% das operações. Considere adicionar um runner ao seu plano para capturar mais do movimento.`
-                            : `Price kept going after your last target in ${keptPct}% of trades. Consider adding a runner to capture more of the move.`)
-                        : (pt
-                            ? `Preço raramente continuou após o último alvo (${keptPct}%). Bom sinal — seu sizing parece bem calibrado.`
-                            : `Price rarely kept going after your last target (${keptPct}%). Good sign — your sizing seems well calibrated.`)
-                    } />
+                    <div className="mt-2 space-y-1.5">
+                      <p className="text-xs text-slate-400 leading-relaxed font-medium">{finding}</p>
+                      <p className="text-xs text-slate-400 leading-relaxed">{moral}</p>
+                      <SampleNote n={d.lastTarget.length} />
+                    </div>
                   );
-                })()}
+                })() : <TooSmall />}
               </>
             )}
 
@@ -726,11 +860,30 @@ function BehaviouralTab({ d, pt }) {
               <>
                 <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-3">{pt ? "Múltiplos alvos" : "Multiple targets"}</p>
                 {d.multiAll.length > 0 && (
-                  <CountRow label={pt ? "→ Todos os alvos atingidos" : "→ All targets hit"} count={d.multiAll.length} countColor="text-green-400" />
+                  <StatRow label={pt ? "→ Todos os alvos atingidos" : "→ All targets hit"} wins={wins(d.multiAll)} losses={losses(d.multiAll)} total={d.multiAll.length} pt={pt} />
                 )}
                 {d.multiPartial.length > 0 && (
-                  <CountRow label={pt ? "→ Alvos parcialmente atingidos" : "→ Partial targets hit"} count={d.multiPartial.length} />
+                  <StatRow label={pt ? "→ Alvos parcialmente atingidos" : "→ Partial targets hit"} wins={wins(d.multiPartial)} losses={losses(d.multiPartial)} total={d.multiPartial.length} pt={pt} />
                 )}
+                {d.multiTarget.length >= 3 ? (() => {
+                  const partialPct = Math.round((d.multiPartial.length / d.multiTarget.length) * 100);
+                  const allPct = Math.round((d.multiAll.length / d.multiTarget.length) * 100);
+                  const mostlyPartial = d.multiPartial.length > d.multiAll.length;
+                  return (
+                    <div className="mt-2 space-y-1.5">
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        {mostlyPartial
+                          ? (pt
+                              ? `Alvos parcialmente atingidos em ${partialPct}% das operações. Seu último alvo pode estar muito ambicioso — os dados sugerem reduzir ou remover.`
+                              : `Partial targets in ${partialPct}% of trades. Your last target may be too ambitious — the data suggests scaling back or removing it.`)
+                          : (pt
+                              ? `Todos os alvos foram atingidos em ${allPct}% das operações. Bom sinal — seu sizing está bem calibrado.`
+                              : `All targets hit in ${allPct}% of trades. Good sign — your sizing looks well calibrated.`)}
+                      </p>
+                      <SampleNote n={d.multiTarget.length} />
+                    </div>
+                  );
+                })() : <TooSmall />}
               </>
             )}
           </BehSection>
