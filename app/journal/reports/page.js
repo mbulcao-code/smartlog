@@ -952,7 +952,6 @@ function BehaviouralTab({ d, pt }) {
                 } />
               );
             })()}
-            )}
           </BehSection>
         )}
 
