@@ -217,6 +217,23 @@ function BehavioralReport({ trades, setups, lang }) {
   const incTrades  = [...d.byEntry.early, ...d.byEntry.hesitation, ...d.byEntry.chase];
   const randTrades = d.byEntry.random;
 
+  // Best individual setup by win rate (full_setup entries only, min 3 trades)
+  const bySetupId = {};
+  fullTrades.forEach(t => {
+    if (!t.setup_id) return;
+    if (!bySetupId[t.setup_id]) bySetupId[t.setup_id] = [];
+    bySetupId[t.setup_id].push(t);
+  });
+  const setupGroups = Object.entries(bySetupId).filter(([, arr]) => arr.length >= 3);
+  const bestSetupEntry = setupGroups.length > 0
+    ? setupGroups.reduce((best, cur) => (d.wr(cur[1]) > d.wr(best[1]) ? cur : best))
+    : null;
+  const bestSetupName = bestSetupEntry ? (setups.find(s => s.id === bestSetupEntry[0])?.name || null) : null;
+  const bestSetupWR   = bestSetupEntry ? d.wr(bestSetupEntry[1]) : null;
+  const bestSetupN    = bestSetupEntry ? bestSetupEntry[1].length : null;
+  const profitableSetupTrades = setupGroups.filter(([, arr]) => d.wr(arr) >= 50).flatMap(([, arr]) => arr);
+  const profitableSetupsWR = profitableSetupTrades.length >= 3 ? d.wr(profitableSetupTrades) : null;
+
   return (
     <div className="space-y-2 pb-8">
 
@@ -265,11 +282,11 @@ function BehavioralReport({ trades, setups, lang }) {
                 </div>
               );
             })}
-            {fullTrades.length >= 5 && d.wr(fullTrades) !== null && (
+            {bestSetupWR !== null && (
               <Moral pt={pt} highlight text={
                 pt
-                  ? `Seu melhor setup tem ${d.wr(fullTrades)}% de acerto em ${fullTrades.length} operações. Esse é o caminho mais rápido para recuperar — não tentar "salvar" trades ruins.`
-                  : `Your best tested setup has a ${d.wr(fullTrades)}% win rate over ${fullTrades.length} trades. That's your fastest way to recover — not trying to "save" bad trades.`
+                  ? `${bestSetupName ? `"${bestSetupName}"` : "Seu setup mais testado"} tem ${bestSetupWR}% de acerto (${bestSetupN} operações).${profitableSetupsWR !== null && profitableSetupTrades.length !== bestSetupN ? ` Seus setups lucrativos têm ${profitableSetupsWR}% em conjunto.` : ""} Esse é o caminho mais rápido para recuperar — não tentar "salvar" trades ruins.`
+                  : `${bestSetupName ? `"${bestSetupName}"` : "Your most trusted setup"} has a ${bestSetupWR}% win rate (${bestSetupN} trades).${profitableSetupsWR !== null && profitableSetupTrades.length !== bestSetupN ? ` Your profitable setups combined: ${profitableSetupsWR}%.` : ""} That's your fastest way to recover — not trying to "save" bad trades.`
               } />
             )}
           </Card>
@@ -280,34 +297,44 @@ function BehavioralReport({ trades, setups, lang }) {
       {d.earlyTrades.length > 0 && (
         <Section title={pt ? "Entrada antecipada (FOMO)" : "Early entry (FOMO)"}>
           <Card>
-            <div className="flex items-center justify-between py-2.5 border-b border-slate-800">
-              <span className="text-sm text-slate-300">{pt ? "Entradas antecipadas" : "Early entries"}</span>
-              <span className="text-sm font-bold text-slate-200">{d.earlyTrades.length}</span>
-            </div>
-            <div className="flex items-center justify-between py-2.5 border-b border-slate-800">
-              <span className="text-sm text-slate-400">
-                {pt ? "↳ Nível atingido depois" : "↳ Level reached after"}
-              </span>
-              <span className="text-sm text-slate-300">{d.earlyWithLevelMet.length}</span>
-            </div>
-            <div className="flex items-center justify-between py-2.5 border-b border-slate-800">
-              <span className="text-sm text-slate-400">
-                {pt ? "↳ Nível NÃO atingido" : "↳ Level NOT reached"}
-              </span>
-              <span className="text-sm text-slate-300">{d.earlyWithLevelNotMet.length}</span>
-            </div>
-            <div className="flex items-center justify-between py-2.5">
-              <div>
-                <span className="text-sm text-slate-300">
-                  {pt ? "Oportunidades realmente perdidas" : "Truly missed opportunities"}
+            {/* Full setup vs early entry comparison */}
+            {fullTrades.length > 0 && (
+              <StatRow label={pt ? "Setup completo" : "Full setup"}
+                wins={d.wins(fullTrades)} losses={d.losses(fullTrades)} total={fullTrades.length} pt={pt} />
+            )}
+            <StatRow label={pt ? "Entrada antecipada" : "Early entry (incomplete)"}
+              wins={d.wins(d.earlyTrades)} losses={d.losses(d.earlyTrades)} total={d.earlyTrades.length} pt={pt} />
+
+            {/* Punchy breakdown */}
+            <div className="mt-3 pt-3 border-t border-slate-800">
+              <p className="text-xs text-slate-600 uppercase tracking-wider mb-2">
+                {pt ? "Detalhamento das entradas antecipadas" : "Early entry breakdown"}
+              </p>
+              <div className="flex items-center justify-between py-2 border-b border-slate-800">
+                <span className="text-sm text-slate-400">{pt ? "a. Lucrativas" : "a. Profitable"}</span>
+                <span className="text-sm text-green-400 font-medium">
+                  {d.wins(d.earlyTrades)} {pt ? "de" : "out of"} {d.earlyTrades.length}
                 </span>
-                <p className="text-xs text-slate-600 mt-0.5">
-                  {pt ? "(entrada antecipada + nível não atingido + lucro)" : "(early + level not met + profit)"}
-                </p>
               </div>
-              <span className={`text-sm font-bold ${d.trueMissedOpps.length === 0 ? "text-green-400" : "text-amber-400"}`}>
-                {d.trueMissedOpps.length}
-              </span>
+              <div className="flex items-center justify-between py-2 border-b border-slate-800">
+                <span className="text-sm text-slate-400">{pt ? "b. Nível NÃO atingido depois" : "b. Level NOT reached after"}</span>
+                <span className="text-sm text-slate-300 font-medium">
+                  {d.earlyWithLevelNotMet.length} {pt ? "de" : "out of"} {d.earlyTrades.length}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <span className="text-sm text-slate-300">
+                    {pt ? "c. Oportunidades realmente perdidas" : "c. Truly missed opportunities"}
+                  </span>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    {pt ? "(antecipada + nível não atingido + lucro)" : "(early + level not met + profit)"}
+                  </p>
+                </div>
+                <span className={`text-sm font-bold ${d.trueMissedOpps.length === 0 ? "text-green-400" : "text-amber-400"}`}>
+                  {d.trueMissedOpps.length} {pt ? "de" : "out of"} {d.earlyTrades.length}
+                </span>
+              </div>
             </div>
 
             {d.earlyTrades.length >= 3 && (() => {
@@ -584,10 +611,11 @@ function BehavioralReport({ trades, setups, lang }) {
               );
             })}
 
-            {fullTrades.length >= 3 && d.wr(fullTrades) !== null && (
+            {bestSetupWR !== null && (
               <Moral pt={pt} highlight text={
-                pt ? `Seu setup testado tem ${d.wr(fullTrades)}% de acerto (${fullTrades.length} operações). Não é esse o caminho mais rápido para recuperar o dinheiro?`
-                   : `Your trusted setup has a ${d.wr(fullTrades)}% win rate (${fullTrades.length} trades). Isn't that your fastest way to recover?`
+                pt
+                  ? `${bestSetupName ? `"${bestSetupName}"` : "Seu setup mais confiável"} tem ${bestSetupWR}% de acerto (${bestSetupN} operações).${profitableSetupsWR !== null && profitableSetupTrades.length !== bestSetupN ? ` Seus setups lucrativos têm ${profitableSetupsWR}% em conjunto.` : ""} Não é esse o caminho mais rápido para recuperar o dinheiro?`
+                  : `${bestSetupName ? `"${bestSetupName}"` : "Your most trusted setup"} has a ${bestSetupWR}% win rate (${bestSetupN} trades).${profitableSetupsWR !== null && profitableSetupTrades.length !== bestSetupN ? ` Your profitable setups combined: ${profitableSetupsWR}%.` : ""} Isn't that your fastest way to recover?`
               } />
             )}
           </Card>
