@@ -386,21 +386,74 @@ ALTER TABLE journal_setups
 
 ---
 
+## Completed (June 9, 2026)
+
+### Interactive AI Book — full reader implementation ✅
+
+#### Book content — 50 markdown files written and deployed
+- All source `.md` files split into individual section files under `book-app/content/`
+- 5 Entry sections, 4×Act I, 6×Act II, 8×Act III, 4×Act IV, 15 patterns, Glossary, FAQ, 6 Depth Dives
+- Content served via `app/api/content/[...slug]/route.js` with auth + access gating
+
+#### New files created
+- `book-app/lib/book-map.js` — full MAP data structure: 126 destinations, slugs, reading order, prev/next, pain-to-pattern links, free/pro flags
+- `book-app/app/page.js` — landing page rewritten: killer intro paragraph, collapsible MAP tree (all chapters + sections), pain-finder chips (15 patterns), differentiator cards, pricing section
+- `book-app/app/components/BookSidebar.js` — rewritten: uses MAP data, navigates to `/book/[slug]`, highlights current section, supports both `open` and `isOpen` prop names (backward compat with chat page)
+- `book-app/app/components/AiCompanion.js` — floating AI chat panel: passes current section's full markdown as context, streaming SSE, starter chips, access gating
+- `book-app/app/book/[...slug]/page.js` — dynamic reader page: inline markdown renderer, breadcrumb, prev/next nav, access gate (auth_required / access_required), AI companion
+- `book-app/app/api/content/[...slug]/route.js` — content API with free/pro gating
+- `book-app/app/api/chat/route.js` — updated: accepts `systemContext` param, injects current section content into system prompt, fixed streaming format to SSE `data:` prefix
+
+#### Stripe price IDs (book)
+- Monthly $29/mo: `price_1TbaJ4RM3M9yYyOAWRYBJHWV`
+- Yearly $79/yr: `price_1TbaJgRM3M9yYyOAZaegwBll`
+- Lifetime $199: `price_1TbaK5RM3M9yYyOAPgtVoLx9`
+- All 3 added to Vercel env vars as `NEXT_PUBLIC_BOOK_*_PRICE_ID`
+
+#### Deployment
+- Git pushed to `cleanmain` (72 files, ~18k lines)
+- Vercel domain: `book.smartlogtrading.com` added — DNS change required
+- CNAME at Namecheap: `book` → `fee00d63261d0f39.vercel-dns-017.com` (Vercel project-specific, replaces generic `cname.vercel-dns.com`)
+- Supabase redirect URLs added: `https://book.smartlogtrading.com/**` + `https://book.smartlogtrading.com/auth/confirm`
+- Supabase RLS policies for `book_conversations`, `book_subscriptions`, `book_lifetime_users` — fixed (DROP + recreate)
+- DNS propagation in progress at end of session
+
+#### Pending (tomorrow — live tests)
+- [ ] Verify `book.smartlogtrading.com` resolves (DNS should propagate overnight)
+- [ ] Test free user flow: Entry sections load without auth, Act I loads with auth, Act II+ gates to pricing
+- [ ] Test paid flow: insert row in `book_lifetime_users` → verify PRO access across all sections
+- [ ] Test AI companion: section context injected, streaming works, access gates correctly
+- [ ] Test Stripe checkout flow for book (monthly / yearly / lifetime)
+
+---
+
+## Completed (June 2, 2026)
+
+### Production outage fix ✅
+- Root cause: `claude-sonnet-4-5` model deprecated → all `/api/chat` calls were failing with stream error
+- Fixed: `app/api/chat/route.js` → updated model to `claude-sonnet-4-6`
+- Secondary cause: `ANTHROPIC_API_KEY` in Vercel was stale/wrong — updated to active key in both projects
+- Book app had unescaped backticks in `book-app/lib/system-prompt.js` causing build failure → escaped all three instances
+- Both SmartLog and book app confirmed working in production
+
+### API key note
+- Active Anthropic API key: `sk-ant-api03-_1ZUH...` (updated in `.env.local` and both Vercel projects)
+- Old key `sk-ant-api03-PGhh...` was invalid — do not use
+
+---
+
 ## Pending — User actions required
 
 ### SmartLog
-- [ ] **Git push** contact form fix
 - [ ] **Run Supabase migrations** — "SmartLog App" block in `PENDING_MIGRATIONS.md`
 - [ ] Recreate test setup (delete "Reversal 1" with old `variantA`/`variantB` format)
 - [ ] Send to 2 friends for beta testing
 
-### Interactive AI Book (deploy checklist in `book-app/DEPLOY.md`)
-- [ ] Run "Interactive AI Book" SQL block in `PENDING_MIGRATIONS.md`
-- [ ] Create 3 Stripe price IDs for the book ($29/mo, $79/yr, $199 lifetime)
-- [ ] Add `book.smartlogtrading.com/**` to Supabase redirect allowlist
-- [ ] Deploy `book-app/` to Vercel (new project, fill `.env.example` vars)
-- [ ] Add CNAME `book` → `cname.vercel-dns.com` in Namecheap
-- [ ] Add domain in Vercel project settings
+### Interactive AI Book
+- [ ] Verify DNS propagated → `book.smartlogtrading.com` live ✅ (check tomorrow)
+- [ ] Run live tests (see June 9 section above)
+- [ ] Stripe webhook: add book checkout handling (`product: "book"` → write to `book_subscriptions` / `book_lifetime_users`)
+- [ ] Reader features (future): mark section as read, highlight passages, footnote notes
 
 ### Deferred features (SmartLog)
 - **Stop question on clean trades**: even clean trades can get stopped out

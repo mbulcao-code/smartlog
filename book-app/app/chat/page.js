@@ -6,14 +6,65 @@ import { createClient } from "@/lib/supabase";
 import BookSidebar from "@/app/components/BookSidebar";
 import { useLang } from "@/lib/use-lang";
 
+// Parse RELATED: block from AI response
+// Returns { body: string, links: [{id, label}] }
+function parseRelated(content) {
+  if (!content) return { body: content, links: [] };
+  const match = content.match(/RELATED:\s*([^\n]+)/);
+  if (!match) return { body: content, links: [] };
+  const raw = match[1];
+  const links = raw.split(",").map((s) => {
+    const [id, ...rest] = s.trim().split("|");
+    return { id: id.trim(), label: rest.join("|").trim() || id.trim() };
+  }).filter((l) => l.id);
+  const body = content.replace(/\n*RELATED:\s*[^\n]+\n?/, "").trim();
+  return { body, links };
+}
+
+// Related content chips — clickable, navigate to topic
+function RelatedChips({ links, onNavigate }) {
+  if (!links || links.length === 0) return null;
+  return (
+    <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid var(--border)" }}>
+      <div style={{ fontSize: "11px", color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "8px" }}>
+        Explore further
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+        {links.map((link) => (
+          <button
+            key={link.id}
+            onClick={() => onNavigate(link.id)}
+            style={{
+              background: "transparent",
+              border: "1px solid var(--border)",
+              borderRadius: "20px",
+              padding: "5px 12px",
+              color: "var(--accent)",
+              fontSize: "12px",
+              cursor: "pointer",
+              transition: "border-color 0.15s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+          >
+            {link.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Lightweight markdown renderer — handles bold, italic, bullet lists, paragraphs
 function MarkdownText({ content }) {
   if (!content) return null;
 
-  const paragraphs = content.split(/\n\n+/);
+  // Strip code block wrappers (```) if Claude wraps the RELATED block in them
+  const cleaned = content.replace(/```[a-z]*\n?/g, "").replace(/```/g, "");
+  const paragraphs = cleaned.split(/\n\n+/);
 
   return (
-    <div>
+    <div style={{ fontSize: "15px", lineHeight: 1.7 }}>
       {paragraphs.map((para, pi) => {
         const lines = para.split("\n");
         const isList = lines.every((l) => l.trim().startsWith("- ") || l.trim().startsWith("* ") || l.trim() === "");
@@ -93,26 +144,19 @@ const ENTRY_LABELS = {
 };
 
 function getOpeningMessage(entryId, type) {
+  // These are shown while the AI response loads — brief, consistent with the arc
   if (type === "browse" || entryId === "browse") {
-    return "The book covers two layers — the psychological foundations (why the mind does what it does) and the specific patterns (FOMO, revenge trading, hesitation, and others). Which feels more relevant to where you are right now?";
+    return "Loading the book map...";
   }
   if (type === "pain") {
     const label = ENTRY_LABELS[entryId] || entryId;
-    return `Tell me more about when ${label.toLowerCase()} hits hardest — is it in a specific type of setup, or does it show up across the board?`;
+    return `${label}. Let's look at what is actually happening — and why the standard diagnosis gets it wrong.`;
   }
   if (type === "concept") {
-    const conceptOpeners = {
-      f1: "Emotions as goal protectors — that's the foundation everything else is built on. The standard take is that emotions are the problem. What's actually happening is different. Ready to start there?",
-      f2: "Every habit — including the ones destroying your P&L — is successful. It's solving a problem. Just not the right one. Want to see how that works?",
-      f3: "The Mental Congress model changes how you relate to your own mind. Instead of one voice you can't control, you have a parliament — and the Strategist can learn to chair it. Want to start there?",
-      f4: "The Pirates' Dilemma: you can't eliminate the Speculator or the Protector. But you can negotiate with them in advance. That's the whole game. Ready?",
-      f5: "Discipline isn't willpower. It's the outcome of reduced inner conflict. When your rules account for your emotional voices, you stop fighting yourself. Want to see how that works?",
-      f6: "The mind doesn't need certainty. It needs a complete problem to solve. When your plan is vague — even slightly — the mind treats it as an unsolved equation and runs. Want to go there?",
-      f7: "Confidence is a statistic, not a feeling. That's the whole reframe. And it changes what you actually need to build it. Want to start there?",
-    };
-    return conceptOpeners[entryId] || "Where do you want to start?";
+    const label = ENTRY_LABELS[entryId] || entryId;
+    return `${label} — starting now.`;
   }
-  return "The whole method sits on one idea: your emotions aren't the problem — your uncertainty is. Want to start with a specific pattern you're dealing with, or with how the foundations work?";
+  return "Loading...";
 }
 
 function generateConversationId() {
@@ -138,11 +182,17 @@ function ChatContent() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Auth check
+  // Auth check + guard: must arrive with an entry point
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
-        router.push("/auth?redirectTo=/chat" + (entryId ? `?entry=${entryId}&type=${type}` : ""));
+        const dest = entryId ? `/chat?entry=${entryId}&type=${type}` : "/";
+        router.push(`/auth?redirectTo=${encodeURIComponent(dest)}`);
+        return;
+      }
+      // No entry point selected → send back to homepage to pick one
+      if (!entryId) {
+        router.push("/");
         return;
       }
       setUser(user);
@@ -357,17 +407,38 @@ function ChatContent() {
         setLang={setLang}
       />
       <header style={styles.chatHeader}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", width: 80 }}>
-          <button onClick={() => setSidebarOpen(true)} style={styles.menuBtn} title="Menu">
-            ☰
-          </button>
-          <button onClick={() => router.push("/")} style={styles.backBtn}>
-            ←
-          </button>
+        {/* Left: hamburger + back */}
+        <div style={styles.chatHeaderLeft}>
+          <button onClick={() => setSidebarOpen(true)} style={styles.menuBtn} title="Menu">☰</button>
+          <button onClick={() => router.push("/")} style={styles.backBtn}>←</button>
         </div>
-        <span style={styles.topicLabel}>{entryLabel}</span>
-        <div style={{ width: 80 }} />
+
+        {/* Centre: logo — clickable, goes home */}
+        <a href="/" style={styles.chatLogo}>Trading Without Ego</a>
+
+        {/* Right: lang toggle + email */}
+        <div style={styles.chatHeaderRight}>
+          <div style={styles.langRow}>
+            {["en", "pt"].map((l) => (
+              <button
+                key={l}
+                onClick={() => setLang(l)}
+                style={{ ...styles.langBtn, ...(lang === l ? styles.langBtnActive : {}) }}
+              >
+                {l.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          {user && (
+            <span style={styles.chatEmail}>{user.email}</span>
+          )}
+        </div>
       </header>
+
+      {/* Topic subtitle */}
+      <div style={styles.topicBar}>
+        <span style={styles.topicLabel}>{entryLabel}</span>
+      </div>
 
       <div style={styles.messages}>
         {messages.map((msg, i) => (
@@ -388,7 +459,21 @@ function ChatContent() {
             >
               {msg.content ? (
                 msg.role === "assistant" ? (
-                  <MarkdownText content={msg.content} />
+                  (() => {
+                    const { body, links } = parseRelated(msg.content);
+                    return (
+                      <>
+                        <MarkdownText content={body} />
+                        <RelatedChips
+                          links={links}
+                          onNavigate={(id) => {
+                            const type = ["f1","f2","f3","f4","f5","f6","f7"].includes(id) ? "concept" : "pain";
+                            router.push(`/chat?entry=${id}&type=${type}`);
+                          }}
+                        />
+                      </>
+                    );
+                  })()
                 ) : (
                   msg.content
                 )
@@ -416,27 +501,53 @@ function ChatContent() {
         <div ref={bottomRef} />
       </div>
 
-      <form onSubmit={sendMessage} style={styles.inputArea}>
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Your response..."
-          style={styles.input}
-          disabled={loading}
-          autoFocus
-        />
-        <button
-          type="submit"
-          disabled={loading || !input.trim()}
-          style={{
-            ...styles.sendBtn,
-            ...(loading || !input.trim() ? styles.sendBtnDisabled : {}),
-          }}
-        >
-          Send
-        </button>
-      </form>
+      {/* Free conversation end gate */}
+      {(() => {
+        const userMsgCount = messages.filter(m => m.role === "user").length;
+        const lastIsAI = messages[messages.length - 1]?.role === "assistant";
+        const freeConversationDone = access === "free" && userMsgCount >= 3 && lastIsAI && !loading;
+        if (freeConversationDone) {
+          return (
+            <div style={styles.freeGate}>
+              <p style={styles.freeGateTitle}>
+                {lang === "pt" ? "Chegamos ao fim da sua conversa gratuita." : "That's where the free conversation ends."}
+              </p>
+              <p style={styles.freeGateText}>
+                {lang === "pt"
+                  ? "Para seguir qualquer uma das direções — aprofundar o conceito ou montar o experimento — escolha um plano."
+                  : "To follow either direction — go deeper into the concept or set up the experiment — choose a plan."
+                }
+              </p>
+              <button onClick={() => router.push("/subscribe")} style={styles.freeGateBtn}>
+                {lang === "pt" ? "Ver planos →" : "See plans →"}
+              </button>
+            </div>
+          );
+        }
+        return (
+          <form onSubmit={sendMessage} style={styles.inputArea}>
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Your response..."
+              style={styles.input}
+              disabled={loading}
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              style={{
+                ...styles.sendBtn,
+                ...(loading || !input.trim() ? styles.sendBtnDisabled : {}),
+              }}
+            >
+              Send
+            </button>
+          </form>
+        );
+      })()}
     </div>
   );
 }
@@ -474,7 +585,62 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "16px 24px",
+    padding: "12px 24px",
+    borderBottom: "1px solid var(--border)",
+    flexShrink: 0,
+    gap: "12px",
+  },
+  chatHeaderLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    flexShrink: 0,
+  },
+  chatLogo: {
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "var(--text)",
+    textDecoration: "none",
+    letterSpacing: "0.02em",
+    flexShrink: 1,
+    textAlign: "center",
+  },
+  chatHeaderRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    flexShrink: 0,
+  },
+  langRow: {
+    display: "flex",
+    gap: "4px",
+  },
+  langBtn: {
+    background: "transparent",
+    border: "1px solid var(--border)",
+    borderRadius: "6px",
+    padding: "3px 8px",
+    color: "var(--muted)",
+    fontSize: "11px",
+    fontWeight: 700,
+    cursor: "pointer",
+    letterSpacing: "0.04em",
+  },
+  langBtnActive: {
+    background: "var(--accent)",
+    color: "#000",
+    borderColor: "var(--accent)",
+  },
+  chatEmail: {
+    fontSize: "12px",
+    color: "var(--muted)",
+    maxWidth: "160px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  topicBar: {
+    padding: "8px 24px",
     borderBottom: "1px solid var(--border)",
     flexShrink: 0,
   },
@@ -496,9 +662,11 @@ const styles = {
     padding: 0,
   },
   topicLabel: {
-    fontSize: "14px",
-    color: "var(--text)",
+    fontSize: "12px",
+    color: "var(--muted)",
     fontWeight: 500,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
   },
   messages: {
     flex: 1,
@@ -538,6 +706,36 @@ const styles = {
     display: "inline-flex",
     gap: "4px",
     alignItems: "center",
+  },
+  freeGate: {
+    padding: "24px",
+    borderTop: "1px solid var(--border)",
+    textAlign: "center",
+    background: "var(--surface)",
+  },
+  freeGateTitle: {
+    fontSize: "16px",
+    fontWeight: 600,
+    color: "var(--text)",
+    marginBottom: "8px",
+  },
+  freeGateText: {
+    fontSize: "14px",
+    color: "var(--muted)",
+    lineHeight: 1.6,
+    marginBottom: "20px",
+    maxWidth: "480px",
+    margin: "0 auto 20px",
+  },
+  freeGateBtn: {
+    background: "var(--accent)",
+    color: "#000",
+    border: "none",
+    borderRadius: "8px",
+    padding: "12px 28px",
+    fontWeight: 700,
+    fontSize: "14px",
+    cursor: "pointer",
   },
   inputArea: {
     display: "flex",

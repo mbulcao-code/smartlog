@@ -18,7 +18,7 @@ export async function GET(request) {
       .from("journal_setups")
       .select("*")
       .eq("user_id", user.id)
-      .eq("is_active", true)
+      .neq("is_active", false)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -38,12 +38,12 @@ export async function POST(request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Enforce 10-setup limit
+    // Enforce 10-setup limit (exclude soft-deleted)
     const { count: existingCount } = await supabase
       .from("journal_setups")
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .eq("is_active", true);
+      .neq("is_active", false);
 
     if ((existingCount || 0) >= 10) {
       return Response.json(

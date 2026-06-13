@@ -82,13 +82,15 @@ export default function NewTradePage() {
   const [conditionsMet, setConditionsMet] = useState({});
 
   // Step 2
-  const [instrument, setInstrument]   = useState("");
-  const [direction, setDirection]     = useState(null);
-  const [tradeDate, setTradeDate]     = useState(() => new Date().toISOString().split("T")[0]);
-  const [entryPrice, setEntryPrice]   = useState("");
-  const [exitPrice, setExitPrice]     = useState("");
-  const [pnl, setPnl]                 = useState("");
-  const [outcome, setOutcome]         = useState(null);
+  const [instrument, setInstrument]         = useState("");
+  const [direction, setDirection]           = useState(null);
+  const [tradeDate, setTradeDate]           = useState(() => new Date().toISOString().split("T")[0]);
+  const [entryPrice, setEntryPrice]         = useState("");
+  const [exitPrice, setExitPrice]           = useState("");
+  const [pnl, setPnl]                       = useState("");
+  const [outcome, setOutcome]               = useState(null);
+  const [livePaper, setLivePaper]           = useState(null); // "live" | "paper"
+  const [instrumentType, setInstrumentType] = useState(null); // "spot" | "options" | "futures" | "other"
 
   // Step 3 — entry type
   const [entryCategory, setEntryCategory] = useState(null);
@@ -170,8 +172,10 @@ export default function NewTradePage() {
 
   function canAdvanceFromOutcome() {
     if (Object.keys(tradeOutcomeSelections).length === 0) return false;
+    // For options that have sub-options, a sub-option must be selected.
+    // Options with empty details (panic_exit, no_stop) are allowed without a sub-option.
     return Object.entries(tradeOutcomeSelections).every(([type, detail]) =>
-      type === "panic_exit" || detail !== null
+      type === "panic_exit" || type === "no_stop" || detail !== null
     );
   }
 
@@ -226,19 +230,25 @@ export default function NewTradePage() {
 
   async function handleSave() {
     if (!outcome || saving) return;
+    if (!entryType) {
+      goTo(3); // shouldn't happen in normal flow, but redirect back to entry type step if state is missing
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/journal", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          setup_id:    selectedSetup?.id || null,
-          instrument:  instrument.trim() || null,
+          setup_id:        selectedSetup?.id || null,
+          instrument:      instrument.trim() || null,
           direction,
-          trade_date:  tradeDate,
-          entry_price: entryPrice ? parseFloat(entryPrice) : null,
-          exit_price:  exitPrice  ? parseFloat(exitPrice)  : null,
-          pnl:         pnl        ? pnl : null,
+          trade_date:      tradeDate,
+          entry_price:     entryPrice ? parseFloat(entryPrice) : null,
+          exit_price:      exitPrice  ? parseFloat(exitPrice)  : null,
+          pnl:             pnl        ? pnl : null,
+          live_paper:      livePaper      || null,
+          instrument_type: instrumentType || null,
           conditions_met: buildConditionsMetArray(),
           after_trade: {
             entry_type:           entryType,
@@ -421,6 +431,42 @@ export default function NewTradePage() {
             </div>
 
             <div>
+              <p className="text-xs text-slate-500 mb-2">{pt ? "Live / Paper (opcional)" : "Live / Paper (optional)"}</p>
+              <div className="flex gap-2">
+                {[
+                  { v: "live",  l: pt ? "🟢 Live" : "🟢 Live" },
+                  { v: "paper", l: pt ? "📄 Paper" : "📄 Paper" },
+                ].map(o => (
+                  <button key={o.v} onClick={() => setLivePaper(livePaper === o.v ? null : o.v)}
+                    className={`flex-1 py-2.5 rounded-xl border text-sm transition-colors ${
+                      livePaper === o.v
+                        ? "border-blue-500 bg-blue-950/30 text-blue-200"
+                        : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-500"
+                    }`}>{o.l}</button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs text-slate-500 mb-2">{pt ? "Tipo de instrumento (opcional)" : "Instrument type (optional)"}</p>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { v: "spot",    l: "Spot" },
+                  { v: "options", l: pt ? "Opções" : "Options" },
+                  { v: "futures", l: pt ? "Futuros" : "Futures" },
+                  { v: "other",   l: pt ? "Outro" : "Other" },
+                ].map(o => (
+                  <button key={o.v} onClick={() => setInstrumentType(instrumentType === o.v ? null : o.v)}
+                    className={`py-2.5 rounded-xl border text-xs transition-colors ${
+                      instrumentType === o.v
+                        ? "border-blue-500 bg-blue-950/30 text-blue-200"
+                        : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-500"
+                    }`}>{o.l}</button>
+                ))}
+              </div>
+            </div>
+
+            <div>
               <p className="text-xs text-slate-500 mb-2">{pt ? "Preços (opcional)" : "Prices (optional)"}</p>
               <div className="flex gap-2">
                 <input type="number" placeholder={pt ? "Entrada" : "Entry"} value={entryPrice} onChange={e => setEntryPrice(e.target.value)}
@@ -494,14 +540,12 @@ export default function NewTradePage() {
                     <SubBtn
                       label={pt ? "Nível / condições foram atingidos depois" : "Level / conditions met after"}
                       selected={levelMetAfter === true}
-                      onClick={() => setLevelMetAfter(true)}
-                      selectedClass="border-amber-500/60 bg-amber-950/20 text-amber-300"
+                      onClick={() => { setEntryType("early"); setLevelMetAfter(true); }}
                     />
                     <SubBtn
                       label={pt ? "Nível / condições NÃO foram atingidos depois" : "Level / conditions NOT met after"}
                       selected={levelMetAfter === false}
-                      onClick={() => setLevelMetAfter(false)}
-                      selectedClass="border-green-500/60 bg-green-950/20 text-green-300"
+                      onClick={() => { setEntryType("early"); setLevelMetAfter(false); }}
                     />
                   </div>
                 )}
@@ -608,7 +652,22 @@ export default function NewTradePage() {
                 )}
               </div>
 
-              {/* 3. Panic exit */}
+              {/* 3. Trailing stop */}
+              <div>
+                <OptionBtn label={pt ? "Stop móvel (trailing)" : "Trailing stop"}
+                  selected={"trailing_stop" in tradeOutcomeSelections}
+                  onClick={() => toggleOutcomeType("trailing_stop")} />
+                {"trailing_stop" in tradeOutcomeSelections && (
+                  <div className="mt-2 ml-3 flex flex-col gap-2">
+                    <SubBtn label={pt ? "Protegeu — perda menor / lucro garantido" : "Protected — smaller loss / locked profit"}
+                      selected={tradeOutcomeSelections["trailing_stop"] === "protected"} onClick={() => setOutcomeDetail("trailing_stop", "protected")} />
+                    <SubBtn label={pt ? "Muito curto — alvo foi atingido depois" : "Too tight — target was hit after"}
+                      selected={tradeOutcomeSelections["trailing_stop"] === "too_tight"} onClick={() => setOutcomeDetail("trailing_stop", "too_tight")} />
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Panic exit */}
               <div>
                 <OptionBtn label={pt ? "Fechei manualmente — saída por pânico" : "Closed manually — panic exit"}
                   selected={"panic_exit" in tradeOutcomeSelections}
@@ -662,8 +721,27 @@ export default function NewTradePage() {
                   <div className="mt-2 ml-3 flex flex-col gap-2">
                     <SubBtn label={pt ? "Saída ótima" : "Optimal exit"}
                       selected={tradeOutcomeSelections["last_target_hit"] === "optimal"} onClick={() => setOutcomeDetail("last_target_hit", "optimal")} />
-                    <SubBtn label={pt ? "Preço continuou depois — deixei dinheiro na mesa" : "Price kept going — left money on the table"}
+                    <SubBtn label={pt ? "Preço continuou — deixei dinheiro na mesa" : "Price kept going — left money on the table"}
                       selected={tradeOutcomeSelections["last_target_hit"] === "kept_going"} onClick={() => setOutcomeDetail("last_target_hit", "kept_going")} />
+                    <SubBtn label={pt ? "Saída atrasada (ganância) — pior que o plano" : "Delayed exit (greedy) — worse than plan"}
+                      selected={tradeOutcomeSelections["last_target_hit"] === "delayed_worse"} onClick={() => setOutcomeDetail("last_target_hit", "delayed_worse")} />
+                    <SubBtn label={pt ? "Saída atrasada (ganância) — melhor que o plano" : "Delayed exit (greedy) — better than plan"}
+                      selected={tradeOutcomeSelections["last_target_hit"] === "delayed_better"} onClick={() => setOutcomeDetail("last_target_hit", "delayed_better")} />
+                  </div>
+                )}
+              </div>
+
+              {/* 7. Multiple targets */}
+              <div>
+                <OptionBtn label={pt ? "Múltiplos alvos" : "Multiple targets"}
+                  selected={"multiple_targets" in tradeOutcomeSelections}
+                  onClick={() => toggleOutcomeType("multiple_targets")} />
+                {"multiple_targets" in tradeOutcomeSelections && (
+                  <div className="mt-2 ml-3 flex flex-col gap-2">
+                    <SubBtn label={pt ? "Todos os alvos atingidos" : "All targets hit"}
+                      selected={tradeOutcomeSelections["multiple_targets"] === "all_hit"} onClick={() => setOutcomeDetail("multiple_targets", "all_hit")} />
+                    <SubBtn label={pt ? "Alvos parcialmente atingidos" : "Partial targets hit"}
+                      selected={tradeOutcomeSelections["multiple_targets"] === "partial_hit"} onClick={() => setOutcomeDetail("multiple_targets", "partial_hit")} />
                   </div>
                 )}
               </div>

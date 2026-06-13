@@ -51,17 +51,20 @@ export async function PATCH(request, context) {
       notes, outcome, pnl,
       setup_id, direction, trade_date, instrument,
       after_trade,
+      live_paper, instrument_type,
     } = body;
 
     const updates = {};
-    if (notes       !== undefined) updates.notes       = notes?.trim() || null;
-    if (outcome     !== undefined) updates.outcome     = outcome;
-    if (pnl         !== undefined) updates.pnl         = (pnl !== null && pnl !== "") ? parseFloat(pnl) : null;
-    if (setup_id    !== undefined) updates.setup_id    = setup_id || null;
-    if (direction   !== undefined) updates.direction   = direction || null;
-    if (trade_date  !== undefined) updates.trade_date  = trade_date || null;
-    if (instrument  !== undefined) updates.instrument  = instrument?.trim() || null;
-    if (after_trade !== undefined) updates.after_trade = after_trade;
+    if (notes            !== undefined) updates.notes            = notes?.trim() || null;
+    if (outcome          !== undefined) updates.outcome          = outcome;
+    if (pnl              !== undefined) updates.pnl              = (pnl !== null && pnl !== "") ? parseFloat(pnl) : null;
+    if (setup_id         !== undefined) updates.setup_id         = setup_id || null;
+    if (direction        !== undefined) updates.direction        = direction || null;
+    if (trade_date       !== undefined) updates.trade_date       = trade_date || null;
+    if (instrument       !== undefined) updates.instrument       = instrument?.trim() || null;
+    if (after_trade      !== undefined) updates.after_trade      = after_trade;
+    if (live_paper       !== undefined) updates.live_paper       = live_paper || null;
+    if (instrument_type  !== undefined) updates.instrument_type  = instrument_type || null;
 
     if (Object.keys(updates).length === 0) {
       return Response.json({ error: "No valid fields to update" }, { status: 400 });

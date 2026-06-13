@@ -3,7 +3,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getLang, setLang } from "@/lib/i18n";
 import { supabaseBrowser } from "@/lib/supabase-browser";
-import { PAINS, getNextQuestion } from "@/lib/journal-helpers";
+import { PAINS, getNextQuestion, ENTRY_TYPE_LABELS } from "@/lib/journal-helpers";
 
 // ── Stats computation ─────────────────────────────────────────────────────────
 
@@ -150,6 +150,10 @@ function JournalContent() {
   const [setupCreated, setSetupCreated] = useState(false);
   const [setupDeleted, setSetupDeleted] = useState(false);
   const [tradeLogged, setTradeLogged] = useState(false);
+  const [deletingSetupId, setDeletingSetupId] = useState(null);
+  const [confirmDeleteSetupId, setConfirmDeleteSetupId] = useState(null);
+  const [confirmDeleteTradeId, setConfirmDeleteTradeId] = useState(null);
+  const [deletingTradeId, setDeletingTradeId] = useState(null);
 
   const pt = lang === "pt";
 
@@ -217,6 +221,50 @@ function JournalContent() {
       setSetups(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Setups load error:", e);
+    }
+  }
+
+  // ── Setup delete ──────────────────────────────────────────────────────────
+
+  async function handleDeleteSetup(setupId) {
+    if (deletingSetupId) return;
+    setDeletingSetupId(setupId);
+    try {
+      const res = await fetch(`/api/journal/setups/${setupId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setSetups((prev) => prev.filter((s) => s.id !== setupId));
+      setSetupDeleted(true);
+      setTimeout(() => setSetupDeleted(false), 4000);
+    } catch (e) {
+      alert(pt ? "Erro ao excluir setup." : "Failed to delete setup.");
+    } finally {
+      setDeletingSetupId(null);
+      setConfirmDeleteSetupId(null);
+    }
+  }
+
+  // ── Trade delete ─────────────────────────────────────────────────────────
+
+  async function handleDeleteTrade(tradeId) {
+    if (deletingTradeId) return;
+    setDeletingTradeId(tradeId);
+    try {
+      const res = await fetch(`/api/journal/${tradeId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setEntries((prev) => prev.filter((e) => e.id !== tradeId));
+    } catch (e) {
+      alert(pt ? "Erro ao excluir operação." : "Failed to delete trade.");
+    } finally {
+      setDeletingTradeId(null);
+      setConfirmDeleteTradeId(null);
     }
   }
 
@@ -315,31 +363,62 @@ function JournalContent() {
           ) : (
             <div className="flex flex-col gap-2">
               {setups.map((setup) => (
-                <div
-                  key={setup.id}
-                  onClick={() => router.push(`/journal/setups/${setup.id}`)}
-                  className="flex items-center justify-between px-4 py-3 rounded-xl border border-slate-800 bg-slate-900 cursor-pointer hover:border-slate-700 hover:bg-slate-800/60 transition-colors"
-                >
-                  <div>
-                    <p className="text-sm text-slate-200 font-medium">{setup.name}</p>
-                    {setup.conditions?.length > 0 && (
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {setup.conditions.length} {pt ? "condições" : "conditions"}
-                        {setup.stop_config?.initial || setup.stop_strategy
-                          ? ` · ${pt ? "saídas definidas" : "exits defined"}`
-                          : ""}
+                <div key={setup.id}>
+                  {/* Confirm delete inline */}
+                  {confirmDeleteSetupId === setup.id ? (
+                    <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-red-800/50 bg-red-950/20">
+                      <p className="text-xs text-red-300">
+                        {pt ? "Excluir setup?" : "Delete setup?"}
                       </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-slate-700 text-xs">
-                      {new Date(setup.created_at).toLocaleDateString(
-                        pt ? "pt-BR" : "en-GB",
-                        { day: "2-digit", month: "short" }
-                      )}
-                    </span>
-                    <span className="text-slate-600 text-xs">→</span>
-                  </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setConfirmDeleteSetupId(null)}
+                          className="text-xs text-slate-500 hover:text-white transition-colors"
+                        >
+                          {pt ? "Cancelar" : "Cancel"}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSetup(setup.id)}
+                          disabled={deletingSetupId === setup.id}
+                          className="text-xs text-red-400 hover:text-red-300 font-medium disabled:opacity-50 transition-colors"
+                        >
+                          {deletingSetupId === setup.id ? "..." : (pt ? "Excluir" : "Delete")}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => router.push(`/journal/setups/${setup.id}`)}
+                      className="flex items-center justify-between px-4 py-3 rounded-xl border border-slate-800 bg-slate-900 cursor-pointer hover:border-slate-700 hover:bg-slate-800/60 transition-colors"
+                    >
+                      <div>
+                        <p className="text-sm text-slate-200 font-medium">{setup.name}</p>
+                        {setup.conditions?.length > 0 && (
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {setup.conditions.length} {pt ? "condições" : "conditions"}
+                            {setup.stop_config?.initial || setup.stop_strategy
+                              ? ` · ${pt ? "saídas definidas" : "exits defined"}`
+                              : ""}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); router.push(`/journal/setups/${setup.id}`); }}
+                          className="text-xs text-slate-500 hover:text-blue-400 transition-colors"
+                        >
+                          {pt ? "Editar" : "Edit"}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setConfirmDeleteSetupId(setup.id); }}
+                          className="text-slate-700 hover:text-red-400 text-xs px-1 transition-colors"
+                          title={pt ? "Excluir" : "Delete"}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
               <button
@@ -388,6 +467,7 @@ function JournalContent() {
               {entries.length} {pt ? "operações" : "trades"}
             </span>
             {Object.entries(stats.byPain)
+              .filter(([painId]) => painId !== "clean")
               .sort((a, b) => b[1].length - a[1].length)
               .slice(0, 4)
               .map(([painId, painEntries]) => (
@@ -395,8 +475,7 @@ function JournalContent() {
                   key={painId}
                   className="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-400"
                 >
-                  {PAINS.find((p) => p.id === painId)?.[pt ? "pt" : "en"] ||
-                    (painId === "clean" ? (pt ? "Limpa" : "Clean") : painId)}
+                  {PAINS.find((p) => p.id === painId)?.[pt ? "pt" : "en"] || painId}
                   {" · "}
                   {painEntries.length}
                 </span>
@@ -417,92 +496,133 @@ function JournalContent() {
                   ? setups.find((s) => s.id === entry.setup_id)?.name
                   : null;
 
-                // Resolve pain labels (handles both new pain_types array and legacy pain_type)
-                const isNewFormat = Array.isArray(entry.pain_types) && entry.pain_types.length > 0;
+                // Resolve secondary label for row 2
+                // v2 trades: show entry type; legacy trades: show non-clean pain labels (or nothing)
                 let painLabels = [];
-                if (isNewFormat) {
-                  const nonClean = entry.pain_types.filter((p) => p !== "clean");
-                  if (nonClean.length === 0) {
-                    painLabels = [{ label: pt ? "Limpa" : "Clean", clean: true }];
-                  } else {
-                    painLabels = nonClean.map((pid) => {
-                      const p = PAINS.find((x) => x.id === pid);
-                      return { label: p ? (pt ? p.pt : p.en) : pid, clean: false };
-                    });
+                const entryType = entry.after_trade?.entry_type;
+                if (entryType) {
+                  // v2 trade — show entry type label
+                  const etLabel = ENTRY_TYPE_LABELS[entryType];
+                  if (etLabel) {
+                    const label = pt ? etLabel.pt : etLabel.en;
+                    const isIssue = entryType !== "full_setup";
+                    painLabels = [{ label, clean: !isIssue }];
                   }
-                } else if (entry.pain_type) {
+                } else if (Array.isArray(entry.pain_types) && entry.pain_types.length > 0) {
+                  // legacy v1 multi-pain
+                  const nonClean = entry.pain_types.filter((p) => p !== "clean");
+                  painLabels = nonClean.map((pid) => {
+                    const p = PAINS.find((x) => x.id === pid);
+                    return { label: p ? (pt ? p.pt : p.en) : pid, clean: false };
+                  });
+                } else if (entry.pain_type && entry.pain_type !== "clean") {
+                  // legacy single pain
                   const p = PAINS.find((x) => x.id === entry.pain_type);
                   painLabels = [{ label: p ? (pt ? p.pt : p.en) : entry.pain_type, clean: false }];
-                } else {
-                  painLabels = [{ label: pt ? "Limpa" : "Clean", clean: true }];
                 }
+                // else: no label shown (clean trades show nothing)
 
                 return (
-                  <div
-                    key={entry.id}
-                    onClick={() => router.push(`/journal/log/${entry.id}`)}
-                    className="px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 cursor-pointer hover:border-slate-700 hover:bg-slate-800/60 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      {/* Left: setup name + secondary info */}
-                      <div className="flex flex-col gap-0.5 min-w-0">
-                        {/* Row 1: direction arrow + setup name + instrument */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {entry.direction && (
-                            <span className={`text-xs font-bold flex-shrink-0 ${
-                              entry.direction === "long" ? "text-green-400" : "text-red-400"
-                            }`}>
-                              {entry.direction === "long" ? "↑" : "↓"}
-                            </span>
-                          )}
-                          <span className={`text-sm font-medium flex-shrink-0 ${
-                            setupName ? "text-slate-100" : "text-slate-500 italic"
-                          }`}>
-                            {setupName || (pt ? "Sem setup" : "No setup")}
-                          </span>
-                          {entry.instrument && (
-                            <>
-                              <span className="text-slate-700 text-xs flex-shrink-0">·</span>
-                              <span className="text-xs text-slate-400 flex-shrink-0">{entry.instrument}</span>
-                            </>
-                          )}
+                  <div key={entry.id}>
+                    {confirmDeleteTradeId === entry.id ? (
+                      <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-red-800/50 bg-red-950/20">
+                        <p className="text-xs text-red-300">
+                          {pt ? "Excluir operação?" : "Delete trade?"}
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setConfirmDeleteTradeId(null)}
+                            className="text-xs text-slate-500 hover:text-white transition-colors"
+                          >
+                            {pt ? "Cancelar" : "Cancel"}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTrade(entry.id)}
+                            disabled={deletingTradeId === entry.id}
+                            className="text-xs text-red-400 hover:text-red-300 font-medium disabled:opacity-50 transition-colors"
+                          >
+                            {deletingTradeId === entry.id ? "..." : (pt ? "Excluir" : "Delete")}
+                          </button>
                         </div>
-                        {/* Row 2: pain labels */}
-                        <div className="flex items-center gap-1">
-                          {painLabels.map((pl, i) => (
-                            <span key={i} className={`text-xs ${pl.clean ? "text-green-700" : "text-slate-500"}`}>
-                              {pl.label}
-                              {i < painLabels.length - 1 && (
-                                <span className="text-slate-700 ml-1">·</span>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => router.push(`/journal/log/${entry.id}`)}
+                        className="px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 cursor-pointer hover:border-slate-700 hover:bg-slate-800/60 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          {/* Left: setup name + secondary info */}
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            {/* Row 1: direction arrow + setup name + instrument */}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {entry.direction && (
+                                <span className={`text-xs font-bold flex-shrink-0 ${
+                                  entry.direction === "long" ? "text-green-400" : "text-red-400"
+                                }`}>
+                                  {entry.direction === "long" ? "↑" : "↓"}
+                                </span>
                               )}
-                            </span>
-                          ))}
+                              <span className={`text-sm font-medium flex-shrink-0 ${
+                                setupName ? "text-slate-100" : "text-slate-500 italic"
+                              }`}>
+                                {setupName || (pt ? "Sem setup" : "No setup")}
+                              </span>
+                              {entry.instrument && (
+                                <>
+                                  <span className="text-slate-700 text-xs flex-shrink-0">·</span>
+                                  <span className="text-xs text-slate-400 flex-shrink-0">{entry.instrument}</span>
+                                </>
+                              )}
+                            </div>
+                            {/* Row 2: entry type / pain labels */}
+                            {painLabels.length > 0 && (
+                              <div className="flex items-center gap-1">
+                                {painLabels.map((pl, i) => (
+                                  <span key={i} className={`text-xs ${pl.clean ? "text-slate-600" : "text-slate-500"}`}>
+                                    {pl.label}
+                                    {i < painLabels.length - 1 && (
+                                      <span className="text-slate-700 ml-1">·</span>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right: outcome + date + delete */}
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className={`text-sm font-medium ${
+                                entry.outcome === "win"
+                                  ? "text-green-400"
+                                  : entry.outcome === "loss"
+                                  ? "text-red-400"
+                                  : "text-slate-500"
+                              }`}>
+                                {entry.outcome === "win"
+                                  ? (pt ? "Ganhou" : "Win")
+                                  : entry.outcome === "loss"
+                                  ? (pt ? "Perdeu" : "Loss")
+                                  : "BE"}
+                              </span>
+                              <span className="text-slate-600 text-xs">
+                                {new Date(entry.trade_date || entry.logged_at).toLocaleDateString(
+                                  pt ? "pt-BR" : "en-GB",
+                                  { day: "2-digit", month: "short" }
+                                )}
+                              </span>
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setConfirmDeleteTradeId(entry.id); }}
+                              className="text-slate-700 hover:text-red-400 text-xs px-1 transition-colors"
+                              title={pt ? "Excluir" : "Delete"}
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
                       </div>
-
-                      {/* Right: outcome + date */}
-                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                        <span className={`text-sm font-medium ${
-                          entry.outcome === "win"
-                            ? "text-green-400"
-                            : entry.outcome === "loss"
-                            ? "text-red-400"
-                            : "text-slate-500"
-                        }`}>
-                          {entry.outcome === "win"
-                            ? (pt ? "Ganhou" : "Win")
-                            : entry.outcome === "loss"
-                            ? (pt ? "Perdeu" : "Loss")
-                            : "BE"}
-                        </span>
-                        <span className="text-slate-600 text-xs">
-                          {new Date(entry.trade_date || entry.logged_at).toLocaleDateString(
-                            pt ? "pt-BR" : "en-GB",
-                            { day: "2-digit", month: "short" }
-                          )}
-                        </span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}

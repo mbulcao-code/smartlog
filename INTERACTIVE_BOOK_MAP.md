@@ -1,284 +1,483 @@
-# Interactive Book — Chapter Map
-## "You can't remove uncertainty. But you can remove regret."
+# TRADING WITHOUT EGO
+## THE MAP — Full Navigation Guide
 
-> This document maps each emotional pattern (Part III) to its foundational roots (Part I),
-> and defines the regret-removal angle — the concrete question each conversation should eventually close.
+> **This is the book's navigation layer.**
+> Every section is listed here with a one-line description and cross-references.
+> Use it to find where you are, where to go next, or where to start.
+>
+> **Three ways to enter the book:**
+> → *If you arrived in pain:* start with Navigation by Pain below — find your pattern and go directly there.
+> → *If you want the full arc:* start with Reading Order — the sequence the book was built for.
+> → *If you have a specific question:* start with Navigation by Question — find your question and go there directly.
 
 ---
 
-## PART I — FOUNDATIONS (the "why" layer)
+---
 
-| Chapter | Core Concept | Key Tool |
+## THE QUICK VERSION
+
+If you read nothing else, read these four sections — in order:
+
+1. **ENTRY.3: The Self-Blame Loop** — what's actually happening and why it keeps repeating
+2. **Act I.2: Why the Loop is Inevitable** — the HUG: what the impulse is protecting
+3. **Act II.5: The Pirates' Dilemma** — how to design for the competing goal rather than fight it
+4. **Act III.2: Stage 1 — Remove Regret** — the concrete first step that starts the resolution
+
+These four sections give you the diagnosis, the mechanism, the design principle, and the first action. Everything else in the book is either depth on one of these four, or application to a specific pattern.
+
+---
+
+---
+
+## NAVIGATION BY PAIN
+### Start here if you came with a specific recurring problem
+
+---
+
+**"I enter before the setup is complete — FOMO, early entries, can't wait for the level"**
+→ *[Pattern 1: FOMO / Early Entry]*
+→ *[Act II.5: The Pirates' Dilemma — the FOMO Pirate]*
+→ *[FAQ Q31: My sample says FOMO costs me — but I still feel it. What now?]*
+
+---
+
+**"I hesitate at the trigger and miss the entry — then watch it work without me"**
+→ *[Pattern 2: Hesitation / Missed Entries]*
+→ *[Act II.3: The Mental Congress — the Critic's veto]*
+→ *[FAQ Q34: How do I know if my hesitation is signal or noise?]*
+
+---
+
+**"I exit trades too early — I cut my winners before they reach target"**
+→ *[Pattern 3: Early Exit / Cutting Profits Short]*
+→ *[Depth Dive 2: Hyperbolic Discounting — why certainty now beats probability later]*
+→ *[FAQ Q17: I've been told to cut losses and let winners run. Why doesn't it work?]*
+
+---
+
+**"I take trades after a loss to win back what I lost — it almost always makes it worse"**
+→ *[Pattern 4: Revenge Trading]*
+→ *[FAQ Q32: What is the difference between revenge trading and the redemption trap?]*
+→ *[FAQ Q35: What if I know I'm revenge trading while it's happening?]*
+
+---
+
+**"I move my stop — I give it more room and the loss ends up bigger than planned"**
+→ *[Pattern 5: Stop Loss Tampering]*
+→ *[Pattern 10: Loss Aversion — the root mechanism]*
+→ *[Depth Dive 6: The Ulysses Contract — why the live stop order works]*
+
+---
+
+**"I take too many trades — off-plan entries, too much screen time, can't stop at the right moment"**
+→ *[Pattern 6: Overtrading]*
+→ *[Act II.5: The Pirates' Dilemma — the Speculator Pirate]*
+→ *[FAQ Q33: Why does my discipline work in the morning and fail by the afternoon?]*
+
+---
+
+**"I hold positions too long — I miss the target and give it back"**
+→ *[Pattern 7: Greed / Holding Too Long]*
+→ *[Act II.5: The Pirates' Dilemma — the Speculator and the runner design]*
+
+---
+
+**"By the end of a bad session I'm trying to get back to flat — it always ends worse"**
+→ *[Pattern 8: Redemption Trap]*
+→ *[FAQ Q32: What is the difference between revenge trading and the redemption trap?]*
+→ *[Act IV.3: Discipline Redefined — the daily loss limit]*
+
+---
+
+**"After a winning streak I size up and give the gains back in a few trades"**
+→ *[Pattern 9: Overconfidence Bias]*
+→ *[Pattern 13: Anchoring / Recency Bias — the streak-sizing error]*
+→ *[Depth Dive 3: The Science of Probabilities — what a streak actually means]*
+
+---
+
+**"I know I should take the loss and I can't bring myself to do it"**
+→ *[Pattern 10: Loss Aversion]*
+→ *[Pattern 5: Stop Loss Tampering — the related mechanism]*
+→ *[Depth Dive 1: Systems 1 and 2 — why System 1 wins at the stop level]*
+
+---
+
+**"I look for reasons to take trades I've already decided to take"**
+→ *[Pattern 11: Confirmation Bias]*
+→ *[Act III.6: Conditions, Variants, and Why Both Matter — the sequential checklist]*
+
+---
+
+**"Every chart looks obvious in hindsight — but I keep missing it in real time"**
+→ *[Pattern 12: Hindsight Bias]*
+→ *[FAQ Q9: Why does reviewing charts feel so productive but my trading doesn't improve?]*
+
+---
+
+**"I size up after wins and down after losses — the P&L swings are worse than they need to be"**
+→ *[Pattern 13: Anchoring / Recency Bias]*
+→ *[Depth Dive 3: The Science of Probabilities — why streaks feel like patterns]*
+
+---
+
+**"I take trades because everyone else seems to be taking them"**
+→ *[Pattern 14: Herd Mentality]*
+→ *[Act II.1: Emotions as Goal Protectors — the Belonging HUG]*
+
+---
+
+**"I've told myself I'm not good at [specific setup / time / instrument] and I avoid it"**
+→ *[Pattern 15: Limiting Beliefs]*
+→ *[ENTRY.4: The Verdict — the character conclusion and its cost]*
+→ *[FAQ Q6: Is trading just not for me?]*
+
+---
+
+**"I've tried everything and nothing sticks — I don't know what's wrong with me"**
+→ *[ENTRY.1: The Impulse and the Fallacy — the specific shape of the pain]*
+→ *[ENTRY.3: The Self-Blame Loop — why the loop is self-sealing]*
+→ *[FAQ Q1: What is wrong with me?]*
+→ *[FAQ Q25: I've read everything. Why am I still doing the same thing?]*
+
+---
+
+---
+
+## NAVIGATION BY QUESTION
+
+---
+
+**"Why can't I resist — even when I know better?"**
+→ *[ENTRY.5: The Two Questions — the powerlessness question answered]*
+→ *[Depth Dive 1: Systems 1 and 2 — why the knowing system is too slow]*
+→ *[FAQ Q1, Q3, Q4]*
+
+---
+
+**"Why do I keep repeating this?"**
+→ *[ENTRY.3: The Self-Blame Loop — the anatomy of the loop]*
+→ *[Act I.2: Why the Loop is Inevitable — the HUG]*
+→ *[FAQ Q5: Why does the loop keep repeating?]*
+
+---
+
+**"What is the HUG and how do I find mine?"**
+→ *[Act I.2: Why the Loop is Inevitable]*
+→ *[FAQ Q11: What exactly is the HUG?]*
+→ *[FAQ Q26: What if I genuinely can't identify my HUG?]*
+
+---
+
+**"What is an ESS?"**
+→ *[Act IV.2: The ESS — three properties and practical designs]*
+→ *[Glossary: Emotionally Stable Strategy]*
+→ *[FAQ Q13: What is an ESS, in plain terms?]*
+
+---
+
+**"What is the pirate fee?"**
+→ *[Act II.5: The Pirates' Dilemma]*
+→ *[Glossary: Pirate Fee]*
+→ *[FAQ Q14: What is the pirate fee — and how do I know if mine is working?]*
+
+---
+
+**"What is Stage 1 vs. Stage 2?"**
+→ *[Act III.1: The Two Stages of Structured Decisions]*
+→ *[Act III.2: Stage 1 — Remove Regret]*
+→ *[Act III.3: Stage 2 — Remove Uncertainty]*
+→ *[Glossary: Stage 1, Stage 2]*
+→ *[FAQ Q15: What is the difference between Stage 1 and Stage 2?]*
+
+---
+
+**"What should I be logging?"**
+→ *[Act III.7: Logging That Actually Works]*
+→ *[FAQ Q22: What should I actually be logging?]*
+
+---
+
+**"How many trades before I have enough data?"**
+→ *[Act III.3: Stage 2 — sample size guidance]*
+→ *[Depth Dive 3: The Science of Probabilities]*
+→ *[Glossary: Sample Size]*
+→ *[FAQ Q21: How many trades before I have enough data?]*
+
+---
+
+**"What is the difference between a condition and a variant?"**
+→ *[Act III.5: How to Build a Repeatable Setup]*
+→ *[Act III.6: Conditions, Variants, and Why Both Matter]*
+→ *[Glossary: Condition, Variant]*
+→ *[FAQ Q16: What is the difference between a condition and a variant?]*
+
+---
+
+**"Why does discipline work in the morning and fail by the afternoon?"**
+→ *[Depth Dive 1: Systems 1 and 2 — the depletion curve]*
+→ *[Pattern 6: Overtrading — session fatigue]*
+→ *[FAQ Q33]*
+
+---
+
+**"What do I do right after a loss?"**
+→ *[Pattern 4: Revenge Trading — the post-loss protocol]*
+→ *[FAQ Q27: What do I do immediately after a loss?]*
+
+---
+
+**"Am I not cut out for trading?"**
+→ *[ENTRY.4: The Verdict]*
+→ *[Pattern 15: Limiting Beliefs]*
+→ *[FAQ Q6: Is trading just not for me?]*
+
+---
+
+**"What does trading without ego actually feel like?"**
+→ *[Act IV.1: From Fighter to Governor]*
+→ *[Act IV.4: Making vs. Sustaining a Decision]*
+→ *[FAQ Q36: What does it actually feel like to trade without ego?]*
+
+---
+
+**"I want the science. Why does any of this work?"**
+→ *[Depth Dive 1: Systems 1 and 2]*
+→ *[Depth Dive 2: Hyperbolic Discounting]*
+→ *[Depth Dive 3: The Science of Probabilities]*
+→ *[Depth Dive 4: Evolutionary Game Theory]*
+→ *[Depth Dive 5: The Hypothetico-Deductive Method]*
+→ *[Depth Dive 6: The Ulysses Contract]*
+
+---
+
+---
+
+## FULL READING ORDER
+### The arc the book was built for
+
+---
+
+### ENTRY — The Pain That Brought You Here
+*Tone: emotional-first. No framework, no models. Recognition before education.*
+
+| Section | One-line description |
+|---|---|
+| **ENTRY.1: The Impulse and the Fallacy** | The specific shape of the pain — three properties that make it different from ordinary bad days |
+| **ENTRY.2: The Old Paradigm** | Where the standard model (emotions = enemy, discipline = solution) breaks down |
+| **ENTRY.3: The Self-Blame Loop** | The full anatomy of the loop — and why self-blame protects the very model that generates it |
+| **ENTRY.4: The Verdict** | The character conclusion the loop produces — and why it accelerates the next iteration |
+| **ENTRY.5: The Two Questions** | The two questions every stuck trader is asking — and the two-step path to their answers |
+
+---
+
+### ACT I — The Reframe
+*Tone: the old model dismantled, the new one introduced. The reader's diagnosis should change.*
+
+| Section | One-line description |
+|---|---|
+| **I.1: Emotion is Not the Enemy** | Emotions are goal-directed signals, not interference — the single most important reframe in the book |
+| **I.2: Why the Loop is Inevitable** | The HUG: the goal the impulse is protecting, and why suppression guarantees repetition |
+| **I.3: Why Willpower Always Fails** | The structural reason willpower produces temporary success and reliable long-term failure |
+| **I.4: The New Paradigm** | Failure as misdiagnosis, not character verdict — the foundation everything else builds on |
+
+---
+
+### ACT II — The Operating System
+*Tone: the internal architecture of trading decisions — the Mental Congress, the three pirates, the ESS framework.*
+
+| Section | One-line description |
+|---|---|
+| **II.1: Emotions as Goal Protectors** | Each emotion is a signal: a goal is threatened — the four reward types and four goal layers |
+| **II.2: All Habits Are Successful** | Every impulsive behaviour is successfully protecting something — what each pattern is hired to do |
+| **II.3: The Mental Congress** | The Strategist, Protector, Speculator, and Critic — how the internal parliament governs decisions under pressure |
+| **II.4: The 3 Tasks** | WHAT (clear goals), HOW (tested methods), WHAT TO EXPECT (realistic expectations) — the complete requirement |
+| **II.5: The Pirates' Dilemma** | The three pirates, the pirate fee, and the ESS as the most sustainable mixed strategy |
+| **II.6: Keys to Sustainable Discipline** | Three structural shifts: pre-negotiate the fee, convert uncertainty to variant, build the evidence base |
+
+---
+
+### ACT III — The Method
+*Tone: practical, sequential, specific. The reader leaves with a concrete process.*
+
+| Section | One-line description |
+|---|---|
+| **III.1: The Two Stages of Structured Decisions** | From vague doubt to true conviction — the full arc |
+| **III.2: Stage 1 — Remove Regret** | Four steps: name the uncertainty, name the alternatives, test rather than repress, judge by process |
+| **III.3: Stage 2 — Remove Uncertainty** | Event-thinking vs. sample-thinking; how the conviction loop closes |
+| **III.4: Three Types of Competing Alternatives** | Zero-Sum, Hierarchic Goals, Pirates' Dilemma — and the cost of misdiagnosis |
+| **III.5: How to Build a Repeatable Setup** | The four elements: Situation, Conditions with variants, Structural Stop, Targets |
+| **III.6: Conditions, Variants, and Why Both Matter** | The variant-testing principle — with example tables and the setup card format |
+| **III.7: Logging That Actually Works** | The SmartLog flow — what to log, how long it takes, the five minimum fields |
+| **III.8: Reports: From Data to Confidence** | Seven report types; sample size markers; the conviction loop diagram |
+
+---
+
+### ACT IV — The Arrival
+*Tone: identity shift — not new lessons, but recognition of who the reader has been becoming.*
+
+| Section | One-line description |
+|---|---|
+| **IV.1: From Fighter to Governor** | The identity shift in full — Fighter's loop vs. Strategist's loop; the one diagnostic question that separates them |
+| **IV.2: The ESS** | Three properties of a stable strategy; practical ESS designs for FOMO, Early Exit, Revenge Trading |
+| **IV.3: Discipline Redefined** | New definition: output of a low-friction system; three structural shifts with case studies |
+| **IV.4: Making vs. Sustaining a Decision** | Willpower as emergency response to an unsustainable decision; conviction without certainty as the Strategist's end state |
+
+---
+
+### PATTERN LIBRARY — All 15 Patterns
+*Tone: self-contained destinations. Arrive at any pattern via hyperlink; everything you need is there.*
+
+Each pattern follows the full template:
+THE LAW → HOOK → HUG → THE UNCERTAINTY → MECHANISM (Transgression/Observance) → ARCHITECTURE → ESS DESIGN → THE EXPERIMENT → HYPERLINKS
+
+| Pattern | The Law | The HUG |
 |---|---|---|
-| I — Emotions as Goal Protectors | Every emotion protects a goal (PG vs HUG) | Identify the Hidden Underlying Goal |
-| II — All Habits Are Successful | Every habit has a hidden benefit | Replace the reward, don't fight the behavior |
-| III — The Mental Congress | The mind is multiple voices, not one | Give each representative a role; Strategist leads |
-| IV — The Pirates' Dilemma | Suppress nothing; manage proportions | Emotionally Stable Strategies (ESS), pirate fee |
-| V — Keys to Sustainable Discipline | Discipline = outcome of sustainable decisions | Reduce inner conflict, don't force willpower |
-| VI — The Mind as a Problem-Solver | WHAT (goal) / HOW (method) / WHEN (expectation) | Clarity on all three → emotional calm |
-| VII — The Probabilistic Trader | Confidence = statistical, not emotional | Log → compare → build conviction through repetition |
+| **P1: FOMO / Early Entry** | FOMO isn't about missing the move — it's about not trusting a process you haven't verified yet | Guarantee being on the trade |
+| **P2: Hesitation / Missed Entries** | Hesitation isn't fear of being wrong — it's the mind refusing to act on an incomplete question | Protect against being wrong again |
+| **P3: Early Exit / Cutting Profits** | Early exits aren't about protecting profits — they're about relief | Terminate discomfort immediately |
+| **P4: Revenge Trading** | Revenge trading isn't irrational — it's the most rational response to an injustice | Restore agency and reverse the loss |
+| **P5: Stop Loss Tampering** | Moving your stop isn't risk management — it's renegotiating a decision made in cold blood | Avoid confirming the thesis was wrong |
+| **P6: Overtrading** | Overtrading isn't taking too many trades — it's taking trades to satisfy a need unrelated to the setup | Stimulation and agency |
+| **P7: Greed / Holding Too Long** | Greed isn't wanting too much — it's the Speculator renegotiating mid-trade at maximum leverage | Don't leave anything behind |
+| **P8: Redemption Trap** | The redemption trade doesn't recover the loss — it recovers the story | Restore the narrative of competence |
+| **P9: Overconfidence Bias** | Confidence from recent wins is not statistical confidence — it's recency | Confirm the streak as evidence of real edge |
+| **P10: Loss Aversion** | Loss aversion isn't a flaw — it's an evolved threat response running in the wrong environment | Avoid confirming the thesis was wrong |
+| **P11: Confirmation Bias** | You're not analysing the chart — you're looking for permission to do what you've already decided | Validate the decision already made |
+| **P12: Hindsight Bias** | Looking at a past chart is always cheating — you're solving a puzzle with the answer visible | Preserve the illusion of predictive competence |
+| **P13: Anchoring / Recency Bias** | Your last few trades aren't information about your edge — they're information about variance | Weight recent experience; create narrative from streaks |
+| **P14: Herd Mentality** | Following the crowd isn't a failure of independence — it's the social goal overriding the trading goal | Belonging; don't be wrong alone |
+| **P15: Limiting Beliefs** | A limiting belief isn't a personality flaw — it's a conclusion reached from incomplete data | Protection from failure at the identity layer |
 
 ---
 
-## PART III — PATTERN MAP
+### REFERENCE SECTIONS
 
-Each entry: **Pattern → Part I Roots → Regret angle → Closing experiment**
-
----
-
-### FOMO
-**Roots:**
-- Ch VI (Mind as Problem-Solver): urgency = WHAT/HOW undefined. No setup = every move is an open question.
-- Ch III (Mental Congress): FOMO representative wins majority vote when Strategist has no data to argue back with.
-- Ch VII (Probabilistic Trader): FOMO dies when you have a track record. Recurrence kills urgency. Structure kills fear.
-
-**Regret angle:**
-"Enter early or wait for the level?" stays a haunting loop forever — unless you log both and compare.
-The experiment closes the question. The data removes the regret.
-
-**Closing experiment:**
-→ *"Early entry vs. waiting for the level: which actually performs better in your setups? One variant logged 20 times answers this forever."*
+| Section | Contents |
+|---|---|
+| **Glossary** | 42 terms across 6 groups: Core Framework · The Method · The Loop · Competing Alternatives · Cognitive Mechanisms · Structural Concepts |
+| **FAQ** | 40 questions across 5 groups: Understanding What's Happening · The Framework · The Method in Practice · Specific Patterns · Identity and the Long Game |
+| **Depth Dive 1: Systems 1 and 2** | Kahneman's dual-process theory — why System 1 wins at the stop level and how pre-commitment shifts the balance |
+| **Depth Dive 2: Hyperbolic Discounting** | The neuroscience of temporal discounting — why certainty now beats probability later, and why the partial exit works |
+| **Depth Dive 3: The Science of Probabilities** | Expected value, the binomial distribution, and what a 3-trade losing streak actually means on a 65% setup |
+| **Depth Dive 4: Evolutionary Game Theory** | Maynard Smith and the ESS — why the most sustainable strategy beats the locally optimal one |
+| **Depth Dive 5: The Hypothetico-Deductive Method** | Why the variant experiment is the scientific method — falsifiability, pre-registration, and what a real test looks like |
+| **Depth Dive 6: The Ulysses Contract** | Pre-commitment theory — why binding future decisions works mechanically, not motivationally |
 
 ---
 
-### Cutting Profits Short (Early Exit)
-**Roots:**
-- Ch II (Habits): early exit is successful at reducing anxiety. Relief is the hidden gain. The habit works.
-- Ch IV (Pirates' Dilemma): partial target = pirate fee. Feed the urge without destroying the trade's asymmetry.
-- Ch VI (Mind as Problem-Solver): uncertainty about "will it reverse?" → any exit = closed problem = relief.
+---
 
-**Regret angle:**
-"I should have held" is the most common trading regret loop.
-Partial exits + logged hold-vs-exit data converts this from a permanent wound into a closed question.
+## SECTION INDEX — Every Destination at a Glance
 
-**Closing experiment:**
-→ *"Hold to target vs. partial exit: log both outcomes for 20 trades. The data tells you whether the pirate fee is worth it."*
+### ENTRY
+- ENTRY.1 — The Impulse and the Fallacy
+- ENTRY.2 — The Old Paradigm
+- ENTRY.3 — The Self-Blame Loop ⭐
+- ENTRY.4 — The Verdict
+- ENTRY.5 — The Two Questions
+
+### ACT I
+- I.1 — Emotion is Not the Enemy
+- I.2 — Why the Loop is Inevitable ⭐
+- I.3 — Why Willpower Always Fails
+- I.4 — The New Paradigm
+
+### ACT II
+- II.1 — Emotions as Goal Protectors
+- II.2 — All Habits Are Successful
+- II.3 — The Mental Congress ⭐
+- II.4 — The 3 Tasks
+- II.5 — The Pirates' Dilemma ⭐
+- II.6 — Keys to Sustainable Discipline
+
+### ACT III
+- III.1 — The Two Stages of Structured Decisions
+- III.2 — Stage 1: Remove Regret ⭐
+- III.3 — Stage 2: Remove Uncertainty
+- III.4 — Three Types of Competing Alternatives
+- III.5 — How to Build a Repeatable Setup
+- III.6 — Conditions, Variants, and Why Both Matter
+- III.7 — Logging That Actually Works
+- III.8 — Reports: From Data to Confidence
+
+### ACT IV
+- IV.1 — From Fighter to Governor
+- IV.2 — The ESS
+- IV.3 — Discipline Redefined
+- IV.4 — Making vs. Sustaining a Decision
+
+### PATTERN LIBRARY
+- P1 — FOMO / Early Entry
+- P2 — Hesitation / Missed Entries
+- P3 — Early Exit / Cutting Profits Short
+- P4 — Revenge Trading
+- P5 — Stop Loss Tampering
+- P6 — Overtrading
+- P7 — Greed / Holding Too Long
+- P8 — Redemption Trap
+- P9 — Overconfidence Bias
+- P10 — Loss Aversion
+- P11 — Confirmation Bias
+- P12 — Hindsight Bias
+- P13 — Anchoring / Recency Bias
+- P14 — Herd Mentality
+- P15 — Limiting Beliefs
+
+### REFERENCE
+- Glossary — 42 terms
+- FAQ — 40 questions
+- Depth Dive 1 — Systems 1 and 2
+- Depth Dive 2 — Hyperbolic Discounting
+- Depth Dive 3 — The Science of Probabilities
+- Depth Dive 4 — Evolutionary Game Theory
+- Depth Dive 5 — The Hypothetico-Deductive Method
+- Depth Dive 6 — The Ulysses Contract
 
 ---
 
-### Revenge Trading
-**Roots:**
-- Ch I (Emotions as Goal Protectors): revenge protects dignity, competence, the need to "fix" the loss.
-- Ch II (Habits): the revenge trade is "successful" at relieving the frustration of loss. It works — temporarily.
-- Ch III (Mental Congress): after a loss, Ego takes the mic. Strategist can't get votes.
+---
 
-**Regret angle:**
-Unstructured revenge trades create double regret — the original loss PLUS the revenge loss.
-A structured recovery trade (trusted setup, logged) closes the first wound without opening a second.
+## BOOK STATISTICS
 
-**Closing experiment:**
-→ *"What's your win rate on trades taken within 30 minutes of a loss vs. trades taken cold? Log the difference."*
+| Component | Count |
+|---|---|
+| Entry sections | 5 |
+| Act sections | 18 (across 4 Acts) |
+| Patterns | 15 |
+| Glossary terms | 42 |
+| FAQ questions | 40 |
+| Depth Dives | 6 |
+| **Total destinations** | **126** |
 
 ---
 
-### Stop Loss Tampering
-**Roots:**
-- Ch VI (Mind as Problem-Solver): uncertainty becomes unbearable → moving the stop = "solving" the problem → relief.
-- Ch III (Mental Congress): Hope representative wins over Strategist. "What if it reverses?" gets majority vote.
-- Ch I (Emotions as Goal Protectors): the tampered stop protects against having to admit the setup failed.
+---
 
-**Regret angle:**
-"What if I'd respected the stop vs. moved it?" — this loop never closes without data.
-Logging both outcomes systematically answers it with evidence, not rumination.
+## THE FILES
 
-**Closing experiment:**
-→ *"Respected stop vs. moved stop: track the outcomes for 20 instances. Let the data decide, not hope."*
+| File | Contents |
+|---|---|
+| `INTERACTIVE_BOOK_ENTRY.md` | ENTRY sections 1–5 |
+| `INTERACTIVE_BOOK_ACT_I.md` | Act I: The Reframe |
+| `INTERACTIVE_BOOK_ACT_II.md` | Act II: The Operating System |
+| `INTERACTIVE_BOOK_ACT_III.md` | Act III: The Method |
+| `INTERACTIVE_BOOK_ACT_IV.md` | Act IV: The Arrival |
+| `INTERACTIVE_BOOK_PATTERNS_FULL.md` | All 15 patterns — full template |
+| `INTERACTIVE_BOOK_GLOSSARY.md` | 42 terms, 6 groups |
+| `INTERACTIVE_BOOK_FAQ.md` | 40 questions, 5 groups |
+| `INTERACTIVE_BOOK_DEPTH_DIVES.md` | 6 depth dives |
+| `INTERACTIVE_BOOK_MAP.md` | This file |
 
 ---
 
-### Overtrading
-**Roots:**
-- Ch II (Habits): overtrading satisfies the need for action, stimulation, being "in the game."
-- Ch IV (Pirates' Dilemma): too many pirates (activity, excitement) starving the fishermen (edge, process).
-- Ch III (Mental Congress): boredom/action representatives outvote Strategist when there's no structured waiting.
-
-**Regret angle:**
-Without setup-specific logging, you can't tell skill from noise. Random trades keep the doubt loop open forever.
-Logging only structured trades makes the comparison possible — and the pattern visible.
-
-**Closing experiment:**
-→ *"Structured setup trades vs. off-plan trades: log both separately for one month. The difference in results is the cost of overtrading."*
+> *"You can't remove uncertainty from trading.*
+> *But you can remove regret from your decisions.*
+> *Structured decisions convert vague doubt into concrete questions.*
+> *Concrete questions have measurable answers.*
+> *Measurable answers close the loop — and move you forward."*
 
 ---
 
-### Hesitation
-**Roots:**
-- Ch VI (Mind as Problem-Solver): unclear WHAT/HOW/WHEN → mind keeps searching for a better answer → can't commit.
-- Ch III (Mental Congress): Fear representative wins; Strategist has no track record to argue with.
-- Ch VII (Probabilistic Trader): no data = doubt is rational. Hesitation is often the correct response to genuine uncertainty.
-
-**Regret angle:**
-"I missed it again" is only a regret loop if the setup was actually yours.
-If you have no data on it, you didn't miss an opportunity — you avoided a random trade.
-The cure isn't courage. It's enough logged repetitions to build genuine conviction.
-
-**Closing experiment:**
-→ *"Log every time you hesitate and price goes in your direction. Is this actually costing you? Or is hesitation protecting you from bad entries? The data will tell."*
-
----
-
-### Greed (Holding Too Long)
-**Roots:**
-- Ch I (Emotions as Goal Protectors): greed protects the goal of maximizing gains. Fear of leaving money on the table.
-- Ch IV (Pirates' Dilemma): the greed pirate demands more than the plan agreed. Runners become hostages.
-- Ch III (Mental Congress): greed representative takes over from Strategist at the critical exit moment.
-
-**Regret angle:**
-Greed creates regret in both directions — "I should have taken more" or "I should have taken profits."
-Pre-defined targets + logged runner outcomes removes the loop. The plan decided, not the emotion.
-
-**Closing experiment:**
-→ *"Held to final target vs. exited at first target: track both over 20 trades. Does the runner actually pay for itself?"*
-
----
-
-### The Redemption Trap
-**Roots:**
-- Ch I (Emotions as Goal Protectors): redemption protects self-image as a competent trader.
-- Ch II (Habits): the redemption trade relieves the psychological sting of a loss — it "works" at that.
-- Ch III (Mental Congress): Ego wants the trade back, not a good trade. Strategist gets outvoted.
-
-**Regret angle:**
-The redemption trade keeps the wound open rather than closing it.
-A structured recovery — next trusted setup, no size increase, logged — closes the original loss cleanly.
-
-**Closing experiment:**
-→ *"Redemption trades vs. waiting for next clean setup: which actually recovers the P&L faster? Log and compare."*
-
----
-
-### Overconfidence Bias
-**Roots:**
-- Ch VII (Probabilistic Trader): small sample = false confidence. 3 wins proves nothing statistically.
-- Ch VI (Mind as Problem-Solver): false clarity shuts down the search prematurely. The mind rests too early.
-- Ch III (Mental Congress): Ego silences the doubt representatives — which are actually carrying useful information.
-
-**Regret angle:**
-Overconfidence creates the most painful regrets because they feel "undeserved."
-Systematic logging reveals when confidence is statistical vs. emotional — before the reality check arrives.
-
-**Closing experiment:**
-→ *"Track your win rate per setup separately. Is your confidence spread evenly or is it concentrated on one pattern that's had a good recent run?"*
-
----
-
-### Loss Aversion
-**Roots:**
-- Ch I (Emotions as Goal Protectors): loss aversion protects against the pain of realized loss. Deeply evolutionary.
-- Ch VI (Mind as Problem-Solver): an open loss is an open problem. The mind demands resolution — any resolution.
-- Ch V (Discipline): loss aversion is the strongest inner opposition to following the stop. Discipline collapses here first.
-
-**Regret angle:**
-"Holding the loser hoping for reversal" is one of the most durable regret loops in trading.
-Logging stop outcomes — what happened after the stop that should have been respected — closes this with data, not willpower.
-
-**Closing experiment:**
-→ *"What happened to price after your stop level on trades you held past it? Log 20. The data becomes your stop discipline."*
-
----
-
-### Confirmation Bias
-**Roots:**
-- Ch II (Habits): seeking confirmation is successful at reducing uncertainty. It feels good. It "works."
-- Ch VI (Mind as Problem-Solver): the mind wants to close the search. Confirmation = false closure.
-- Technical Note B (HDM): confirmation bias is the exact opposite of the hypothetico-deductive method.
-
-**Regret angle:**
-"I saw what I wanted to see" can't be corrected by intention alone.
-Pre-defined entry criteria (logged before the trade) makes confirmation bias structurally harder — the checklist was written before the emotion arrived.
-
-**Closing experiment:**
-→ *"Log your entries with a pre-trade checklist. After 20 trades, how often were all conditions actually met vs. partially met?"*
-
----
-
-### Hindsight Bias
-**Roots:**
-- Ch II (Habits): hindsight protects self-esteem ("I knew it"). The illusion of competence = the hidden gain.
-- Ch III (Mental Congress): the post-trade narrator rewrites history. A different representative tells the story after the fact.
-- Technical Note B (HDM): hindsight is what happens when assumptions weren't made explicit before the trade.
-
-**Regret angle:**
-Hindsight keeps alive the illusion that you could have known → endless regret about "missed" moves.
-Pre-defined criteria logged before the trade makes hindsight structurally impossible — the setup either qualified or it didn't.
-
-**Closing experiment:**
-→ *"Before your next 10 trades, write down exactly why you're taking it. After: did price do what your thesis predicted? This is your hindsight antidote."*
-
----
-
-### Anchoring & Recency Biases
-**Roots:**
-- Ch VI (Mind as Problem-Solver): anchoring = false WHAT clarity. Recency = false HOW confidence. Both feel like certainty.
-- Ch III (Mental Congress): past experience representative dominates over present evidence.
-- Ch VII (Probabilistic Trader): a small recent sample distorts the larger statistical picture.
-
-**Regret angle:**
-"I was stuck on yesterday's price / last week's win" — the anchor feels like information but it's noise.
-A large enough logged sample makes any single reference point statistically irrelevant.
-
-**Closing experiment:**
-→ *"Pull your last 30 trades. Does your win rate cluster around specific market conditions or times? That's signal. Everything else may be anchor."*
-
----
-
-### Herd Mentality
-**Roots:**
-- Ch I (Emotions as Goal Protectors): following the crowd protects against the loneliness and shame of a wrong call.
-- Ch III (Mental Congress): Social/safety representative wins over Strategist when conviction is low.
-- Ch VII (Probabilistic Trader): herd trades have no replicable criteria — they can't be tested as your edge.
-
-**Regret angle:**
-"Everyone was doing it" is the vaguest possible decision basis — and produces the vaguest possible learning.
-Pre-defined setup criteria remove the crowd as a decision input. The setup either exists or it doesn't.
-
-**Closing experiment:**
-→ *"On your next herd impulse: does it qualify under any of your defined setups? If not, it's not your trade to take."*
-
----
-
-### Limiting Beliefs
-**Roots:**
-- Ch II (Habits): limiting beliefs protect against the risk of failure. "I'm not disciplined" = protection from the pain of trying and failing again.
-- Ch III (Mental Congress): the inner critic has a permanent seat and historically good arguments.
-- Ch V (Discipline): beliefs shape what decisions feel sustainable. A belief is a decision made permanent.
-
-**Regret angle:**
-Beliefs without data are just stories — and stories about the past keep you stuck in the past.
-The journal replaces "I can't hold trades" with a number: "my hold rate is X% and here's exactly when it breaks down."
-
-**Closing experiment:**
-→ *"Name the belief. Then define what data would prove it wrong. Log toward that data."*
-
----
-
-## CROSS-REFERENCE QUICK VIEW
-
-| Pattern | Ch I | Ch II | Ch III | Ch IV | Ch V | Ch VI | Ch VII |
-|---|---|---|---|---|---|---|---|
-| FOMO | | | ✓ | | | ✓ | ✓ |
-| Early Exit | | ✓ | | ✓ | | ✓ | |
-| Revenge | ✓ | ✓ | ✓ | | | | |
-| Stop Tampering | ✓ | | ✓ | | | ✓ | |
-| Overtrading | | ✓ | ✓ | ✓ | | | |
-| Hesitation | | | ✓ | | | ✓ | ✓ |
-| Greed | ✓ | | ✓ | ✓ | | | |
-| Redemption Trap | ✓ | ✓ | ✓ | | | | |
-| Overconfidence | | | ✓ | | | ✓ | ✓ |
-| Loss Aversion | ✓ | | | | ✓ | ✓ | |
-| Confirmation Bias | | ✓ | | | | ✓ | |
-| Hindsight | | ✓ | ✓ | | | | |
-| Anchoring/Recency | | | ✓ | | | ✓ | ✓ |
-| Herd Mentality | ✓ | | ✓ | | | | ✓ |
-| Limiting Beliefs | | ✓ | ✓ | | ✓ | | |
-
----
-
-## NORTH STAR (every conversation should arrive here)
-
-> "You can't remove uncertainty from trading.  
-> But you can remove regret from your decisions.  
-> Structured decisions convert vague doubt into concrete questions.  
-> Concrete questions have measurable answers.  
-> Measurable answers close the loop — and move you forward."
-
+*MAP — complete. June 2026.*
+*126 destinations. 10 files. One arc.*
