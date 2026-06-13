@@ -949,7 +949,7 @@ function BehaviouralTab({ d, pt }) {
                   pt
                     ? `"${best.setup.name}" tem ${best.rate}% de acerto (${best.trades.length} operações).${profWR !== null ? ` Seus setups lucrativos têm ${profWR}% em conjunto.` : ""} Esse é o caminho mais rápido para recuperar — não tentar "salvar" trades ruins.`
                     : `"${best.setup.name}" has a ${best.rate}% win rate (${best.trades.length} trades).${profWR !== null ? ` Your profitable setups combined: ${profWR}%.` : ""} That's your fastest way to recover — not trying to "save" bad trades.`
-                } />;
+                } />
               );
             })()}
             )}
