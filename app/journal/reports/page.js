@@ -521,7 +521,7 @@ function BehaviouralTab({ d, pt }) {
           {/* Punchy breakdown */}
           <div className="mt-3 pt-3 border-t border-slate-800">
             <p className="text-xs text-slate-600 uppercase tracking-wider mb-2">
-              {pt ? "Detalhamento" : "Breakdown"}
+              {pt ? "Detalhamento — entradas antecipadas" : "Early entry breakdown"}
             </p>
             <div className="flex items-center justify-between py-2 border-b border-slate-800">
               <span className="text-sm text-slate-400">{pt ? "a. Lucrativas" : "a. Profitable"}</span>
