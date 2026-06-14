@@ -195,7 +195,7 @@ function computeData(trades, setups) {
   const pnlTrades = trades.filter(t => t.pnl != null);
   const totalPnl  = pnlTrades.reduce((s, t) => s + (parseFloat(t.pnl) || 0), 0);
 
-  // Per-setup stats
+  // Per-setup stats — now includes naTrades per condition
   const setupStats = setups
     .map(setup => {
       const st   = v2.filter(t => t.setup_id === setup.id);
@@ -213,7 +213,18 @@ function computeData(trades, setups) {
           );
           return { variant: v, trades: vTrades, w: wins(vTrades), l: losses(vTrades), rate: wr(vTrades) };
         });
-        return { cond, trades: condTrades, varStats };
+        // N/A trades = logged this condition but no variant matched
+        const varTradeIds = new Set(varStats.flatMap(vs => vs.trades.map(t => t.id)));
+        const naTrades = condTrades.filter(t => !varTradeIds.has(t.id));
+        return {
+          cond,
+          trades: condTrades,
+          varStats,
+          naTrades,
+          naW: wins(naTrades),
+          naL: losses(naTrades),
+          naRate: wr(naTrades),
+        };
       });
       return {
         setup, trades: st,
@@ -523,24 +534,29 @@ function BehaviouralTab({ d, pt }) {
             <p className="text-xs text-slate-600 uppercase tracking-wider mb-2">
               {pt ? "Detalhamento — entradas antecipadas" : "Early entry breakdown"}
             </p>
+
+            {/* a. Profitable — neutral color always */}
             <div className="flex items-center justify-between py-2 border-b border-slate-800">
               <span className="text-sm text-slate-400">{pt ? "a. Lucrativas" : "a. Profitable"}</span>
-              <span className="text-sm text-green-400 font-medium">
+              <span className="text-sm text-slate-400 font-medium tabular-nums">
                 {wins(d.early)} {pt ? "de" : "out of"} {d.early.length}
               </span>
             </div>
+
+            {/* b. Level NOT reached — neutral color always */}
             <div className="flex items-center justify-between py-2 border-b border-slate-800">
               <span className="text-sm text-slate-400">{pt ? "b. Nível NÃO atingido depois" : "b. Level NOT reached after"}</span>
-              <span className="text-sm text-slate-300 font-medium">
+              <span className="text-sm text-slate-400 font-medium tabular-nums">
                 {d.earlyLevelNotMet.length} {pt ? "de" : "out of"} {d.early.length}
               </span>
             </div>
-            <div className="flex items-center justify-between py-2">
-              <div>
-                <span className="text-sm text-slate-300">{pt ? "c. Oportunidades realmente perdidas" : "c. Truly missed opportunities"}</span>
-                <p className="text-xs text-slate-600 mt-0.5">{pt ? "(antecipada + nível não atingido + lucro)" : "(early + level not met + profit)"}</p>
-              </div>
-              <span className={`text-sm font-bold ${d.trueMissedOpps.length === 0 ? "text-green-400" : "text-amber-400"}`}>
+
+            {/* ==> Verdict: True missed opps (a ∩ b) — highlighted */}
+            <div className="flex items-center justify-between py-2.5 mt-1 rounded-lg bg-slate-800/40 px-2 -mx-1">
+              <span className="text-sm font-semibold text-slate-300">
+                {pt ? "⟹ Oportunidades realmente perdidas" : "⟹ True missed opportunities"}
+              </span>
+              <span className={`text-sm font-bold tabular-nums ${d.trueMissedOpps.length === 0 ? "text-green-400" : "text-amber-400"}`}>
                 {d.trueMissedOpps.length} {pt ? "de" : "out of"} {d.early.length}
               </span>
             </div>
@@ -626,27 +642,41 @@ function BehaviouralTab({ d, pt }) {
         {/* Stop optimization */}
         {stopCount > 0 && (
           <BehSection title={pt ? "Otimização de stop" : "Stop optimization"} count={stopCount}>
-            {d.changedStop.length > 0 && (
+
+            {/* Changed stop — includes panic merged in */}
+            {(d.changedStop.length > 0 || d.panic.length > 0) && (
               <>
-                <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-1">{pt ? "Stop alterado" : "Changed stop"}</p>
-                {d.changedWorse.length > 0 && (
-                  <CountRow label={pt ? "→ Resultado pior" : "→ Worse result"} count={d.changedWorse.length} countColor="text-red-400" />
-                )}
+                <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-1">{pt ? "Stop alterado / pânico" : "Changed stop / panic"}</p>
                 {d.changedBetter.length > 0 && (
                   <CountRow label={pt ? "→ Resultado melhor" : "→ Better result"} count={d.changedBetter.length} countColor="text-green-400" />
                 )}
-                {d.changedStop.length >= 3 ? (() => {
-                  const bad = d.changedWorse.length, good = d.changedBetter.length;
+                {(d.changedWorse.length + d.panic.length) > 0 && (
+                  <CountRow
+                    label={pt ? "→ Resultado pior + saídas por pânico" : "→ Worse result + panic exits"}
+                    count={d.changedWorse.length + d.panic.length}
+                    countColor="text-red-400"
+                    note={
+                      d.changedWorse.length > 0 && d.panic.length > 0
+                        ? (pt
+                            ? `stop alterado: ${d.changedWorse.length} · pânico: ${d.panic.length}`
+                            : `changed stop: ${d.changedWorse.length} · panic: ${d.panic.length}`)
+                        : undefined
+                    }
+                  />
+                )}
+                {(d.changedStop.length + d.panic.length) >= 3 ? (() => {
+                  const bad  = d.changedWorse.length + d.panic.length;
+                  const good = d.changedBetter.length;
                   return (
                     <div className="mt-2 space-y-1.5">
                       <p className={`text-xs leading-relaxed font-medium ${good > bad ? "text-blue-300" : "text-amber-300"}`}>
                         {good > bad
                           ? (pt
-                              ? `Em ${d.changedStop.length} alterações de stop, ${good} melhoraram o resultado.`
-                              : `Out of ${d.changedStop.length} stop changes, ${good} improved the result.`)
+                              ? `Em ${d.changedStop.length + d.panic.length} episódios, ${good} melhoraram o resultado.`
+                              : `Out of ${d.changedStop.length + d.panic.length} episodes, ${good} improved the result.`)
                           : (pt
-                              ? `Em ${d.changedStop.length} alterações de stop, ${bad} pioraram o resultado.`
-                              : `Out of ${d.changedStop.length} stop changes, ${bad} made things worse.`)}
+                              ? `${bad} de ${d.changedStop.length + d.panic.length} episódios pioraram o resultado (stop alterado + pânico).`
+                              : `${bad} of ${d.changedStop.length + d.panic.length} episodes made things worse (changed stop + panic).`)}
                       </p>
                       <p className="text-xs text-slate-400 leading-relaxed">
                         {good > bad
@@ -657,7 +687,7 @@ function BehaviouralTab({ d, pt }) {
                               ? "O dado é claro: respeite seu ponto de invalidação."
                               : "The data is clear: respect your invalidation point.")}
                       </p>
-                      <SampleNote n={d.changedStop.length} />
+                      <SampleNote n={d.changedStop.length + d.panic.length} />
                     </div>
                   );
                 })() : <TooSmall />}
@@ -713,20 +743,6 @@ function BehaviouralTab({ d, pt }) {
                   <CountRow label={pt ? "→ Curto demais — alvo atingido depois" : "→ Too tight — target hit after"} count={d.trailTight.length} countColor="text-amber-400" />
                 )}
                 {d.trailing.length < 3 && <TooSmall />}
-              </>
-            )}
-
-            {d.panic.length > 0 && (
-              <>
-                <p className="text-xs text-slate-600 uppercase tracking-wider pb-1 pt-3">{pt ? "Pânico" : "Panic"}</p>
-                <CountRow label={pt ? "Saída por pânico" : "Panic exit"} count={d.panic.length} countColor="text-red-400" />
-                {d.panic.length >= 2 && (
-                  <p className="text-xs text-amber-400 leading-relaxed mt-2">
-                    {pt
-                      ? `${d.panic.length} saída${d.panic.length !== 1 ? "s" : ""} por pânico registrada${d.panic.length !== 1 ? "s" : ""}. Saídas por pânico nunca fazem parte de um plano — e nunca ensinam nada.`
-                      : `${d.panic.length} panic exit${d.panic.length !== 1 ? "s" : ""} logged. Panic exits are never part of a plan — and they never teach you anything.`}
-                  </p>
-                )}
               </>
             )}
           </BehSection>
@@ -947,8 +963,8 @@ function BehaviouralTab({ d, pt }) {
               return (
                 <Moral highlight text={
                   pt
-                    ? `"${best.setup.name}" tem ${best.rate}% de acerto (${best.trades.length} operações).${profWR !== null ? ` Seus setups lucrativos têm ${profWR}% em conjunto.` : ""} Esse é o caminho mais rápido para recuperar — não tentar "salvar" trades ruins.`
-                    : `"${best.setup.name}" has a ${best.rate}% win rate (${best.trades.length} trades).${profWR !== null ? ` Your profitable setups combined: ${profWR}%.` : ""} That's your fastest way to recover — not trying to "save" bad trades.`
+                    ? `Seu setup "${best.setup.name}" tem ${best.rate}% de acerto (${best.trades.length} operações).${profWR !== null ? ` Seus setups lucrativos têm ${profWR}% em conjunto.` : ""} Esse é o caminho mais rápido para recuperar — não tentar "salvar" trades ruins.`
+                    : `Your setup "${best.setup.name}" has a ${best.rate}% win rate (${best.trades.length} trades).${profWR !== null ? ` Your profitable setups combined: ${profWR}%.` : ""} That's your fastest way to recover — not trying to "save" bad trades.`
                 } />
               );
             })()}
@@ -967,86 +983,244 @@ function BehaviouralTab({ d, pt }) {
 // ── Tab 3: Setups ─────────────────────────────────────────────────────────────
 
 const VARIANT_BADGE = {
-  a: "bg-blue-900/60 text-blue-300",
-  b: "bg-purple-900/60 text-purple-300",
-  c: "bg-green-900/60 text-green-300",
-  d: "bg-amber-900/60 text-amber-300",
-  e: "bg-rose-900/60 text-rose-300",
+  a: "bg-blue-900/60 text-blue-300 border border-blue-800/50",
+  b: "bg-purple-900/60 text-purple-300 border border-purple-800/50",
+  c: "bg-green-900/60 text-green-300 border border-green-800/50",
+  d: "bg-amber-900/60 text-amber-300 border border-amber-800/50",
+  e: "bg-rose-900/60 text-rose-300 border border-rose-800/50",
 };
+
+// Rule-based insight per condition
+function getConditionInsight(varStats, naTrades, wins, losses, wr, pt) {
+  const naCount = naTrades.length;
+  const naRate = wr(naTrades);
+
+  // Build all candidates including N/A for comparison
+  const active = varStats.filter(vs => vs.trades.length >= 2 && vs.rate !== null);
+  if (active.length === 0 && naCount < 2) return null;
+
+  // Include N/A as a pseudo-variant for ranking
+  const allCandidates = [
+    ...active,
+    ...(naCount >= 2 && naRate !== null ? [{ variant: { id: "na", label: "N/A" }, trades: naTrades, rate: naRate, isNa: true }] : []),
+  ];
+  if (allCandidates.length < 2) {
+    if (allCandidates.length === 1) {
+      const only = allCandidates[0];
+      return pt
+        ? `Apenas ${only.variant.label} com dados suficientes (${only.trades.length} op, ${only.rate}%). Continue registrando.`
+        : `Only ${only.variant.label} has enough data (${only.trades.length} trades, ${only.rate}%). Keep logging.`;
+    }
+    return null;
+  }
+
+  const best  = allCandidates.reduce((a, b) => b.rate > a.rate ? b : a);
+  const worst = allCandidates.reduce((a, b) => b.rate < a.rate ? b : a);
+  const diff  = best.rate - worst.rate;
+
+  if (diff === 0) {
+    return pt
+      ? "Variantes com desempenho similar — continue acumulando dados."
+      : "Variants performing similarly — keep building the sample.";
+  }
+
+  if (diff >= 25 && best.trades.length >= 3) {
+    const bestLabel = best.variant.label;
+    const worstLabel = worst.variant.label;
+    return pt
+      ? `${bestLabel} se destaca (${best.rate}%, ${best.trades.length} op) vs ${worstLabel} (${worst.rate}%). Com amostragem maior: mais size em ${bestLabel}, menos em variantes inferiores.`
+      : `${bestLabel} outperforms (${best.rate}%, ${best.trades.length} trades) vs ${worstLabel} (${worst.rate}%). With more data: more size on ${bestLabel}, less on underperformers.`;
+  }
+
+  if (diff >= 10) {
+    return pt
+      ? `${best.variant.label} lidera por ${diff}pp — padrão emergindo. Continue registrando para confirmar.`
+      : `${best.variant.label} leads by ${diff}pp — pattern emerging. Keep logging to confirm.`;
+  }
+
+  return pt
+    ? "Variantes com desempenho similar por ora — continue acumulando dados."
+    : "Variants performing similarly for now — keep building the sample.";
+}
+
+// Best variant combo for a setup
+function getBestCombo(condStats, setupTrades, wins, losses, wr) {
+  const bestPerCond = condStats.map(({ cond, varStats, naTrades, naRate }) => {
+    // Include N/A as candidate
+    const withData = [
+      ...varStats.filter(vs => vs.trades.length >= 2 && vs.rate !== null),
+      ...(naTrades.length >= 2 && naRate !== null
+        ? [{ variant: { id: "na", label: "N/A", description: null }, trades: naTrades, rate: naRate }]
+        : []),
+    ];
+    if (!withData.length) return null;
+    const best = withData.reduce((a, b) => b.rate > a.rate ? b : a);
+    return { cond, variant: best.variant, rate: best.rate, count: best.trades.length };
+  }).filter(Boolean);
+
+  if (bestPerCond.length === 0) return null;
+
+  // Find trades that used ALL best variants simultaneously
+  const comboTrades = setupTrades.filter(t =>
+    bestPerCond.every(({ cond, variant }) => {
+      if (!Array.isArray(t.conditions_met)) return false;
+      if (variant.id === "na") {
+        // For N/A: condition must be logged but with "na" selected_variant
+        return t.conditions_met.some(cm => cm.id === cond.id && (!cm.selected_variant || cm.selected_variant === "na"));
+      }
+      return t.conditions_met.some(cm => cm.id === cond.id && cm.selected_variant === variant.id);
+    })
+  );
+
+  return {
+    bestPerCond,
+    comboTrades,
+    comboW: wins(comboTrades),
+    comboL: losses(comboTrades),
+    comboRate: wr(comboTrades),
+  };
+}
 
 function SetupCard({ data, pt, wins, losses, wr }) {
   const { setup, trades, w, l, be, rate, freq, setupPnl, pnlCount, condStats } = data;
   const [open, setOpen] = useState(false);
 
+  const combo = open ? getBestCombo(condStats, trades, wins, losses, wr) : null;
+
   return (
     <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+      {/* Header */}
       <button onClick={() => setOpen(v => !v)} className="w-full px-4 py-4 text-left">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-slate-200 leading-snug">{setup.name}</p>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {trades.length} {pt ? "op" : "trades"} · {freq}% {pt ? "do total" : "of all trades"}
-            </p>
-          </div>
-          <div className="flex items-center gap-2.5 flex-shrink-0 ml-3">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-semibold text-slate-200 leading-snug">{setup.name}</p>
+          <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-xs text-slate-500 tabular-nums">{w}W · {l}L{be > 0 ? ` · ${be}BE` : ""}</span>
             {rate !== null && (
-              <span className={`text-sm font-bold ${rate >= 50 ? "text-green-400" : "text-red-400"}`}>{rate}%</span>
+              <span className={`text-sm font-bold tabular-nums ${rate >= 50 ? "text-green-400" : "text-red-400"}`}>{rate}%</span>
+            )}
+            {pnlCount > 0 && (
+              <span className={`text-xs font-medium tabular-nums ${setupPnl >= 0 ? "text-green-400/80" : "text-red-400/80"}`}>
+                ({setupPnl >= 0 ? "+" : ""}{setupPnl.toFixed(0)})
+              </span>
             )}
             <span className="text-xs text-slate-600">{open ? "▲" : "▼"}</span>
           </div>
         </div>
+        <p className="text-xs text-slate-500 mt-0.5">
+          {trades.length} {pt ? "op" : "trades"} · {freq}% {pt ? "do total" : "of all trades"}
+        </p>
       </button>
 
       {open && (
-        <div className="border-t border-slate-800 px-4 pb-5">
-          {/* P&L */}
-          {pnlCount > 0 && (
-            <div className="flex justify-between py-3 border-b border-slate-800 mb-3">
-              <span className="text-xs text-slate-500">P&L ({pnlCount} {pt ? "op" : "trades"})</span>
-              <span className={`text-sm font-bold ${setupPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {setupPnl >= 0 ? "+" : ""}{setupPnl.toFixed(2)}
-              </span>
-            </div>
-          )}
-
-          {/* Conditions */}
+        <div className="border-t border-slate-800 pb-4">
           {condStats.length > 0 ? (
-            condStats.map(({ cond, trades: condTrades, varStats }) => {
-              const naCount = condTrades.length - varStats.reduce((s, v) => s + v.trades.length, 0);
+            condStats.map(({ cond, varStats, naTrades, naW, naL, naRate }, idx) => {
+              const insight = getConditionInsight(varStats, naTrades, wins, losses, wr, pt);
+              const hasAnyData = varStats.some(vs => vs.trades.length > 0) || naTrades.length > 0;
+
               return (
-                <div key={cond.id} className="mt-4 first:mt-2">
-                  <p className="text-xs text-slate-500 mb-2 leading-snug">{cond.text}</p>
+                <div key={cond.id} className={`px-4 pt-4 ${idx < condStats.length - 1 ? "pb-3 border-b border-slate-800/60" : ""}`}>
+                  {/* Condition label */}
+                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-2.5">
+                    {cond.text}
+                  </p>
+
+                  {/* Variant rows */}
                   <div className="space-y-1.5">
                     {varStats.map(({ variant, trades: vt, w: vw, l: vl, rate: vrate }) => (
                       <div key={variant.id} className="flex items-center gap-2">
-                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${VARIANT_BADGE[variant.id?.toLowerCase()] || "bg-slate-800 text-slate-300"}`}>
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-bold flex-shrink-0 min-w-[22px] text-center ${VARIANT_BADGE[variant.id?.toLowerCase()] || "bg-slate-800 text-slate-300 border border-slate-700"}`}>
                           {variant.label || variant.id?.toUpperCase()}
                         </span>
+                        {variant.description && (
+                          <span className="text-xs text-slate-500 flex-1 min-w-0 truncate">{variant.description}</span>
+                        )}
                         {vt.length > 0 ? (
-                          <>
-                            <span className="text-xs text-slate-500 tabular-nums">{vt.length}× · {vw}W · {vl}L</span>
+                          <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto">
+                            <span className="text-xs text-slate-600 tabular-nums">{vt.length}×</span>
+                            <span className="text-xs text-slate-500 tabular-nums">{vw}W·{vl}L</span>
                             {vrate !== null && (
-                              <span className={`text-xs font-bold ${vrate >= 50 ? "text-green-400" : "text-red-400"}`}>{vrate}%</span>
+                              <span className={`text-xs font-bold tabular-nums w-9 text-right ${vrate >= 50 ? "text-green-400" : "text-red-400"}`}>{vrate}%</span>
                             )}
-                          </>
+                          </div>
                         ) : (
-                          <span className="text-xs text-slate-700">0×</span>
+                          <span className="text-xs text-slate-700 ml-auto tabular-nums">0×</span>
                         )}
                       </div>
                     ))}
-                    {naCount > 0 && (
+
+                    {/* N/A row */}
+                    {naTrades.length > 0 && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-slate-800 text-slate-600">N/A</span>
-                        <span className="text-xs text-slate-700">{naCount}×</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-bold bg-slate-800 text-slate-500 border border-slate-700 flex-shrink-0 min-w-[22px] text-center">
+                          N/A
+                        </span>
+                        <span className="text-xs text-slate-600 flex-1">{pt ? "não rastreado" : "not tracked"}</span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto">
+                          <span className="text-xs text-slate-600 tabular-nums">{naTrades.length}×</span>
+                          <span className="text-xs text-slate-600 tabular-nums">{naW}W·{naL}L</span>
+                          {naRate !== null && (
+                            <span className={`text-xs font-bold tabular-nums w-9 text-right ${naRate >= 50 ? "text-green-400/60" : "text-red-400/60"}`}>{naRate}%</span>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
+
+                  {/* Per-condition insight */}
+                  {insight && hasAnyData && (
+                    <p className="text-xs text-slate-500 leading-relaxed mt-2.5 pl-1 border-l-2 border-slate-700">
+                      {insight}
+                    </p>
+                  )}
                 </div>
               );
             })
           ) : (
-            <p className="text-xs text-slate-600 pt-3">{pt ? "Sem condições definidas neste setup." : "No conditions defined for this setup."}</p>
+            <p className="text-xs text-slate-600 px-4 pt-4">{pt ? "Sem condições definidas neste setup." : "No conditions defined for this setup."}</p>
+          )}
+
+          {/* Best Combo panel */}
+          {combo && combo.bestPerCond.length > 0 && (
+            <div className="mx-4 mt-4 p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
+              <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-2">
+                {pt ? "Melhor combinação agora" : "Best combo right now"}
+              </p>
+              <div className="space-y-1.5 mb-2.5">
+                {combo.bestPerCond.map(({ cond, variant, rate: vRate }) => (
+                  <div key={cond.id} className="flex items-center gap-2">
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-bold flex-shrink-0 ${
+                      variant.id === "na"
+                        ? "bg-slate-800 text-slate-500 border border-slate-700"
+                        : (VARIANT_BADGE[variant.id?.toLowerCase()] || "bg-slate-800 text-slate-300 border border-slate-700")
+                    }`}>
+                      {variant.label || variant.id?.toUpperCase()}
+                    </span>
+                    <span className="text-xs text-slate-500 flex-1 truncate">{cond.text}</span>
+                    <span className={`text-xs font-bold flex-shrink-0 ${vRate >= 50 ? "text-green-400" : "text-red-400"}`}>{vRate}%</span>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-2 border-t border-slate-700/50">
+                {combo.comboTrades.length > 0 ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">
+                      {combo.comboTrades.length} {pt ? "op com essa combinação" : "trades with this combo"}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-xs text-slate-600 tabular-nums">{combo.comboW}W·{combo.comboL}L</span>
+                      {combo.comboRate !== null && (
+                        <span className={`text-xs font-bold tabular-nums ${combo.comboRate >= 50 ? "text-green-400" : "text-red-400"}`}>{combo.comboRate}%</span>
+                      )}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-600 italic">
+                    {pt ? "Nenhuma operação com essa combinação exata ainda." : "No trades with this exact combination yet."}
+                  </p>
+                )}
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -1054,7 +1228,181 @@ function SetupCard({ data, pt, wins, losses, wr }) {
   );
 }
 
-function SetupTab({ d, pt }) {
+// ── AI Report Panel ───────────────────────────────────────────────────────────
+
+function AIReportPanel({ d, pt, token }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [report, setReport] = useState(null);
+  const [error, setError] = useState(null);
+  const { wins, losses, wr } = d;
+
+  async function generateReport() {
+    setLoading(true);
+    setError(null);
+    try {
+      // Build stats payload from computed data
+      const statsPayload = {
+        overview: {
+          totalTrades: d.total,
+          v2Trades: d.v2Total,
+        },
+        earlyEntry: {
+          count: d.early.length,
+          wins: wins(d.early),
+          losses: losses(d.early),
+          winRate: wr(d.early),
+          levelNotMetAfter: d.earlyLevelNotMet.length,
+          trueMissedOpportunities: d.trueMissedOpps.length,
+        },
+        fullSetup: {
+          count: d.full.length,
+          wins: wins(d.full),
+          losses: losses(d.full),
+          winRate: wr(d.full),
+        },
+        stopManagement: {
+          changedBetter: d.changedBetter.length,
+          changedWorse: d.changedWorse.length,
+          panicExits: d.panic.length,
+          respectedStop: d.respStop.length,
+          respectedProtected: d.respProtect.length,
+          respectedReversed: d.respReverse.length,
+        },
+        targetManagement: {
+          earlyExits: d.earlyExit.length,
+          earlyExitHitAfter: d.earlyExitHit.length,
+          targetNotHit: d.tgtNotHit.length,
+          neverOnside: d.tgtNeverOnside.length,
+          lastTargetHit: d.lastTarget.length,
+          lastDelayedWorse: d.lastDelayWorse.length,
+        },
+        otherIssues: {
+          revenge: d.revengeT.length,
+          overtrading: d.overtradingT.length,
+          oversizing: d.oversizingT.length,
+        },
+        setups: d.setupStats.map(s => ({
+          name: s.setup.name,
+          trades: s.trades.length,
+          wins: s.w,
+          losses: s.l,
+          winRate: s.rate,
+          pnl: s.pnlCount > 0 ? s.setupPnl : null,
+          conditions: s.condStats.map(cs => ({
+            label: cs.cond.text,
+            variants: [
+              ...cs.varStats.map(vs => ({
+                label: vs.variant.label || vs.variant.id?.toUpperCase(),
+                description: vs.variant.description || null,
+                trades: vs.trades.length,
+                wins: vs.w,
+                losses: vs.l,
+                winRate: vs.rate,
+              })),
+              ...(cs.naTrades.length > 0 ? [{
+                label: "N/A",
+                description: "not tracked",
+                trades: cs.naTrades.length,
+                wins: cs.naW,
+                losses: cs.naL,
+                winRate: cs.naRate,
+              }] : []),
+            ],
+          })),
+        })),
+      };
+
+      const res = await fetch("/api/journal/reports/full-narrative", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "x-lang": pt ? "pt" : "en",
+        },
+        body: JSON.stringify({ stats: statsPayload }),
+      });
+
+      if (!res.ok) throw new Error("Failed to generate report");
+      const data = await res.json();
+      setReport(data.report);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl bg-slate-900 border border-slate-700 overflow-hidden mt-2">
+      <button
+        onClick={() => { setOpen(v => !v); if (!open && !report) generateReport(); }}
+        className="w-full flex items-center justify-between px-4 py-3.5 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">A.I.</span>
+          <span className="text-sm font-medium text-slate-200">{pt ? "Relatório Narrativo" : "Narrative Report"}</span>
+        </div>
+        <span className="text-xs text-slate-500">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-800 px-4 pb-5 pt-4">
+          {loading && (
+            <div className="flex items-center gap-2 py-4">
+              <div className="flex gap-1">
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:0ms]" />
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:150ms]" />
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:300ms]" />
+              </div>
+              <p className="text-xs text-slate-500">{pt ? "Analisando dados..." : "Analysing your data..."}</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="py-3">
+              <p className="text-xs text-red-400">{pt ? "Erro ao gerar relatório." : "Error generating report."}</p>
+              <button onClick={generateReport} className="text-xs text-blue-400 mt-2 hover:text-blue-300">
+                {pt ? "Tentar novamente" : "Try again"}
+              </button>
+            </div>
+          )}
+
+          {report && !loading && (
+            <div className="space-y-4">
+              {report.split(/\n\n+/).map((para, i) => {
+                const isHeader = para.startsWith("##") || para.startsWith("SECTION") || para.startsWith("**");
+                if (isHeader) {
+                  const cleaned = para.replace(/^#+\s*/, "").replace(/\*\*/g, "");
+                  return (
+                    <p key={i} className="text-xs font-bold text-slate-300 uppercase tracking-wider mt-4 first:mt-0">
+                      {cleaned}
+                    </p>
+                  );
+                }
+                return (
+                  <p key={i} className="text-xs text-slate-400 leading-relaxed">
+                    {para.replace(/\*\*/g, "")}
+                  </p>
+                );
+              })}
+              <div className="pt-3 border-t border-slate-800">
+                <button
+                  onClick={generateReport}
+                  className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  {pt ? "↺ Regenerar" : "↺ Regenerate"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SetupTab({ d, pt, token }) {
   if (d.setupStats.length === 0) {
     return (
       <div className="text-center py-16 px-6">
@@ -1070,6 +1418,7 @@ function SetupTab({ d, pt }) {
       {d.setupStats.map(data => (
         <SetupCard key={data.setup.id} data={data} pt={pt} wins={d.wins} losses={d.losses} wr={d.wr} />
       ))}
+      <AIReportPanel d={d} pt={pt} token={token} />
     </div>
   );
 }
@@ -1152,7 +1501,7 @@ export default function ReportsPage() {
           </div>
         ) : tab === "raw"         ? <RawDataTab      d={d} pt={pt} />
           : tab === "behavioural" ? <BehaviouralTab   d={d} pt={pt} />
-          :                         <SetupTab          d={d} pt={pt} />
+          :                         <SetupTab          d={d} pt={pt} token={token} />
         }
       </main>
     </div>
